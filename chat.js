@@ -1,6 +1,7 @@
 import { auth, db } from "./firebase.js";
 
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { onAuthStateChanged } from 
+"https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 import {
   doc,
@@ -22,10 +23,7 @@ let currentUserId = null;
 let currentUid = null;
 
 let chatId = new URLSearchParams(window.location.search).get("chatId");
-
-if (!chatId) {
-  window.location.href = "dashboard.html";
-}
+if (!chatId) window.location.href = "dashboard.html";
 
 let participants = chatId.split("_");
 let otherUserId = null;
@@ -40,7 +38,7 @@ onAuthStateChanged(auth, async (user) => {
 
   currentUid = user.uid;
 
-  const userDoc = await getDoc(doc(db, "users", user.uid));
+  const userDoc = await getDoc(doc(db, "users", currentUid));
   currentUserId = userDoc.data().userId;
 
   otherUserId = participants.find(p => p !== currentUserId);
@@ -79,20 +77,15 @@ window.sendMessage = async function () {
   if (!text) return;
 
   await addDoc(collection(db, "chats", chatId, "messages"), {
-  sender: currentUserId,
-  text: text,
-  timestamp: serverTimestamp(),
-  deletedForEveryone: false
-});
+    sender: currentUserId,
+    text: text,
+    timestamp: serverTimestamp(),
+    deletedForEveryone: false
+  });
 
-  await addDoc(collection(db, "chats", chatId, "messages"), {
-  sender: currentUserId,
-  text,
-  timestamp: serverTimestamp(),
-  deleted: false,
-  deletedForEveryone: false,
-  deletedFor: []
-});
+  await updateDoc(doc(db, "chats", chatId), {
+    [`unread.${otherUserId}`]: increment(1)
+  });
 
   input.value = "";
 };
@@ -107,18 +100,20 @@ function loadMessages() {
 
   onSnapshot(q, (snapshot) => {
     const messagesDiv = document.getElementById("messages");
+    if (!messagesDiv) return;
+
     messagesDiv.innerHTML = "";
 
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
+      const isMine = data.sender === currentUserId;
 
       const messageDiv = document.createElement("div");
-      messageDiv.className =
-        data.sender === currentUserId
-          ? "message my-message"
-          : "message other-message";
+      messageDiv.className = isMine
+        ? "message my-message"
+        : "message other-message";
 
-      // Format time
+      /* ===== FORMAT TIME ===== */
       let timeString = "";
       if (data.timestamp?.toDate) {
         const date = data.timestamp.toDate();
@@ -128,7 +123,7 @@ function loadMessages() {
         });
       }
 
-      // Handle deleted messages
+      /* ===== MESSAGE DISPLAY ===== */
       if (data.deletedForEveryone) {
         messageDiv.innerHTML = `
           <div class="deleted-message">
@@ -142,66 +137,27 @@ function loadMessages() {
         `;
       }
 
-      messagesDiv.appendChild(messageDiv);
-    });
+      /* ===== DELETE (ONLY YOUR MESSAGES) ===== */
+      if (isMine && !data.deletedForEveryone) {
 
-    setTimeout(() => {
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }, 50);
-  });
-}
-
-      /* ===== AUTO MARK DELIVERED ===== */
-      if (data.sender !== currentUserId && !data.status?.delivered) {
-        updateDoc(
-          doc(db, "chats", chatId, "messages", docSnap.id),
-          { "status.delivered": true }
-        );
-      }
-
-      /* ===== AUTO MARK SEEN ===== */
-      if (data.sender !== currentUserId && !data.status?.seen) {
-        updateDoc(
-          doc(db, "chats", chatId, "messages", docSnap.id),
-          {
-            "status.seen": true,
-            "status.seenAt": serverTimestamp()
-          }
-        );
-      }
-
-      /* ===== TICKS ===== */
-      let tickHTML = "";
-      if (data.sender === currentUserId) {
-        if (data.status?.seen) {
-          tickHTML = `<span class="tick seen">✔✔</span>`;
-        } else if (data.status?.delivered) {
-          tickHTML = `<span class="tick delivered">✔✔</span>`;
-        } else {
-          tickHTML = `<span class="tick sent">✔</span>`;
-        }
-      }
-
-      messageDiv.innerHTML = `
-        <div class="message-text">${data.text}</div>
-        <div class="message-time">
-          ${timeString} ${tickHTML}
-        </div>
-      `;
-
-      /* ===== SEEN AT ===== */
-      if (data.sender === currentUserId && data.status?.seenAt?.toDate) {
-        const seenDate = data.status.seenAt.toDate();
-        const seenTime = seenDate.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
+        // Desktop right-click
+        messageDiv.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          confirmDelete(docSnap.id);
         });
 
-        messageDiv.innerHTML += `
-          <div class="seen-time">
-            Seen at ${seenTime}
-          </div>
-        `;
+        // Mobile long press
+        let pressTimer;
+
+        messageDiv.addEventListener("touchstart", () => {
+          pressTimer = setTimeout(() => {
+            confirmDelete(docSnap.id);
+          }, 600);
+        });
+
+        messageDiv.addEventListener("touchend", () => {
+          clearTimeout(pressTimer);
+        });
       }
 
       /* ===== SWIPE TO REPLY ===== */
@@ -219,7 +175,8 @@ function loadMessages() {
           triggerReply(data.text);
         }
 
-        messageDiv.style.transform = `translateX(${Math.min(diff, 60)}px)`;
+        messageDiv.style.transform =
+          `translateX(${Math.min(diff, 60)}px)`;
       });
 
       messageDiv.addEventListener("touchend", () => {
@@ -235,22 +192,17 @@ function loadMessages() {
   });
 }
 
-/* ================= REPLY FUNCTION ================= */
+/* ================= DELETE ================= */
 
-function triggerReply(text) {
-  const input = document.getElementById("messageInput");
-  input.value = "↪ " + text + " ";
-  input.focus();
+function confirmDelete(messageId) {
+  const confirmAction = confirm(
+    "Delete this message for everyone?"
+  );
+
+  if (confirmAction) {
+    deleteForEveryone(messageId);
+  }
 }
-
-/* ================= RESET UNREAD ================= */
-
-async function resetUnread() {
-  await updateDoc(doc(db, "chats", chatId), {
-    [`unread.${currentUserId}`]: 0
-  });
-}
-
 
 window.deleteForEveryone = async function (messageId) {
   try {
@@ -266,11 +218,24 @@ window.deleteForEveryone = async function (messageId) {
   }
 };
 
+/* ================= REPLY ================= */
+
+function triggerReply(text) {
+  const input = document.getElementById("messageInput");
+  input.value = "↪ " + text + " ";
+  input.focus();
+}
+
+/* ================= RESET UNREAD ================= */
+
+async function resetUnread() {
+  await updateDoc(doc(db, "chats", chatId), {
+    [`unread.${currentUserId}`]: 0
+  });
+}
+
 /* ================= BACK ================= */
 
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
-
-
-
