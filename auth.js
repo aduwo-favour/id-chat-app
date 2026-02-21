@@ -17,78 +17,44 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-/* =========================
-   SIGN UP
-========================= */
 window.signup = async function () {
+  const userId = document.getElementById("userId").value.trim();
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
-  const userId = document.getElementById("userId").value.trim();
 
-  if (!email || !password || !userId) {
+  if (!userId || !email || !password) {
     alert("Fill all fields");
     return;
   }
 
-  try {
-    // Check if userId already exists
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("userId", "==", userId));
-    const snapshot = await getDocs(q);
+  const usersRef = collection(db, "users");
+  const q = query(usersRef, where("userId", "==", userId));
+  const snapshot = await getDocs(q);
 
-    if (!snapshot.empty) {
-      alert("User ID already taken");
-      return;
-    }
-
-    // Create Auth account
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-
-    const user = userCredential.user;
-
-    // Save user profile in Firestore
-    await setDoc(doc(db, "users", user.uid), {
-      userId: userId,
-      email: email,
-      createdAt: serverTimestamp()
-    });
-
-    await setPersistence(auth, browserLocalPersistence);
-
-    alert("Signup successful!");
-    window.location.href = "dashboard.html";
-
-  } catch (error) {
-    console.error(error);
-    alert(error.message);
+  if (!snapshot.empty) {
+    alert("User ID already taken");
+    return;
   }
+
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+  await setDoc(doc(db, "users", userCredential.user.uid), {
+    userId: userId,
+    email: email,
+    createdAt: serverTimestamp()
+  });
+
+  await setPersistence(auth, browserLocalPersistence);
+
+  window.location.href = "dashboard.html";
 };
 
-/* =========================
-   LOGIN
-========================= */
 window.login = async function () {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
 
-  if (!email || !password) {
-    alert("Fill all fields");
-    return;
-  }
+  await setPersistence(auth, browserLocalPersistence);
+  await signInWithEmailAndPassword(auth, email, password);
 
-  try {
-    await setPersistence(auth, browserLocalPersistence);
-
-    await signInWithEmailAndPassword(auth, email, password);
-
-    window.location.href = "dashboard.html";
-
-  } catch (error) {
-    console.error(error);
-    alert("Invalid email or password");
-  }
+  window.location.href = "dashboard.html";
 };
