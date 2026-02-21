@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js";
+import { auth, db } from "./firebase.js";
 
 import { onAuthStateChanged } from 
 "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
@@ -17,12 +17,6 @@ import {
   increment
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
-
 /* ================= GLOBALS ================= */
 
 let currentUserId = null;
@@ -38,6 +32,7 @@ let otherUserId = null;
 /* ================= AUTH ================= */
 
 onAuthStateChanged(auth, async (user) => {
+
   if (!user) {
     window.location.href = "index.html";
     return;
@@ -62,6 +57,7 @@ onAuthStateChanged(auth, async (user) => {
 /* ================= CREATE CHAT ================= */
 
 async function createChatIfNotExists() {
+
   const chatRef = doc(db, "chats", chatId);
   const snap = await getDoc(chatRef);
 
@@ -74,9 +70,10 @@ async function createChatIfNotExists() {
   }
 }
 
-/* ================= SEND TEXT ================= */
+/* ================= SEND MESSAGE ================= */
 
 window.sendMessage = async function () {
+
   const input = document.getElementById("messageInput");
   if (!input) return;
 
@@ -86,7 +83,6 @@ window.sendMessage = async function () {
   await addDoc(collection(db, "chats", chatId, "messages"), {
     sender: currentUserId,
     text,
-    imageUrl: null,
     timestamp: serverTimestamp(),
     deletedForEveryone: false,
     replyTo: replyingTo,
@@ -105,47 +101,17 @@ window.sendMessage = async function () {
   if (replyPreview) replyPreview.style.display = "none";
 };
 
-/* ================= SEND IMAGE ================= */
-
-const imageInput = document.getElementById("imageInput");
-
-if (imageInput) {
-  imageInput.addEventListener("change", async (e) => {
-
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const imageRef = ref(storage, `chatImages/${chatId}/${Date.now()}`);
-
-    await uploadBytes(imageRef, file);
-    const downloadURL = await getDownloadURL(imageRef);
-
-    await addDoc(collection(db, "chats", chatId, "messages"), {
-      sender: currentUserId,
-      text: null,
-      imageUrl: downloadURL,
-      timestamp: serverTimestamp(),
-      deletedForEveryone: false,
-      replyTo: null,
-      seen: false,
-      seenAt: null
-    });
-
-    await updateDoc(doc(db, "chats", chatId), {
-      [`unread.${otherUserId}`]: increment(1)
-    });
-  });
-}
-
 /* ================= LOAD MESSAGES ================= */
 
 function loadMessages() {
+
   const q = query(
     collection(db, "chats", chatId, "messages"),
     orderBy("timestamp")
   );
 
   onSnapshot(q, (snapshot) => {
+
     const messagesDiv = document.getElementById("messages");
     if (!messagesDiv) return;
 
@@ -156,21 +122,21 @@ function loadMessages() {
       const data = docSnap.data();
       const isMine = data.sender === currentUserId;
 
-      /* AUTO MARK SEEN */
+      /* ===== AUTO MARK SEEN ===== */
+
       if (!isMine && !data.seen) {
-        updateDoc(
-          doc(db, "chats", chatId, "messages", docSnap.id),
-          {
-            seen: true,
-            seenAt: serverTimestamp()
-          }
-        );
+        updateDoc(docSnap.ref, {
+          seen: true,
+          seenAt: serverTimestamp()
+        }).catch(() => {});
       }
 
       const messageDiv = document.createElement("div");
       messageDiv.className = isMine
         ? "message my-message"
         : "message other-message";
+
+      /* ===== FORMAT TIME ===== */
 
       let timeString = "";
       if (data.timestamp?.toDate) {
@@ -180,6 +146,8 @@ function loadMessages() {
           minute: "2-digit"
         });
       }
+
+      /* ===== SEEN DISPLAY ===== */
 
       let seenHTML = "";
       if (isMine && data.seen && data.seenAt?.toDate) {
@@ -191,32 +159,30 @@ function loadMessages() {
         seenHTML = `<div class="seen-time">Seen at ${seenTime}</div>`;
       }
 
+      /* ===== MESSAGE CONTENT ===== */
+
       if (data.deletedForEveryone) {
+
         messageDiv.innerHTML = `
-          <div class="deleted-message">This message was deleted</div>
+          <div class="deleted-message">
+            This message was deleted
+          </div>
         `;
+
       } else {
 
         let replyHTML = "";
         if (data.replyTo) {
-          replyHTML = `<div class="reply-box">${data.replyTo}</div>`;
-        }
-
-        let contentHTML = "";
-
-        if (data.imageUrl) {
-          contentHTML = `
-            <img src="${data.imageUrl}" class="chat-image">
-          `;
-        } else {
-          contentHTML = `
-            <div class="message-text">${data.text}</div>
+          replyHTML = `
+            <div class="reply-box">
+              ${data.replyTo}
+            </div>
           `;
         }
 
         messageDiv.innerHTML = `
           ${replyHTML}
-          ${contentHTML}
+          <div class="message-text">${data.text}</div>
           <div class="message-time">${timeString}</div>
           ${seenHTML}
         `;
