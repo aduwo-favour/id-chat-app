@@ -25,17 +25,41 @@
   <!-- ===== MESSAGES ===== -->
   <div id="messages"></div>
 
+  <!-- ===== REPLY PREVIEW ===== -->
   <div id="replyPreview" class="reply-preview"></div>
 
-  <!-- ===== INPUT ===== -->
+  <!-- ===== INPUT AREA ===== -->
   <div class="chat-input">
+
+    <!-- Hidden image input -->
+    <input 
+      type="file" 
+      id="imageInput" 
+      accept="image/*" 
+      hidden
+    >
+
+    <!-- Image button -->
+    <button 
+      type="button"
+      onclick="document.getElementById('imageInput').click()"
+    >
+      📷
+    </button>
+
+    <!-- Text input -->
     <input 
       type="text" 
       id="messageInput" 
       placeholder="Type a message..." 
       autocomplete="off"
     >
-    <button onclick="sendMessage()">Send</button>
+
+    <!-- Send button -->
+    <button type="button" onclick="sendMessage()">
+      Send
+    </button>
+
   </div>
 
 </div>
@@ -45,5 +69,3 @@
 
 </body>
 </html>
-
-
