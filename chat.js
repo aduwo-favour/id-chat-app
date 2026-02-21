@@ -79,14 +79,14 @@ window.sendMessage = async function () {
 
   try {
     await addDoc(collection(db, "chats", chatId, "messages"), {
-  sender: currentUserId,
-  text: text,
-  timestamp: serverTimestamp(),
-  deletedForEveryone: false,
-  replyTo: replyingTo,
-  seen: false,
-  seenAt: null
-});
+      sender: currentUserId,
+      text,
+      timestamp: serverTimestamp(),
+      deletedForEveryone: false,
+      replyTo: replyingTo,
+      seen: false,
+      seenAt: null
+    });
 
     await updateDoc(doc(db, "chats", chatId), {
       [`unread.${otherUserId}`]: increment(1)
@@ -99,11 +99,12 @@ window.sendMessage = async function () {
     if (replyPreview) replyPreview.style.display = "none";
 
   } catch (err) {
-    console.error("Send message error:", err);
+    console.error("Send error:", err);
   }
 };
 
 /* ================= LOAD MESSAGES ================= */
+
 function loadMessages() {
   const q = query(
     collection(db, "chats", chatId, "messages"),
@@ -117,14 +118,27 @@ function loadMessages() {
     messagesDiv.innerHTML = "";
 
     snapshot.forEach((docSnap) => {
+
       const data = docSnap.data();
       const isMine = data.sender === currentUserId;
+
+      /* ===== AUTO MARK SEEN ===== */
+      if (!isMine && !data.seen) {
+        updateDoc(
+          doc(db, "chats", chatId, "messages", docSnap.id),
+          {
+            seen: true,
+            seenAt: serverTimestamp()
+          }
+        );
+      }
 
       const messageDiv = document.createElement("div");
       messageDiv.className = isMine
         ? "message my-message"
         : "message other-message";
 
+      /* ===== FORMAT TIME ===== */
       let timeString = "";
       if (data.timestamp?.toDate) {
         const date = data.timestamp.toDate();
@@ -134,15 +148,31 @@ function loadMessages() {
         });
       }
 
+      /* ===== SEEN DISPLAY ===== */
+      let seenHTML = "";
+      if (isMine && data.seen && data.seenAt?.toDate) {
+        const seenTime = data.seenAt.toDate().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+
+        seenHTML = `
+          <div class="seen-time">
+            Seen at ${seenTime}
+          </div>
+        `;
+      }
 
       /* ===== MESSAGE DISPLAY ===== */
 
       if (data.deletedForEveryone) {
+
         messageDiv.innerHTML = `
           <div class="deleted-message">
             This message was deleted
           </div>
         `;
+
       } else {
 
         let replyHTML = "";
@@ -158,10 +188,11 @@ function loadMessages() {
           ${replyHTML}
           <div class="message-text">${data.text}</div>
           <div class="message-time">${timeString}</div>
+          ${seenHTML}
         `;
       }
 
-      /* ===== DELETE ===== */
+      /* ===== DELETE (YOUR MESSAGES ONLY) ===== */
 
       if (isMine && !data.deletedForEveryone) {
 
@@ -191,8 +222,7 @@ function loadMessages() {
       });
 
       messageDiv.addEventListener("touchmove", (e) => {
-        const moveX = e.touches[0].clientX;
-        const diff = moveX - startX;
+        const diff = e.touches[0].clientX - startX;
 
         if (diff > 60 && !data.deletedForEveryone) {
           triggerReply(data.text);
@@ -246,8 +276,7 @@ function triggerReply(text) {
   replyPreview.style.display = "block";
   replyPreview.innerText = text;
 
-  const input = document.getElementById("messageInput");
-  input.focus();
+  document.getElementById("messageInput").focus();
 }
 
 /* ================= RESET UNREAD ================= */
@@ -265,4 +294,3 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
-
