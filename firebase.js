@@ -1,13 +1,17 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { initializeApp } from 
+"https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+
+import { getAuth } from 
+"https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 import { 
-  getAuth 
-} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+  getFirestore, 
+  enableIndexedDbPersistence 
+} from 
+"https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-import { 
-  getFirestore,
-  enableIndexedDbPersistence
-} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getStorage } from
+"https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
 
 /* ================= FIREBASE CONFIG ================= */
 
@@ -24,6 +28,7 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 
 /* ================= ENABLE OFFLINE CACHE ================= */
 
@@ -32,5 +37,13 @@ enableIndexedDbPersistence(db, { synchronizeTabs: true })
     console.log("🔥 Firestore offline cache enabled");
   })
   .catch((err) => {
-    console.log("Cache error:", err.code);
+
+    if (err.code === "failed-precondition") {
+      console.log("⚠ Multiple tabs open, cache disabled");
+    } else if (err.code === "unimplemented") {
+      console.log("⚠ Browser does not support offline cache");
+    } else {
+      console.log("Cache error:", err.code);
+    }
+
   });
