@@ -16,6 +16,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUserId = null;
+let shownNotifications = {};
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -24,7 +25,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   const userDoc = await getDoc(doc(db, "users", user.uid));
-
   currentUserId = userDoc.data().userId;
 
   document.getElementById("welcome").innerText =
@@ -40,7 +40,6 @@ window.logout = async function () {
 
 window.startChat = async function () {
   const friendId = document.getElementById("friendId").value.trim();
-
   if (!friendId) return;
 
   const usersRef = collection(db, "users");
@@ -48,7 +47,7 @@ window.startChat = async function () {
   const snapshot = await getDocs(q);
 
   if (snapshot.empty) {
-    alert("User ID not found");
+    alert("User not found");
     return;
   }
 
@@ -72,10 +71,22 @@ function loadChats() {
       const data = docSnap.data();
       const otherUser = data.participants.find(id => id !== currentUserId);
 
+      const unread = data.unread?.[currentUserId] || 0;
+
+      if (unread > 0 && !shownNotifications[docSnap.id]) {
+        alert("New message from " + otherUser);
+        shownNotifications[docSnap.id] = true;
+      }
+
+      const badge = unread > 0
+        ? `<span class="unread-badge">${unread}</span>`
+        : "";
+
       const div = document.createElement("div");
       div.className = "chat-item";
       div.innerHTML = `
         <span>${otherUser}</span>
+        ${badge}
         <button onclick="openChat('${docSnap.id}')">Open</button>
       `;
 
