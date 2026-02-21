@@ -79,12 +79,14 @@ window.sendMessage = async function () {
 
   try {
     await addDoc(collection(db, "chats", chatId, "messages"), {
-      sender: currentUserId,
-      text: text,
-      timestamp: serverTimestamp(),
-      deletedForEveryone: false,
-      replyTo: replyingTo
-    });
+  sender: currentUserId,
+  text: text,
+  timestamp: serverTimestamp(),
+  deletedForEveryone: false,
+  replyTo: replyingTo,
+  seen: false,
+  seenAt: null
+});
 
     await updateDoc(doc(db, "chats", chatId), {
       [`unread.${otherUserId}`]: increment(1)
@@ -102,7 +104,6 @@ window.sendMessage = async function () {
 };
 
 /* ================= LOAD MESSAGES ================= */
-
 function loadMessages() {
   const q = query(
     collection(db, "chats", chatId, "messages"),
@@ -132,6 +133,7 @@ function loadMessages() {
           minute: "2-digit"
         });
       }
+
 
       /* ===== MESSAGE DISPLAY ===== */
 
@@ -263,3 +265,4 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
