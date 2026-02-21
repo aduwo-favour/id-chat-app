@@ -2,7 +2,9 @@ import { auth, db } from "./firebase.js";
 
 import {
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
+  setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 import {
@@ -15,9 +17,9 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-/* ===============================
+/* =========================
    SIGN UP
-=================================*/
+========================= */
 window.signup = async function () {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
@@ -29,7 +31,7 @@ window.signup = async function () {
   }
 
   try {
-    // 🔎 Check if userId already exists
+    // Check if userId already exists
     const usersRef = collection(db, "users");
     const q = query(usersRef, where("userId", "==", userId));
     const snapshot = await getDocs(q);
@@ -39,7 +41,7 @@ window.signup = async function () {
       return;
     }
 
-    // 🔐 Create auth account
+    // Create Auth account
     const userCredential = await createUserWithEmailAndPassword(
       auth,
       email,
@@ -48,12 +50,14 @@ window.signup = async function () {
 
     const user = userCredential.user;
 
-    // 💾 Save user profile in Firestore
+    // Save user profile in Firestore
     await setDoc(doc(db, "users", user.uid), {
       userId: userId,
       email: email,
       createdAt: serverTimestamp()
     });
+
+    await setPersistence(auth, browserLocalPersistence);
 
     alert("Signup successful!");
     window.location.href = "dashboard.html";
@@ -64,9 +68,9 @@ window.signup = async function () {
   }
 };
 
-/* ===============================
+/* =========================
    LOGIN
-=================================*/
+========================= */
 window.login = async function () {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
@@ -77,7 +81,10 @@ window.login = async function () {
   }
 
   try {
+    await setPersistence(auth, browserLocalPersistence);
+
     await signInWithEmailAndPassword(auth, email, password);
+
     window.location.href = "dashboard.html";
 
   } catch (error) {
