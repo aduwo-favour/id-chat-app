@@ -69,30 +69,18 @@ body {
   box-shadow: 0 10px 25px rgba(0,0,0,0.08);
 }
 
-.dashboard-card input {
-  width: 100%;
-  padding: 12px;
-  margin-bottom: 10px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-}
 .dashboard-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.logout-btn {
-  background: #6f4e37;
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.chat-section-title {
+.dashboard-card input {
+  width: 100%;
+  padding: 12px;
   margin-bottom: 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
 }
 
 .dashboard-card button {
@@ -185,7 +173,9 @@ body {
   color: #6f4e37;
 }
 
-/* Messages */
+/* ========================================= */
+/* ============== MESSAGES ================= */
+/* ========================================= */
 
 #messages {
   flex: 1;
@@ -197,24 +187,28 @@ body {
 }
 
 .message {
+  position: relative;
   padding: 10px 14px;
   margin-bottom: 10px;
   border-radius: 16px;
   max-width: 75%;
   word-wrap: break-word;
   transition: transform 0.2s ease;
+  will-change: transform;
 }
 
 .my-message {
   background: #6f4e37;
   color: white;
   align-self: flex-end;
+  border-bottom-right-radius: 4px;
 }
 
 .other-message {
   background: #e0e0e0;
   color: black;
   align-self: flex-start;
+  border-bottom-left-radius: 4px;
 }
 
 .message-text {
@@ -228,34 +222,14 @@ body {
   text-align: right;
 }
 
-/* TICKS */
-
-.tick {
-  font-size: 12px;
-  margin-left: 4px;
-  display: inline-block;
-  transform: scale(0);
-  animation: popTick 0.2s forwards;
+/* Deleted message */
+.deleted-message {
+  font-style: italic;
+  opacity: 0.6;
+  font-size: 14px;
 }
 
-.tick.sent {
-  color: rgba(255,255,255,0.7);
-}
-
-.tick.delivered {
-  color: rgba(255,255,255,0.7);
-}
-
-.tick.seen {
-  color: #4fc3f7;
-}
-
-@keyframes popTick {
-  to { transform: scale(1); }
-}
-
-/* Seen time */
-
+/* Seen text */
 .seen-time {
   font-size: 11px;
   opacity: 0.6;
@@ -263,7 +237,31 @@ body {
   text-align: right;
 }
 
-/* Input */
+/* ========================================= */
+/* ============== REPLY ==================== */
+/* ========================================= */
+
+.reply-preview {
+  display: none;
+  background: #f0f0f0;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-left: 4px solid #6f4e37;
+}
+
+.reply-box {
+  background: rgba(0,0,0,0.08);
+  padding: 6px 8px;
+  font-size: 12px;
+  border-left: 3px solid #6f4e37;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  opacity: 0.9;
+}
+
+/* ========================================= */
+/* ============== INPUT ==================== */
+/* ========================================= */
 
 .chat-input {
   display: flex;
@@ -292,7 +290,7 @@ body {
 }
 
 /* ========================================= */
-/* ============ NOTIFICATION POPUP ========= */
+/* ============ NOTIFICATION =============== */
 /* ========================================= */
 
 .custom-notification {
@@ -318,70 +316,12 @@ body {
     transform: translateY(0);
   }
 }
-/* ================= MESSAGE IMPROVEMENTS ================= */
 
-.message {
-  position: relative;
-  transition: transform 0.2s ease;
-}
-
-/* Deleted message style */
-.deleted-message {
-  font-style: italic;
-  opacity: 0.6;
-  font-size: 14px;
-}
-
-/* Message text spacing */
-.message-text {
-  margin-bottom: 4px;
-}
-
-/* Time styling */
-.message-time {
-  font-size: 11px;
-  opacity: 0.7;
-  margin-top: 2px;
-  text-align: right;
-}
-.reply-preview {
-  display: none;
-  background: #eeeeee;
-  padding: 8px 12px;
-  font-size: 13px;
-  border-left: 4px solid #6f4e37;
-}
-
-.reply-box {
-  background: rgba(0,0,0,0.05);
-  padding: 6px 8px;
-  font-size: 12px;
-  border-left: 3px solid #6f4e37;
-  margin-bottom: 5px;
-}
-/* Better bubble spacing */
-.my-message {
-  background: #6f4e37;
-  color: white;
-  align-self: flex-end;
-}
-
-.other-message {
-  background: #e0e0e0;
-  color: black;
-  align-self: flex-start;
-}
-
-/* Smooth swipe feel */
-.message {
-  will-change: transform;
-}
 /* ========================================= */
-/* ============== MOBILE FIX =============== */
+/* ============== MOBILE =================== */
 /* ========================================= */
 
 @media (max-width: 480px) {
-
   .auth-box {
     margin: 40px auto;
   }
@@ -389,9 +329,4 @@ body {
   .message {
     max-width: 85%;
   }
-
-  }
-
-
-
-
+}
