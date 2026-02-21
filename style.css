@@ -318,13 +318,50 @@ body {
     transform: translateY(0);
   }
 }
+/* ================= MESSAGE IMPROVEMENTS ================= */
 
+.message {
+  position: relative;
+  transition: transform 0.2s ease;
+}
 
+/* Deleted message style */
 .deleted-message {
   font-style: italic;
   opacity: 0.6;
+  font-size: 14px;
 }
 
+/* Message text spacing */
+.message-text {
+  margin-bottom: 4px;
+}
+
+/* Time styling */
+.message-time {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-top: 2px;
+  text-align: right;
+}
+
+/* Better bubble spacing */
+.my-message {
+  background: #6f4e37;
+  color: white;
+  align-self: flex-end;
+}
+
+.other-message {
+  background: #e0e0e0;
+  color: black;
+  align-self: flex-start;
+}
+
+/* Smooth swipe feel */
+.message {
+  will-change: transform;
+}
 /* ========================================= */
 /* ============== MOBILE FIX =============== */
 /* ========================================= */
@@ -340,5 +377,6 @@ body {
   }
 
   }
+
 
 
