@@ -8,11 +8,15 @@
 
 <div class="dashboard-container">
 
-  <div class="dashboard-card">
+  <div class="dashboard-card dashboard-header">
+  <div class="header-left">
     <h3 id="welcome"></h3>
-    <button onclick="logout()">Logout</button>
   </div>
 
+  <div class="header-right">
+    <button onclick="logout()">Logout</button>
+  </div>
+</div>
   <div class="dashboard-card">
     <input type="text" id="friendId" placeholder="Enter Friend ID">
     <button onclick="startChat()">Start Chat</button>
@@ -30,3 +34,4 @@
 
 </body>
 </html>
+
