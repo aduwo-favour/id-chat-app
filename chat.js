@@ -79,15 +79,11 @@ window.sendMessage = async function () {
   if (!text) return;
 
   await addDoc(collection(db, "chats", chatId, "messages"), {
-    sender: currentUserId,
-    text,
-    timestamp: serverTimestamp(),
-    status: {
-      delivered: false,
-      seen: false,
-      seenAt: null
-    }
-  });
+  sender: currentUserId,
+  text: text,
+  timestamp: serverTimestamp(),
+  deletedForEveryone: false
+});
 
   await addDoc(collection(db, "chats", chatId, "messages"), {
   sender: currentUserId,
@@ -255,10 +251,26 @@ async function resetUnread() {
   });
 }
 
+
+window.deleteForEveryone = async function (messageId) {
+  try {
+    await updateDoc(
+      doc(db, "chats", chatId, "messages", messageId),
+      {
+        deletedForEveryone: true,
+        text: ""
+      }
+    );
+  } catch (err) {
+    console.error("Delete error:", err);
+  }
+};
+
 /* ================= BACK ================= */
 
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
 
 
