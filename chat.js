@@ -140,12 +140,14 @@ if (imageInput) {
 /* ================= LOAD MESSAGES ================= */
 
 function loadMessages() {
+
   const q = query(
     collection(db, "chats", chatId, "messages"),
     orderBy("timestamp")
   );
 
   onSnapshot(q, (snapshot) => {
+
     const messagesDiv = document.getElementById("messages");
     if (!messagesDiv) return;
 
@@ -154,23 +156,23 @@ function loadMessages() {
     snapshot.forEach((docSnap) => {
 
       const data = docSnap.data();
+      const messageId = docSnap.id;
       const isMine = data.sender === currentUserId;
 
-      /* AUTO MARK SEEN */
-      if (!isMine && !data.seen) {
-        updateDoc(
-          doc(db, "chats", chatId, "messages", docSnap.id),
-          {
-            seen: true,
-            seenAt: serverTimestamp()
-          }
-        );
+      const messageDiv = document.createElement("div");
+      messageDiv.classList.add("message");
+      messageDiv.classList.add(isMine ? "my-message" : "other-message");
+
+      /* ================= AUTO MARK SEEN ================= */
+
+      if (!isMine && data.seen === false) {
+        updateDoc(docSnap.ref, {
+          seen: true,
+          seenAt: serverTimestamp()
+        }).catch(() => {});
       }
 
-      const messageDiv = document.createElement("div");
-      messageDiv.className = isMine
-        ? "message my-message"
-        : "message other-message";
+      /* ================= FORMAT TIME ================= */
 
       let timeString = "";
       if (data.timestamp?.toDate) {
@@ -181,54 +183,135 @@ function loadMessages() {
         });
       }
 
-      let seenHTML = "";
-      if (isMine && data.seen && data.seenAt?.toDate) {
-        const seenTime = data.seenAt.toDate().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-
-        seenHTML = `<div class="seen-time">Seen at ${seenTime}</div>`;
-      }
+      /* ================= MESSAGE CONTENT ================= */
 
       if (data.deletedForEveryone) {
-        messageDiv.innerHTML = `
-          <div class="deleted-message">This message was deleted</div>
-        `;
-      } else {
 
-        let replyHTML = "";
-        if (data.replyTo) {
-          replyHTML = `<div class="reply-box">${data.replyTo}</div>`;
-        }
+        messageDiv.innerHTML = `
+          <div class="deleted-message">
+            This message was deleted
+          </div>
+        `;
+
+      } else {
 
         let contentHTML = "";
 
-        if (data.imageUrl) {
-          contentHTML = `
-            <img src="${data.imageUrl}" class="chat-image">
-          `;
-        } else {
-          contentHTML = `
-            <div class="message-text">${data.text}</div>
+        // Reply preview
+        if (data.replyTo) {
+          contentHTML += `
+            <div class="reply-box">
+              ${data.replyTo}
+            </div>
           `;
         }
 
-        messageDiv.innerHTML = `
-          ${replyHTML}
-          ${contentHTML}
-          <div class="message-time">${timeString}</div>
-          ${seenHTML}
+        // Image
+        if (data.imageUrl) {
+          contentHTML += `
+            <img src="${data.imageUrl}" class="chat-image">
+          `;
+        }
+
+        // Text
+        if (data.text) {
+          contentHTML += `
+            <div class="message-text">
+              ${data.text}
+            </div>
+          `;
+        }
+
+        contentHTML += `
+          <div class="message-time">
+            ${timeString}
+          </div>
         `;
+
+        // Seen display (only on your messages)
+        if (isMine && data.seen && data.seenAt?.toDate) {
+          const seenTime = data.seenAt.toDate().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+          });
+
+          contentHTML += `
+            <div class="seen-time">
+              Seen at ${seenTime}
+            </div>
+          `;
+        }
+
+        messageDiv.innerHTML = contentHTML;
       }
 
+      /* ================= DELETE (YOUR MESSAGES ONLY) ================= */
+
+      if (isMine && !data.deletedForEveryone) {
+
+        // Desktop right click
+        messageDiv.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          confirmDelete(messageId);
+        });
+
+        // Mobile long press
+        let pressTimer;
+
+        messageDiv.addEventListener("touchstart", () => {
+          pressTimer = setTimeout(() => {
+            confirmDelete(messageId);
+          }, 600);
+        });
+
+        messageDiv.addEventListener("touchend", () => {
+          clearTimeout(pressTimer);
+        });
+      }
+
+      /* ================= SWIPE TO REPLY ================= */
+
+      let startX = 0;
+      let isSwiping = false;
+
+      messageDiv.addEventListener("touchstart", (e) => {
+        startX = e.touches[0].clientX;
+        isSwiping = true;
+      });
+
+      messageDiv.addEventListener("touchmove", (e) => {
+        if (!isSwiping) return;
+
+        const currentX = e.touches[0].clientX;
+        const diff = currentX - startX;
+
+        if (diff > 0 && diff < 120) {
+          messageDiv.style.transform = `translateX(${diff}px)`;
+        }
+
+        if (diff > 80) {
+          triggerReply(data.text || "Image");
+          isSwiping = false;
+        }
+      });
+
+      messageDiv.addEventListener("touchend", () => {
+        messageDiv.style.transition = "transform 0.2s ease";
+        messageDiv.style.transform = "translateX(0)";
+        isSwiping = false;
+      });
+
       messagesDiv.appendChild(messageDiv);
+
     });
 
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    // Auto scroll to bottom
+    setTimeout(() => {
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }, 50);
+
   });
 }
-
 /* ================= RESET UNREAD ================= */
 
 async function resetUnread() {
@@ -242,3 +325,4 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
