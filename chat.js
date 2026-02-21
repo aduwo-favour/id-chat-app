@@ -47,7 +47,14 @@ onAuthStateChanged(auth, async (user) => {
 
     currentUserId = userDoc.data().userId;
 
+    // ✅ Get receiver ID (other participant)
     otherUserId = participants.find(p => p !== currentUserId);
+
+    // ✅ Set header name
+    const title = document.getElementById("chatTitle");
+    if (title && otherUserId) {
+      title.innerText = otherUserId;
+    }
 
     await createChatIfNotExists();
     loadMessages();
@@ -59,7 +66,6 @@ onAuthStateChanged(auth, async (user) => {
     console.error("Chat error:", err);
   }
 });
-
 /* ================= CREATE CHAT ================= */
 
 async function createChatIfNotExists() {
@@ -235,4 +241,5 @@ function listenOnlineStatus() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
 
