@@ -13,10 +13,12 @@ import {
   where,
   getDocs,
   onSnapshot,
-  updateDoc
+  updateDoc,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUserId = null;
+let currentUid = null;
 let originalTitle = document.title;
 
 /* ================= AUTH CHECK ================= */
@@ -28,6 +30,8 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   try {
+    currentUid = user.uid;
+
     const userDoc = await getDoc(doc(db, "users", user.uid));
 
     if (!userDoc.exists()) {
@@ -51,6 +55,26 @@ onAuthStateChanged(auth, async (user) => {
       welcome.innerText = "Logged in as: " + currentUserId;
     }
 
+    /* ===== SET USER ONLINE ===== */
+
+    await updateDoc(doc(db, "users", currentUid), {
+      online: true,
+      lastSeen: serverTimestamp()
+    });
+
+    /* ===== SET USER OFFLINE WHEN LEAVING ===== */
+
+    window.addEventListener("beforeunload", async () => {
+      try {
+        await updateDoc(doc(db, "users", currentUid), {
+          online: false,
+          lastSeen: serverTimestamp()
+        });
+      } catch (e) {
+        console.log("Offline update skipped");
+      }
+    });
+
     loadChats();
 
   } catch (err) {
@@ -62,6 +86,17 @@ onAuthStateChanged(auth, async (user) => {
 /* ================= LOGOUT ================= */
 
 window.logout = async function () {
+  try {
+    if (currentUid) {
+      await updateDoc(doc(db, "users", currentUid), {
+        online: false,
+        lastSeen: serverTimestamp()
+      });
+    }
+  } catch (e) {
+    console.log("Offline update skipped");
+  }
+
   await signOut(auth);
   window.location.href = "index.html";
 };
@@ -195,4 +230,4 @@ function showNotification(message) {
   setTimeout(() => {
     notification.remove();
   }, 3000);
-}
+                    }
