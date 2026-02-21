@@ -1,8 +1,6 @@
 import { auth, db } from "./firebase.js";
 
-import {
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 import {
   doc,
@@ -13,11 +11,13 @@ import {
   addDoc,
   query,
   orderBy,
-  onSnapshot
+  onSnapshot,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUserId = null;
 let chatId = new URLSearchParams(window.location.search).get("chatId");
+let participants = chatId.split("_");
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -30,6 +30,7 @@ onAuthStateChanged(auth, async (user) => {
 
   await createChatIfNotExists();
   loadMessages();
+  resetUnread();
 });
 
 async function createChatIfNotExists() {
@@ -38,8 +39,9 @@ async function createChatIfNotExists() {
 
   if (!snap.exists()) {
     await setDoc(chatRef, {
-      participants: chatId.split("_"),
-      createdAt: new Date()
+      participants: participants,
+      unread: {},
+      createdAt: serverTimestamp()
     });
   }
 }
@@ -51,8 +53,22 @@ window.sendMessage = async function () {
   await addDoc(collection(db, "chats", chatId, "messages"), {
     sender: currentUserId,
     text: text,
-    timestamp: new Date()
+    timestamp: serverTimestamp()
   });
+
+  const chatRef = doc(db, "chats", chatId);
+
+  const chatSnap = await getDoc(chatRef);
+  const data = chatSnap.data();
+  const unread = data.unread || {};
+
+  participants.forEach(user => {
+    if (user !== currentUserId) {
+      unread[user] = (unread[user] || 0) + 1;
+    }
+  });
+
+  await updateDoc(chatRef, { unread });
 
   document.getElementById("messageInput").value = "";
 };
@@ -69,7 +85,6 @@ function loadMessages() {
 
     snapshot.forEach((doc) => {
       const data = doc.data();
-
       const className =
         data.sender === currentUserId
           ? "message my-message"
@@ -82,6 +97,17 @@ function loadMessages() {
       `;
     });
   });
+}
+
+async function resetUnread() {
+  const chatRef = doc(db, "chats", chatId);
+  const snap = await getDoc(chatRef);
+  const data = snap.data();
+  const unread = data.unread || {};
+
+  unread[currentUserId] = 0;
+
+  await updateDoc(chatRef, { unread });
 }
 
 window.goBack = function () {
