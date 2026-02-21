@@ -194,6 +194,7 @@ body {
   max-width: 75%;
   word-wrap: break-word;
   transition: transform 0.2s ease;
+  touch-action: pan-y;
   will-change: transform;
 }
 
@@ -430,4 +431,5 @@ body {
   }
 
 }
+
 
