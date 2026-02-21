@@ -128,12 +128,11 @@ body {
 .chat-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100vh;       /* change from 100dvh */
   max-width: 700px;
   margin: auto;
   background: #f4f4f4;
 }
-
 /* Header */
 
 .chat-header {
@@ -268,9 +267,8 @@ body {
   padding: 10px;
   background: white;
   box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
-  position: sticky;
-  bottom: 0;
 }
+
 
 .chat-input input {
   flex: 1;
@@ -317,6 +315,11 @@ body {
   }
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 /* ========================================= */
 /* ============== MOBILE =================== */
 /* ========================================= */
@@ -330,3 +333,4 @@ body {
     max-width: 85%;
   }
 }
+
