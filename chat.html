@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2>Chat Room</h2>
+
+<button onclick="goBack()">⬅ Back</button>
+
+<div id="messages" style="height:300px; overflow-y:scroll; border:1px solid #ccc; margin:10px; padding:10px;"></div>
+
+<div class="chat-input">
+  <input type="text" id="messageInput" placeholder="Type message">
+  <button onclick="sendMessage()">Send</button>
+</div>
+
+<script type="module" src="firebase.js"></script>
+<script type="module" src="chat.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="dashboard-container">
+
+  <div class="dashboard-card">
+    <h2>Dashboard</h2>
+    <p id="welcome"></p>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <div class="dashboard-card">
+    <h3>Start Chat</h3>
+    <div class="start-chat">
+      <input type="text" id="friendId" placeholder="Enter Friend ID">
+      <button onclick="startChat()">Chat</button>
+    </div>
+  </div>
+
+  <div class="dashboard-card">
+    <h3>Your Chats</h3>
+    <div id="chatList"></div>
+  </div>
+
+</div>
+
+<script type="module" src="firebase.js"></script>
+<script type="module" src="dashboard.js"></script>
+
+</body>
+</html>
