@@ -129,19 +129,24 @@ function loadMessages() {
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
 
-      const className =
+      const messageDiv = document.createElement("div");
+      messageDiv.className =
         data.sender === currentUserId
           ? "message my-message"
           : "message other-message";
 
-      messagesDiv.innerHTML += `
-        <div class="${className}">
-          ${data.text}
-        </div>
-      `;
+      messageDiv.textContent = data.text;
+
+      messagesDiv.appendChild(messageDiv);
     });
 
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    // ✅ Wait for DOM to finish rendering before scrolling
+    setTimeout(() => {
+      messagesDiv.scrollTo({
+        top: messagesDiv.scrollHeight,
+        behavior: "smooth"
+      });
+    }, 50);
   });
 }
 
@@ -230,3 +235,4 @@ function listenOnlineStatus() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
