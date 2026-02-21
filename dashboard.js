@@ -11,23 +11,18 @@ import {
   collection,
   query,
   where,
-  getDocs
+  getDocs,
+  orderBy,
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUserId = null;
 
-// 🔐 Check if user is logged in
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html";
   } else {
     const userDoc = await getDoc(doc(db, "users", user.uid));
-
-    if (!userDoc.exists()) {
-      alert("User data not found.");
-      return;
-    }
-
     currentUserId = userDoc.data().userId;
 
     document.getElementById("welcome").innerText =
@@ -37,16 +32,13 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// 🚪 Logout
 window.logout = async function () {
   await signOut(auth);
   window.location.href = "index.html";
 };
 
-// 💬 Start Chat (With Validation)
 window.startChat = async function () {
-  const friendIdInput = document.getElementById("friendId");
-  const friendId = friendIdInput.value.trim();
+  const friendId = document.getElementById("friendId").value.trim();
 
   if (!friendId) {
     alert("Enter Friend ID");
@@ -58,7 +50,6 @@ window.startChat = async function () {
     return;
   }
 
-  // 🔎 Check if friend exists
   const usersRef = collection(db, "users");
   const q = query(usersRef, where("userId", "==", friendId));
   const snapshot = await getDocs(q);
@@ -69,47 +60,49 @@ window.startChat = async function () {
   }
 
   const chatId = [currentUserId, friendId].sort().join("_");
-
   window.location.href = "chat.html?chatId=" + chatId;
 };
 
-// 📂 Load Old Chats
-async function loadChats() {
+function loadChats() {
   const chatsRef = collection(db, "chats");
   const q = query(
     chatsRef,
     where("participants", "array-contains", currentUserId)
   );
 
-  const snapshot = await getDocs(q);
+  onSnapshot(q, (snapshot) => {
+    const chatList = document.getElementById("chatList");
+    chatList.innerHTML = "";
 
-  const chatList = document.getElementById("chatList");
-  chatList.innerHTML = "";
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      const otherUser = data.participants.find(
+        (id) => id !== currentUserId
+      );
 
-  if (snapshot.empty) {
-    chatList.innerHTML = "<p>No chats yet.</p>";
-    return;
-  }
+      const unreadCount =
+        data.unread && data.unread[currentUserId]
+          ? data.unread[currentUserId]
+          : 0;
 
-  snapshot.forEach((docSnap) => {
-    const data = docSnap.data();
-    const otherUser = data.participants.find(
-      (id) => id !== currentUserId
-    );
+      const badge = unreadCount > 0
+        ? `<span class="unread-badge">${unreadCount}</span>`
+        : "";
 
-    const div = document.createElement("div");
-    div.innerHTML = `
-      <p>
-        Chat with ${otherUser}
+      const div = document.createElement("div");
+      div.className = "chat-item";
+
+      div.innerHTML = `
+        <span>Chat with ${otherUser}</span>
+        ${badge}
         <button onclick="openChat('${docSnap.id}')">Open</button>
-      </p>
-    `;
+      `;
 
-    chatList.appendChild(div);
+      chatList.appendChild(div);
+    });
   });
 }
 
-// 📖 Open Existing Chat
 window.openChat = function (chatId) {
   window.location.href = "chat.html?chatId=" + chatId;
 };
