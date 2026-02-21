@@ -47,7 +47,7 @@ window.startChat = async function () {
   const snapshot = await getDocs(q);
 
   if (snapshot.empty) {
-    alert("User not found");
+    showNotification("User not found");
     return;
   }
 
@@ -70,11 +70,11 @@ function loadChats() {
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
       const otherUser = data.participants.find(id => id !== currentUserId);
-
       const unread = data.unread?.[currentUserId] || 0;
 
       if (unread > 0 && !shownNotifications[docSnap.id]) {
-        alert("New message from " + otherUser);
+        showNotification("New message from " + otherUser);
+        playSound();
         shownNotifications[docSnap.id] = true;
       }
 
@@ -98,3 +98,26 @@ function loadChats() {
 window.openChat = function (chatId) {
   window.location.href = "chat.html?chatId=" + chatId;
 };
+
+/* ===== NOTIFICATION POPUP ===== */
+
+function showNotification(message) {
+  const notification = document.createElement("div");
+  notification.className = "custom-notification";
+  notification.innerText = message;
+
+  document.body.appendChild(notification);
+
+  setTimeout(() => {
+    notification.remove();
+  }, 3000);
+}
+
+/* ===== SOUND ===== */
+
+function playSound() {
+  const audio = new Audio(
+    "https://actions.google.com/sounds/v1/alarms/beep_short.ogg"
+  );
+  audio.play();
+}
