@@ -17,9 +17,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUserId = null;
+let shownNotifications = {};
 let originalTitle = document.title;
 
-/* ================= AUTH CHECK ================= */
+/* ================= AUTH STATE ================= */
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -31,31 +32,22 @@ onAuthStateChanged(auth, async (user) => {
     const userDoc = await getDoc(doc(db, "users", user.uid));
 
     if (!userDoc.exists()) {
-      alert("User profile not found.");
+      alert("User data not found.");
       await signOut(auth);
       window.location.href = "index.html";
       return;
     }
 
-    const data = userDoc.data();
+    currentUserId = userDoc.data().userId;
 
-    if (!data.userId) {
-      alert("User ID missing.");
-      return;
-    }
-
-    currentUserId = data.userId;
-
-    const welcome = document.getElementById("welcome");
-    if (welcome) {
-      welcome.innerText = "Logged in as: " + currentUserId;
-    }
+    document.getElementById("welcome").innerText =
+      "Logged in as: " + currentUserId;
 
     loadChats();
 
-  } catch (err) {
-    console.error("Dashboard error:", err);
-    alert("Error loading dashboard.");
+  } catch (error) {
+    console.error(error);
+    alert("Error loading user data.");
   }
 });
 
@@ -69,10 +61,7 @@ window.logout = async function () {
 /* ================= START CHAT ================= */
 
 window.startChat = async function () {
-  const friendIdInput = document.getElementById("friendId");
-  if (!friendIdInput) return;
-
-  const friendId = friendIdInput.value.trim();
+  const friendId = document.getElementById("friendId").value.trim();
 
   if (!friendId) {
     showNotification("Enter Friend ID");
@@ -84,29 +73,22 @@ window.startChat = async function () {
     return;
   }
 
-  try {
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("userId", "==", friendId));
-    const snapshot = await getDocs(q);
+  const usersRef = collection(db, "users");
+  const q = query(usersRef, where("userId", "==", friendId));
+  const snapshot = await getDocs(q);
 
-    if (snapshot.empty) {
-      showNotification("User not found");
-      return;
-    }
-
-    const chatId = [currentUserId, friendId].sort().join("_");
-    window.location.href = "chat.html?chatId=" + chatId;
-
-  } catch (err) {
-    console.error("Start chat error:", err);
+  if (snapshot.empty) {
+    showNotification("User not found");
+    return;
   }
+
+  const chatId = [currentUserId, friendId].sort().join("_");
+  window.location.href = "chat.html?chatId=" + chatId;
 };
 
 /* ================= LOAD CHATS ================= */
 
 function loadChats() {
-  if (!currentUserId) return;
-
   const chatsRef = collection(db, "chats");
 
   const q = query(
@@ -116,29 +98,26 @@ function loadChats() {
 
   onSnapshot(q, (snapshot) => {
     const chatList = document.getElementById("chatList");
-    if (!chatList) return;
-
     chatList.innerHTML = "";
 
     let totalUnread = 0;
 
     snapshot.forEach((docSnap) => {
-      const data = docSnap.data() || {};
-
-      if (!data.participants) return;
-
+      const data = docSnap.data();
       const otherUser = data.participants.find(
         id => id !== currentUserId
       );
 
-      if (!otherUser) return;
-
-      const unread =
-        data.unread && data.unread[currentUserId]
-          ? data.unread[currentUserId]
-          : 0;
+      const unread = data.unread?.[currentUserId] || 0;
 
       totalUnread += unread;
+
+      // Show popup only once per update
+      if (unread > 0 && !shownNotifications[docSnap.id]) {
+        showNotification("New message from " + otherUser);
+        playSound();
+        shownNotifications[docSnap.id] = true;
+      }
 
       const badge = unread > 0
         ? `<span class="unread-badge">${unread}</span>`
@@ -158,6 +137,7 @@ function loadChats() {
       chatList.appendChild(div);
     });
 
+    // Update browser tab title
     if (totalUnread > 0) {
       document.title = `(${totalUnread}) New Messages`;
     } else {
@@ -169,21 +149,21 @@ function loadChats() {
 /* ================= OPEN CHAT ================= */
 
 window.openChat = async function (chatId) {
-  try {
-    const chatRef = doc(db, "chats", chatId);
+  // Reset unread when opening chat
+  const chatRef = doc(db, "chats", chatId);
 
+  try {
     await updateDoc(chatRef, {
       [`unread.${currentUserId}`]: 0
     });
-
-  } catch (err) {
-    console.log("Unread reset skipped");
+  } catch (e) {
+    console.log("Unread reset error:", e);
   }
 
   window.location.href = "chat.html?chatId=" + chatId;
 };
 
-/* ================= SIMPLE POPUP ================= */
+/* ================= POPUP NOTIFICATION ================= */
 
 function showNotification(message) {
   const notification = document.createElement("div");
@@ -195,4 +175,13 @@ function showNotification(message) {
   setTimeout(() => {
     notification.remove();
   }, 3000);
+}
+
+/* ================= SOUND ================= */
+
+function playSound() {
+  const audio = new Audio(
+    "https://actions.google.com/sounds/v1/alarms/beep_short.ogg"
+  );
+  audio.play().catch(() => {});
 }
