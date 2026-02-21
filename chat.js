@@ -89,9 +89,14 @@ window.sendMessage = async function () {
     }
   });
 
-  await updateDoc(doc(db, "chats", chatId), {
-    [`unread.${otherUserId}`]: increment(1)
-  });
+  await addDoc(collection(db, "chats", chatId, "messages"), {
+  sender: currentUserId,
+  text,
+  timestamp: serverTimestamp(),
+  deleted: false,
+  deletedForEveryone: false,
+  deletedFor: []
+});
 
   input.value = "";
 };
@@ -232,3 +237,4 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
