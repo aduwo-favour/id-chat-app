@@ -1,6 +1,8 @@
 import { auth, db } from "./firebase.js";
-import { onAuthStateChanged } 
-from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+import {
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 import {
   doc,
@@ -11,74 +13,45 @@ import {
   addDoc,
   query,
   orderBy,
-  onSnapshot,
-  increment
+  onSnapshot
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUserId = null;
-let chatId = null;
-
-const urlParams = new URLSearchParams(window.location.search);
-chatId = urlParams.get("chatId");
+let chatId = new URLSearchParams(window.location.search).get("chatId");
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html";
-  } else {
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    currentUserId = userDoc.data().userId;
-
-    await createChatIfNotExists();
-    await resetUnread();
-    loadMessages();
+    return;
   }
+
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  currentUserId = userDoc.data().userId;
+
+  await createChatIfNotExists();
+  loadMessages();
 });
 
 async function createChatIfNotExists() {
   const chatRef = doc(db, "chats", chatId);
-  const chatSnap = await getDoc(chatRef);
+  const snap = await getDoc(chatRef);
 
-  if (!chatSnap.exists()) {
-    const participants = chatId.split("_");
-
+  if (!snap.exists()) {
     await setDoc(chatRef, {
-      participants: participants,
-      lastMessage: "",
-      lastSender: "",
-      updatedAt: new Date(),
-      unread: {}
+      participants: chatId.split("_"),
+      createdAt: new Date()
     });
   }
 }
 
-async function resetUnread() {
-  const chatRef = doc(db, "chats", chatId);
-
-  await updateDoc(chatRef, {
-    [`unread.${currentUserId}`]: 0
-  });
-}
-
 window.sendMessage = async function () {
-  const message = document.getElementById("messageInput").value.trim();
-  if (!message) return;
-
-  const participants = chatId.split("_");
-  const otherUser = participants.find(id => id !== currentUserId);
+  const text = document.getElementById("messageInput").value.trim();
+  if (!text) return;
 
   await addDoc(collection(db, "chats", chatId, "messages"), {
     sender: currentUserId,
-    text: message,
+    text: text,
     timestamp: new Date()
-  });
-
-  const chatRef = doc(db, "chats", chatId);
-
-  await updateDoc(chatRef, {
-    lastMessage: message,
-    lastSender: currentUserId,
-    updatedAt: new Date(),
-    [`unread.${otherUser}`]: increment(1)
   });
 
   document.getElementById("messageInput").value = "";
@@ -97,19 +70,17 @@ function loadMessages() {
     snapshot.forEach((doc) => {
       const data = doc.data();
 
-      const messageClass =
+      const className =
         data.sender === currentUserId
           ? "message my-message"
           : "message other-message";
 
       messagesDiv.innerHTML += `
-        <div class="${messageClass}">
+        <div class="${className}">
           ${data.text}
         </div>
       `;
     });
-
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
   });
 }
 
