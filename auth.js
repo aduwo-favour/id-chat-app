@@ -2,9 +2,7 @@ import { auth, db } from "./firebase.js";
 
 import {
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  setPersistence,
-  browserLocalPersistence
+  signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 import {
@@ -17,12 +15,15 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
+function makeEmail(userId) {
+  return userId + "@favourjef.com";
+}
+
 window.signup = async function () {
   const userId = document.getElementById("userId").value.trim();
-  const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
 
-  if (!userId || !email || !password) {
+  if (!userId || !password) {
     alert("Fill all fields");
     return;
   }
@@ -36,24 +37,33 @@ window.signup = async function () {
     return;
   }
 
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  const email = makeEmail(userId);
+
+  const userCredential = await createUserWithEmailAndPassword(
+    auth,
+    email,
+    password
+  );
 
   await setDoc(doc(db, "users", userCredential.user.uid), {
     userId: userId,
-    email: email,
     createdAt: serverTimestamp()
   });
-
-  await setPersistence(auth, browserLocalPersistence);
 
   window.location.href = "dashboard.html";
 };
 
 window.login = async function () {
-  const email = document.getElementById("email").value.trim();
+  const userId = document.getElementById("userId").value.trim();
   const password = document.getElementById("password").value.trim();
 
-  await setPersistence(auth, browserLocalPersistence);
+  if (!userId || !password) {
+    alert("Fill all fields");
+    return;
+  }
+
+  const email = makeEmail(userId);
+
   await signInWithEmailAndPassword(auth, email, password);
 
   window.location.href = "dashboard.html";
