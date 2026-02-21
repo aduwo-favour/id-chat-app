@@ -187,6 +187,31 @@ function loadMessages() {
           ${seenHTML}
         `;
       }
+
+
+      /* ===== DELETE (YOUR MESSAGES ONLY) ===== */
+
+if (isMine && !data.deletedForEveryone) {
+
+  // Desktop right click
+  messageDiv.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    confirmDelete(docSnap.id);
+  });
+
+  // Mobile long press
+  let pressTimer;
+
+  messageDiv.addEventListener("touchstart", () => {
+    pressTimer = setTimeout(() => {
+      confirmDelete(docSnap.id);
+    }, 600);
+  });
+
+  messageDiv.addEventListener("touchend", () => {
+    clearTimeout(pressTimer);
+  });
+}
       /* ===== SWIPE TO REPLY ===== */
 
 let startX = 0;
@@ -231,6 +256,52 @@ messagesDiv.appendChild(messageDiv);
   });
 }
 
+/* ================= REPLY ================= */
+
+function triggerReply(text) {
+
+  replyingTo = text;
+
+  const replyPreview = document.getElementById("replyPreview");
+  const replyText = document.getElementById("replyText");
+
+  if (!replyPreview) return;
+
+  // If you don't have replyText span, fallback
+  if (replyText) {
+    replyText.innerText = text.length > 60
+      ? text.substring(0, 60) + "..."
+      : text;
+  } else {
+    replyPreview.innerText = text;
+  }
+
+  replyPreview.style.display = "block";
+}
+
+
+/* ================= DELETE ================= */
+
+function confirmDelete(messageId) {
+  if (confirm("Delete this message for everyone?")) {
+    deleteForEveryone(messageId);
+  }
+}
+
+async function deleteForEveryone(messageId) {
+  try {
+    await updateDoc(
+      doc(db, "chats", chatId, "messages", messageId),
+      {
+        deletedForEveryone: true,
+        text: ""
+      }
+    );
+  } catch (err) {
+    console.error("Delete error:", err);
+  }
+}
+
 /* ================= RESET UNREAD ================= */
 
 async function resetUnread() {
@@ -244,4 +315,5 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
 
