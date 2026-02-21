@@ -1,90 +1,140 @@
-body {
-  font-family: Arial, sans-serif;
+/* Reset */
+* {
+  box-sizing: border-box;
   margin: 0;
-  background: linear-gradient(135deg, #f2f2f2, #e5e5e5);
-  color: #111;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Body */
+body {
+  background: linear-gradient(135deg, #f4f4f4, #e6e6e6);
+  min-height: 100vh;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
 }
 
-/* Dashboard Layout */
+/* ===== AUTH PAGE ===== */
+
+.auth-box {
+  background: white;
+  width: 95%;
+  max-width: 400px;
+  padding: 30px 20px;
+  border-radius: 16px;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+}
+
+.auth-box h2 {
+  text-align: center;
+  margin-bottom: 25px;
+  color: #333;
+}
+
+/* Inputs */
+.auth-box input {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 16px;
+}
+
+/* Buttons */
+.auth-box button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  background: #6f4e37;
+  color: white;
+  transition: 0.3s ease;
+}
+
+.auth-box button:hover {
+  background: #5c3d2b;
+}
+
+/* ===== DASHBOARD ===== */
+
 .dashboard-container {
   width: 95%;
-  max-width: 900px;
-  margin-top: 60px;
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
+  max-width: 700px;
+  margin-top: 30px;
 }
 
 .dashboard-card {
-  background: rgba(255,255,255,0.95);
-  padding: 25px;
+  background: white;
+  padding: 20px;
   border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.07);
+  margin-bottom: 20px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
 }
 
-button {
-  padding: 10px 14px;
-  border: none;
+.dashboard-card input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 10px;
   border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+.dashboard-card button {
+  padding: 10px 18px;
   background: #6f4e37;
   color: white;
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
 }
 
-button:hover {
-  opacity: 0.85;
-}
-
-input {
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  width: 100%;
-}
-
-.start-chat {
-  display: flex;
-  gap: 10px;
-}
-
+/* Chat List Item */
 .chat-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid #eee;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 8px;
+  background: #f5f5f5;
 }
 
+/* Unread badge */
 .unread-badge {
-  background: #6f4e37;
+  background: red;
   color: white;
-  border-radius: 50%;
   padding: 4px 8px;
+  border-radius: 12px;
   font-size: 12px;
   margin-left: 8px;
 }
 
-/* Chat Page */
+/* ===== CHAT PAGE ===== */
+
 #messages {
-  width: 90%;
-  max-width: 800px;
-  margin: 30px auto;
+  width: 95%;
+  max-width: 700px;
+  height: 60vh;
   background: white;
-  border-radius: 16px;
-  padding: 20px;
-  height: 450px;
+  margin: 20px auto;
+  padding: 15px;
+  border-radius: 14px;
   overflow-y: auto;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.08);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
 }
 
+/* Messages */
 .message {
-  max-width: 70%;
-  padding: 12px 16px;
-  margin: 10px 0;
-  border-radius: 20px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border-radius: 16px;
+  max-width: 75%;
+  word-wrap: break-word;
 }
 
 .my-message {
@@ -94,15 +144,50 @@ input {
 }
 
 .other-message {
-  background: #e5e5e5;
+  background: #e6e6e6;
   color: black;
-  margin-right: auto;
 }
 
+/* Chat input area */
 .chat-input {
-  width: 90%;
-  max-width: 800px;
+  width: 95%;
+  max-width: 700px;
   display: flex;
-  gap: 10px;
-  margin-bottom: 40px;
+  margin: 10px auto 30px auto;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 14px;
+  border-radius: 8px 0 0 8px;
+  border: 1px solid #ddd;
+  font-size: 16px;
+}
+
+.chat-input button {
+  padding: 14px 20px;
+  border-radius: 0 8px 8px 0;
+  border: none;
+  background: #6f4e37;
+  color: white;
+  cursor: pointer;
+}
+
+/* ===== MOBILE OPTIMIZATION ===== */
+
+@media (max-width: 480px) {
+
+  .auth-box {
+    padding: 25px 15px;
+  }
+
+  .auth-box input,
+  .auth-box button {
+    font-size: 15px;
+  }
+
+  #messages {
+    height: 55vh;
+  }
+
 }
