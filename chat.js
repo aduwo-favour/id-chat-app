@@ -144,18 +144,29 @@ function loadMessages() {
           ? "message my-message"
           : "message other-message";
 
-      messageDiv.textContent = data.text;
+      // Format time
+      let timeString = "";
+      if (data.timestamp?.toDate) {
+        const date = data.timestamp.toDate();
+        timeString = date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+      }
+
+      messageDiv.innerHTML = `
+        <div class="message-text">${data.text}</div>
+        <div class="message-time">${timeString}</div>
+      `;
 
       messagesDiv.appendChild(messageDiv);
     });
 
-    // Auto scroll smoothly
     setTimeout(() => {
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }, 50);
   });
 }
-
 /* ================= RESET UNREAD ================= */
 
 async function resetUnread() {
@@ -238,3 +249,4 @@ function listenOnlineStatus() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
