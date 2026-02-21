@@ -9,15 +9,30 @@
 
 <div class="chat-wrapper">
 
+  <!-- ===== HEADER ===== -->
   <div class="chat-header">
-    <button onclick="goBack()">⬅ Back</button>
-    <h3>Chat Room</h3>
+
+    <button class="back-btn" onclick="goBack()">⬅</button>
+
+    <div class="chat-user-info">
+      <h3 id="chatTitle">Chat</h3>
+      <div id="onlineStatus" class="online-status"></div>
+      <div id="typingStatus" class="typing-status"></div>
+    </div>
+
   </div>
 
+  <!-- ===== MESSAGES ===== -->
   <div id="messages"></div>
 
+  <!-- ===== INPUT ===== -->
   <div class="chat-input">
-    <input type="text" id="messageInput" placeholder="Type message">
+    <input 
+      type="text" 
+      id="messageInput" 
+      placeholder="Type a message..." 
+      autocomplete="off"
+    >
     <button onclick="sendMessage()">Send</button>
   </div>
 
