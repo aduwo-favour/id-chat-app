@@ -244,15 +244,10 @@ body {
 /* ============== CHAT PAGE ================ */
 /* ========================================= */
 
-html, body {
-  height: 100%;
-  overflow: hidden;
-}
-
 .chat-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100vh;   /* safer than 100dvh */
+  height: 100vh;
   max-width: 700px;
   margin: auto;
   background: #f4f4f4;
@@ -398,7 +393,7 @@ html, body {
   align-items: center;
   padding: 10px;
   background: white;
-  box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+  border-top: 1px solid #ddd;
 }
 
 .chat-input button {
@@ -435,3 +430,4 @@ html, body {
   }
 
 }
+
