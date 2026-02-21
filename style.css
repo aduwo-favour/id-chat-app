@@ -98,37 +98,6 @@ body {
   background: #f5f5f5;
 }
 
-.tick {
-  font-size: 12px;
-  margin-left: 4px;
-  display: inline-block;
-  transform: scale(0);
-  animation: popTick 0.2s forwards;
-}
-
-.tick.sent {
-  color: #ffffffaa;
-}
-
-.tick.delivered {
-  color: #ffffffaa;
-}
-
-.tick.seen {
-  color: #4fc3f7;
-}
-
-@keyframes popTick {
-  to { transform: scale(1); }
-}
-
-.seen-time {
-  font-size: 11px;
-  opacity: 0.6;
-  margin-top: 2px;
-  text-align: right;
-}
-
 .chat-item button {
   background: #6f4e37;
   color: white;
@@ -153,7 +122,7 @@ body {
 .chat-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100dvh; /* ✅ FIXED for modern mobile */
+  height: 100dvh;
   max-width: 700px;
   margin: auto;
   background: #f4f4f4;
@@ -208,12 +177,14 @@ body {
   flex-direction: column;
   scroll-behavior: smooth;
 }
+
 .message {
   padding: 10px 14px;
   margin-bottom: 10px;
   border-radius: 16px;
   max-width: 75%;
   word-wrap: break-word;
+  transition: transform 0.2s ease;
 }
 
 .my-message {
@@ -224,7 +195,54 @@ body {
 
 .other-message {
   background: #e0e0e0;
+  color: black;
   align-self: flex-start;
+}
+
+.message-text {
+  margin-bottom: 4px;
+}
+
+.message-time {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-top: 2px;
+  text-align: right;
+}
+
+/* TICKS */
+
+.tick {
+  font-size: 12px;
+  margin-left: 4px;
+  display: inline-block;
+  transform: scale(0);
+  animation: popTick 0.2s forwards;
+}
+
+.tick.sent {
+  color: rgba(255,255,255,0.7);
+}
+
+.tick.delivered {
+  color: rgba(255,255,255,0.7);
+}
+
+.tick.seen {
+  color: #4fc3f7;
+}
+
+@keyframes popTick {
+  to { transform: scale(1); }
+}
+
+/* Seen time */
+
+.seen-time {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-top: 2px;
+  text-align: right;
 }
 
 /* Input */
@@ -234,6 +252,8 @@ body {
   padding: 10px;
   background: white;
   box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+  position: sticky;
+  bottom: 0;
 }
 
 .chat-input input {
@@ -252,37 +272,7 @@ body {
   border-radius: 0 8px 8px 0;
   cursor: pointer;
 }
-/* ===== DASHBOARD HEADER FIX ===== */
 
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-left h3 {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.header-right button {
-  background: #6f4e37;
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.message-text {
-  margin-bottom: 4px;
-}
-
-.message-time {
-  font-size: 11px;
-  opacity: 0.7;
-  margin-top: 2px;
-  text-align: right;
-}
 /* ========================================= */
 /* ============ NOTIFICATION POPUP ========= */
 /* ========================================= */
@@ -316,6 +306,7 @@ body {
 /* ========================================= */
 
 @media (max-width: 480px) {
+
   .auth-box {
     margin: 40px auto;
   }
@@ -323,8 +314,5 @@ body {
   .message {
     max-width: 85%;
   }
-}
 
-
-
-
+  }
