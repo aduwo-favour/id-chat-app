@@ -132,6 +132,29 @@ function loadMessages() {
         });
       }
 
+      // Handle deleted messages
+      if (data.deletedForEveryone) {
+        messageDiv.innerHTML = `
+          <div class="deleted-message">
+            This message was deleted
+          </div>
+        `;
+      } else {
+        messageDiv.innerHTML = `
+          <div class="message-text">${data.text}</div>
+          <div class="message-time">${timeString}</div>
+        `;
+      }
+
+      messagesDiv.appendChild(messageDiv);
+    });
+
+    setTimeout(() => {
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }, 50);
+  });
+}
+
       /* ===== AUTO MARK DELIVERED ===== */
       if (data.sender !== currentUserId && !data.status?.delivered) {
         updateDoc(
@@ -237,4 +260,5 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
 
