@@ -15,6 +15,8 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
+/* ================= GLOBALS ================= */
+
 let currentUserId = null;
 let currentUid = null;
 
@@ -27,7 +29,7 @@ if (!chatId) {
 let participants = chatId.split("_");
 let otherUserId = null;
 
-/* ================= AUTH CHECK ================= */
+/* ================= AUTH ================= */
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -47,10 +49,9 @@ onAuthStateChanged(auth, async (user) => {
 
     currentUserId = userDoc.data().userId;
 
-    // ✅ Get receiver ID (other participant)
     otherUserId = participants.find(p => p !== currentUserId);
 
-    // ✅ Set header name
+    // Set chat header name
     const title = document.getElementById("chatTitle");
     if (title && otherUserId) {
       title.innerText = otherUserId;
@@ -59,13 +60,15 @@ onAuthStateChanged(auth, async (user) => {
     await createChatIfNotExists();
     loadMessages();
     resetUnread();
+    setupTyping();
     listenTyping();
     listenOnlineStatus();
 
   } catch (err) {
-    console.error("Chat error:", err);
+    console.error("Chat init error:", err);
   }
 });
+
 /* ================= CREATE CHAT ================= */
 
 async function createChatIfNotExists() {
@@ -86,7 +89,7 @@ async function createChatIfNotExists() {
 
 window.sendMessage = async function () {
   const input = document.getElementById("messageInput");
-  if (!input) return;
+  if (!input || !currentUserId) return;
 
   const text = input.value.trim();
   if (!text) return;
@@ -97,7 +100,7 @@ window.sendMessage = async function () {
     timestamp: serverTimestamp()
   });
 
-  // Increase unread for other user
+  // Update unread
   const chatRef = doc(db, "chats", chatId);
   const chatSnap = await getDoc(chatRef);
   const data = chatSnap.data() || {};
@@ -146,12 +149,9 @@ function loadMessages() {
       messagesDiv.appendChild(messageDiv);
     });
 
-    // ✅ Wait for DOM to finish rendering before scrolling
+    // Auto scroll smoothly
     setTimeout(() => {
-      messagesDiv.scrollTo({
-        top: messagesDiv.scrollHeight,
-        behavior: "smooth"
-      });
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }, 50);
   });
 }
@@ -167,31 +167,31 @@ async function resetUnread() {
     const unread = data.unread || {};
     unread[currentUserId] = 0;
 
-    await updateDoc(chatRef, { unread: unread });
+    await updateDoc(chatRef, { unread });
 
   } catch (err) {
     console.log("Unread reset skipped");
   }
 }
 
-/* ================= TYPING INDICATOR ================= */
+/* ================= TYPING ================= */
 
-const inputField = document.getElementById("messageInput");
+function setupTyping() {
+  const inputField = document.getElementById("messageInput");
+  if (!inputField) return;
 
-if (inputField) {
   inputField.addEventListener("input", async () => {
-    try {
+    if (!currentUserId) return;
+
+    await updateDoc(doc(db, "chats", chatId), {
+      [`typing.${currentUserId}`]: true
+    });
+
+    setTimeout(async () => {
       await updateDoc(doc(db, "chats", chatId), {
-        [`typing.${currentUserId}`]: true
+        [`typing.${currentUserId}`]: false
       });
-
-      setTimeout(async () => {
-        await updateDoc(doc(db, "chats", chatId), {
-          [`typing.${currentUserId}`]: false
-        });
-      }, 1500);
-
-    } catch (e) {}
+    }, 1200);
   });
 }
 
@@ -199,7 +199,6 @@ function listenTyping() {
   onSnapshot(doc(db, "chats", chatId), (snap) => {
     const data = snap.data();
     const typingDiv = document.getElementById("typingStatus");
-
     if (!typingDiv) return;
 
     if (data?.typing?.[otherUserId]) {
@@ -210,12 +209,10 @@ function listenTyping() {
   });
 }
 
-/* ================= ONLINE / LAST SEEN ================= */
+/* ================= ONLINE STATUS ================= */
 
 function listenOnlineStatus() {
-  const usersRef = collection(db, "users");
-
-  onSnapshot(usersRef, (snapshot) => {
+  onSnapshot(collection(db, "users"), (snapshot) => {
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
 
@@ -241,5 +238,3 @@ function listenOnlineStatus() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
-
-
