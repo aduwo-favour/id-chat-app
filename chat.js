@@ -39,6 +39,8 @@ onAuthStateChanged(auth, async (user) => {
   currentUid = user.uid;
 
   const userDoc = await getDoc(doc(db, "users", currentUid));
+  if (!userDoc.exists()) return;
+
   currentUserId = userDoc.data().userId;
 
   otherUserId = participants.find(p => p !== currentUserId);
@@ -76,18 +78,22 @@ window.sendMessage = async function () {
   const text = input.value.trim();
   if (!text) return;
 
-  await addDoc(collection(db, "chats", chatId, "messages"), {
-    sender: currentUserId,
-    text: text,
-    timestamp: serverTimestamp(),
-    deletedForEveryone: false
-  });
+  try {
+    await addDoc(collection(db, "chats", chatId, "messages"), {
+      sender: currentUserId,
+      text: text,
+      timestamp: serverTimestamp(),
+      deletedForEveryone: false
+    });
 
-  await updateDoc(doc(db, "chats", chatId), {
-    [`unread.${otherUserId}`]: increment(1)
-  });
+    await updateDoc(doc(db, "chats", chatId), {
+      [`unread.${otherUserId}`]: increment(1)
+    });
 
-  input.value = "";
+    input.value = "";
+  } catch (err) {
+    console.error("Send message error:", err);
+  }
 };
 
 /* ================= LOAD MESSAGES ================= */
@@ -171,7 +177,7 @@ function loadMessages() {
         const moveX = e.touches[0].clientX;
         const diff = moveX - startX;
 
-        if (diff > 60) {
+        if (diff > 60 && !data.deletedForEveryone) {
           triggerReply(data.text);
         }
 
@@ -186,9 +192,7 @@ function loadMessages() {
       messagesDiv.appendChild(messageDiv);
     });
 
-    setTimeout(() => {
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }, 50);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
   });
 }
 
@@ -222,6 +226,8 @@ window.deleteForEveryone = async function (messageId) {
 
 function triggerReply(text) {
   const input = document.getElementById("messageInput");
+  if (!input) return;
+
   input.value = "↪ " + text + " ";
   input.focus();
 }
@@ -229,9 +235,13 @@ function triggerReply(text) {
 /* ================= RESET UNREAD ================= */
 
 async function resetUnread() {
-  await updateDoc(doc(db, "chats", chatId), {
-    [`unread.${currentUserId}`]: 0
-  });
+  try {
+    await updateDoc(doc(db, "chats", chatId), {
+      [`unread.${currentUserId}`]: 0
+    });
+  } catch (err) {
+    console.log("Unread reset skipped");
+  }
 }
 
 /* ================= BACK ================= */
