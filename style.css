@@ -1,128 +1,14 @@
-/* ===== GLOBAL ===== */
 body {
   font-family: Arial, sans-serif;
   margin: 0;
-  height: 100vh;
-  background: linear-gradient(135deg, #f5f5f5, #eaeaea);
+  background: linear-gradient(135deg, #f2f2f2, #e5e5e5);
   color: #111;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-/* Subtle background texture effect */
-body::before {
-  content: "";
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle at 20% 20%, rgba(0,0,0,0.03), transparent 40%),
-              radial-gradient(circle at 80% 80%, rgba(0,0,0,0.03), transparent 40%);
-  z-index: -1;
-}
-
-/* ===== AUTH BOX ===== */
-.auth-box {
-  margin-top: 140px;
-  width: 340px;
-  padding: 35px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-}
-
-h2 {
-  font-weight: 500;
-  margin-bottom: 20px;
-}
-
-/* ===== INPUTS ===== */
-input {
-  width: 100%;
-  padding: 12px;
-  margin: 10px 0;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: 14px;
-  background: #fff;
-  transition: 0.2s;
-}
-
-input:focus {
-  border-color: #000;
-  box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
-  outline: none;
-}
-
-/* ===== BUTTON ===== */
-button {
-  padding: 12px;
-  border: none;
-  border-radius: 8px;
-  background: #000;
-  color: #fff;
-  cursor: pointer;
-  font-size: 14px;
-  margin-top: 8px;
-  transition: 0.2s;
-}
-
-button:hover {
-  opacity: 0.85;
-}
-
-/* ===== DASHBOARD ===== */
-#chatList div {
-  padding: 12px;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-/* ===== CHAT WINDOW ===== */
-#messages {
-  width: 90%;
-  max-width: 800px;
-  margin: 30px auto;
-  background: rgba(255,255,255,0.9);
-  border-radius: 16px;
-  padding: 20px;
-  height: 450px;
-  overflow-y: auto;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.08);
-}
-
-/* Message bubbles */
-.message {
-  max-width: 70%;
-  padding: 12px 16px;
-  margin: 10px 0;
-  border-radius: 20px;
-  font-size: 14px;
-  word-wrap: break-word;
-}
-
-.my-message {
-  background: #000;
-  color: #fff;
-  margin-left: auto;
-}
-
-.other-message {
-  background: #f0f0f0;
-  color: #000;
-  margin-right: auto;
-}
-
-/* Chat input section */
-.chat-input {
-  width: 90%;
-  max-width: 800px;
-  display: flex;
-  gap: 10px;
-  margin-bottom: 40px;
-}
-/* ===== DASHBOARD LAYOUT ===== */
-
+/* Dashboard Layout */
 .dashboard-container {
   width: 95%;
   max-width: 900px;
@@ -133,14 +19,30 @@ button:hover {
 }
 
 .dashboard-card {
-  background: rgba(255,255,255,0.9);
+  background: rgba(255,255,255,0.95);
   padding: 25px;
   border-radius: 14px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.07);
 }
 
-.dashboard-card h3 {
-  margin-top: 0;
+button {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #6f4e37;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: 0.85;
+}
+
+input {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  width: 100%;
 }
 
 .start-chat {
@@ -148,19 +50,59 @@ button:hover {
   gap: 10px;
 }
 
-.start-chat input {
-  flex: 1;
-}
-
-/* Chat List Styling */
-#chatList div {
-  padding: 12px 0;
-  border-bottom: 1px solid #eee;
+.chat-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #eee;
 }
 
-#chatList button {
-  background: #000;
+.unread-badge {
+  background: #6f4e37;
+  color: white;
+  border-radius: 50%;
+  padding: 4px 8px;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+/* Chat Page */
+#messages {
+  width: 90%;
+  max-width: 800px;
+  margin: 30px auto;
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  height: 450px;
+  overflow-y: auto;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.08);
+}
+
+.message {
+  max-width: 70%;
+  padding: 12px 16px;
+  margin: 10px 0;
+  border-radius: 20px;
+}
+
+.my-message {
+  background: #6f4e37;
+  color: white;
+  margin-left: auto;
+}
+
+.other-message {
+  background: #e5e5e5;
+  color: black;
+  margin-right: auto;
+}
+
+.chat-input {
+  width: 90%;
+  max-width: 800px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 40px;
 }
