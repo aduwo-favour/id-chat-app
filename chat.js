@@ -12,7 +12,8 @@ import {
   query,
   orderBy,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  increment
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 /* ================= GLOBALS ================= */
@@ -37,36 +38,20 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  try {
-    currentUid = user.uid;
+  currentUid = user.uid;
 
-    const userDoc = await getDoc(doc(db, "users", user.uid));
+  const userDoc = await getDoc(doc(db, "users", user.uid));
+  currentUserId = userDoc.data().userId;
 
-    if (!userDoc.exists()) {
-      alert("User data missing.");
-      return;
-    }
+  otherUserId = participants.find(p => p !== currentUserId);
 
-    currentUserId = userDoc.data().userId;
+  const title = document.getElementById("chatTitle");
+  if (title) title.innerText = otherUserId;
 
-    otherUserId = participants.find(p => p !== currentUserId);
+  await createChatIfNotExists();
 
-    // Set chat header name
-    const title = document.getElementById("chatTitle");
-    if (title && otherUserId) {
-      title.innerText = otherUserId;
-    }
-
-    await createChatIfNotExists();
-    loadMessages();
-    resetUnread();
-    setupTyping();
-    listenTyping();
-    listenOnlineStatus();
-
-  } catch (err) {
-    console.error("Chat init error:", err);
-  }
+  loadMessages();
+  resetUnread();
 });
 
 /* ================= CREATE CHAT ================= */
@@ -77,9 +62,8 @@ async function createChatIfNotExists() {
 
   if (!snap.exists()) {
     await setDoc(chatRef, {
-      participants: participants,
+      participants,
       unread: {},
-      typing: {},
       createdAt: serverTimestamp()
     });
   }
@@ -89,33 +73,24 @@ async function createChatIfNotExists() {
 
 window.sendMessage = async function () {
   const input = document.getElementById("messageInput");
-  if (!input || !currentUserId) return;
+  if (!input) return;
 
   const text = input.value.trim();
   if (!text) return;
 
   await addDoc(collection(db, "chats", chatId, "messages"), {
     sender: currentUserId,
-    text: text,
-    timestamp: serverTimestamp()
-  });
-
-  // Update unread
-  const chatRef = doc(db, "chats", chatId);
-  const chatSnap = await getDoc(chatRef);
-  const data = chatSnap.data() || {};
-
-  const unread = data.unread || {};
-
-  participants.forEach(user => {
-    if (user !== currentUserId) {
-      unread[user] = (unread[user] || 0) + 1;
+    text,
+    timestamp: serverTimestamp(),
+    status: {
+      delivered: false,
+      seen: false,
+      seenAt: null
     }
   });
 
-  await updateDoc(chatRef, {
-    unread: unread,
-    [`typing.${currentUserId}`]: false
+  await updateDoc(doc(db, "chats", chatId), {
+    [`unread.${otherUserId}`]: increment(1)
   });
 
   input.value = "";
@@ -131,8 +106,6 @@ function loadMessages() {
 
   onSnapshot(q, (snapshot) => {
     const messagesDiv = document.getElementById("messages");
-    if (!messagesDiv) return;
-
     messagesDiv.innerHTML = "";
 
     snapshot.forEach((docSnap) => {
@@ -154,10 +127,80 @@ function loadMessages() {
         });
       }
 
+      /* ===== AUTO MARK DELIVERED ===== */
+      if (data.sender !== currentUserId && !data.status?.delivered) {
+        updateDoc(
+          doc(db, "chats", chatId, "messages", docSnap.id),
+          { "status.delivered": true }
+        );
+      }
+
+      /* ===== AUTO MARK SEEN ===== */
+      if (data.sender !== currentUserId && !data.status?.seen) {
+        updateDoc(
+          doc(db, "chats", chatId, "messages", docSnap.id),
+          {
+            "status.seen": true,
+            "status.seenAt": serverTimestamp()
+          }
+        );
+      }
+
+      /* ===== TICKS ===== */
+      let tickHTML = "";
+      if (data.sender === currentUserId) {
+        if (data.status?.seen) {
+          tickHTML = `<span class="tick seen">✔✔</span>`;
+        } else if (data.status?.delivered) {
+          tickHTML = `<span class="tick delivered">✔✔</span>`;
+        } else {
+          tickHTML = `<span class="tick sent">✔</span>`;
+        }
+      }
+
       messageDiv.innerHTML = `
         <div class="message-text">${data.text}</div>
-        <div class="message-time">${timeString}</div>
+        <div class="message-time">
+          ${timeString} ${tickHTML}
+        </div>
       `;
+
+      /* ===== SEEN AT ===== */
+      if (data.sender === currentUserId && data.status?.seenAt?.toDate) {
+        const seenDate = data.status.seenAt.toDate();
+        const seenTime = seenDate.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+
+        messageDiv.innerHTML += `
+          <div class="seen-time">
+            Seen at ${seenTime}
+          </div>
+        `;
+      }
+
+      /* ===== SWIPE TO REPLY ===== */
+      let startX = 0;
+
+      messageDiv.addEventListener("touchstart", (e) => {
+        startX = e.touches[0].clientX;
+      });
+
+      messageDiv.addEventListener("touchmove", (e) => {
+        const moveX = e.touches[0].clientX;
+        const diff = moveX - startX;
+
+        if (diff > 60) {
+          triggerReply(data.text);
+        }
+
+        messageDiv.style.transform = `translateX(${Math.min(diff, 60)}px)`;
+      });
+
+      messageDiv.addEventListener("touchend", () => {
+        messageDiv.style.transform = "translateX(0)";
+      });
 
       messagesDiv.appendChild(messageDiv);
     });
@@ -167,80 +210,20 @@ function loadMessages() {
     }, 50);
   });
 }
+
+/* ================= REPLY FUNCTION ================= */
+
+function triggerReply(text) {
+  const input = document.getElementById("messageInput");
+  input.value = "↪ " + text + " ";
+  input.focus();
+}
+
 /* ================= RESET UNREAD ================= */
 
 async function resetUnread() {
-  try {
-    const chatRef = doc(db, "chats", chatId);
-    const snap = await getDoc(chatRef);
-    const data = snap.data() || {};
-
-    const unread = data.unread || {};
-    unread[currentUserId] = 0;
-
-    await updateDoc(chatRef, { unread });
-
-  } catch (err) {
-    console.log("Unread reset skipped");
-  }
-}
-
-/* ================= TYPING ================= */
-
-function setupTyping() {
-  const inputField = document.getElementById("messageInput");
-  if (!inputField) return;
-
-  inputField.addEventListener("input", async () => {
-    if (!currentUserId) return;
-
-    await updateDoc(doc(db, "chats", chatId), {
-      [`typing.${currentUserId}`]: true
-    });
-
-    setTimeout(async () => {
-      await updateDoc(doc(db, "chats", chatId), {
-        [`typing.${currentUserId}`]: false
-      });
-    }, 1200);
-  });
-}
-
-function listenTyping() {
-  onSnapshot(doc(db, "chats", chatId), (snap) => {
-    const data = snap.data();
-    const typingDiv = document.getElementById("typingStatus");
-    if (!typingDiv) return;
-
-    if (data?.typing?.[otherUserId]) {
-      typingDiv.innerText = otherUserId + " is typing...";
-    } else {
-      typingDiv.innerText = "";
-    }
-  });
-}
-
-/* ================= ONLINE STATUS ================= */
-
-function listenOnlineStatus() {
-  onSnapshot(collection(db, "users"), (snapshot) => {
-    snapshot.forEach((docSnap) => {
-      const data = docSnap.data();
-
-      if (data.userId === otherUserId) {
-        const statusDiv = document.getElementById("onlineStatus");
-        if (!statusDiv) return;
-
-        if (data.online) {
-          statusDiv.innerText = "🟢 Online";
-        } else {
-          const date = data.lastSeen?.toDate?.();
-          statusDiv.innerText = date
-            ? "Last seen: " + date.toLocaleString()
-            : "Offline";
-        }
-      }
-    });
+  await updateDoc(doc(db, "chats", chatId), {
+    [`unread.${currentUserId}`]: 0
   });
 }
 
@@ -249,4 +232,3 @@ function listenOnlineStatus() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
-
