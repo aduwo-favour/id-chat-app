@@ -19,7 +19,6 @@ const firebaseConfig = {
   apiKey: "AIzaSyBEPEEQR63z_Dym50j3mS46ZyzPgMLbsi0",
   authDomain: "chat-messaging-abaa9.firebaseapp.com",
   projectId: "chat-messaging-abaa9",
-  storageBucket: "chat-messaging-abaa9.appspot.com", // 🔥 REQUIRED
   appId: "1:625429860180:web:6719187a4eaa0be53d82c1"
 };
 
@@ -48,3 +47,4 @@ enableIndexedDbPersistence(db)
     }
 
   });
+
