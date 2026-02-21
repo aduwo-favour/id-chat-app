@@ -187,8 +187,44 @@ function loadMessages() {
           ${seenHTML}
         `;
       }
+      /* ===== SWIPE TO REPLY ===== */
 
-      messagesDiv.appendChild(messageDiv);
+let startX = 0;
+let isSwiping = false;
+let hasTriggered = false;
+
+messageDiv.addEventListener("touchstart", (e) => {
+  startX = e.touches[0].clientX;
+  isSwiping = true;
+  hasTriggered = false;
+});
+
+messageDiv.addEventListener("touchmove", (e) => {
+  if (!isSwiping) return;
+
+  const currentX = e.touches[0].clientX;
+  const diff = currentX - startX;
+
+  if (diff > 0) {
+
+    const moveAmount = Math.min(diff, 80);
+    messageDiv.style.transform = `translateX(${moveAmount}px)`;
+
+    if (diff > 70 && !hasTriggered && !data.deletedForEveryone) {
+      hasTriggered = true;
+      triggerReply(data.text);
+    }
+  }
+});
+
+messageDiv.addEventListener("touchend", () => {
+  isSwiping = false;
+  messageDiv.style.transform = "translateX(0)";
+});
+
+      // swipe code here
+
+messagesDiv.appendChild(messageDiv);
     });
 
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -208,3 +244,4 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
