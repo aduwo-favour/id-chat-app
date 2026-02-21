@@ -21,6 +21,7 @@ import {
 
 let currentUserId = null;
 let currentUid = null;
+let replyingTo = null;
 
 let chatId = new URLSearchParams(window.location.search).get("chatId");
 if (!chatId) window.location.href = "dashboard.html";
@@ -42,14 +43,12 @@ onAuthStateChanged(auth, async (user) => {
   if (!userDoc.exists()) return;
 
   currentUserId = userDoc.data().userId;
-
   otherUserId = participants.find(p => p !== currentUserId);
 
   const title = document.getElementById("chatTitle");
   if (title) title.innerText = otherUserId;
 
   await createChatIfNotExists();
-
   loadMessages();
   resetUnread();
 });
@@ -83,7 +82,8 @@ window.sendMessage = async function () {
       sender: currentUserId,
       text: text,
       timestamp: serverTimestamp(),
-      deletedForEveryone: false
+      deletedForEveryone: false,
+      replyTo: replyingTo
     });
 
     await updateDoc(doc(db, "chats", chatId), {
@@ -91,6 +91,11 @@ window.sendMessage = async function () {
     });
 
     input.value = "";
+    replyingTo = null;
+
+    const replyPreview = document.getElementById("replyPreview");
+    if (replyPreview) replyPreview.style.display = "none";
+
   } catch (err) {
     console.error("Send message error:", err);
   }
@@ -119,7 +124,6 @@ function loadMessages() {
         ? "message my-message"
         : "message other-message";
 
-      /* ===== FORMAT TIME ===== */
       let timeString = "";
       if (data.timestamp?.toDate) {
         const date = data.timestamp.toDate();
@@ -130,6 +134,7 @@ function loadMessages() {
       }
 
       /* ===== MESSAGE DISPLAY ===== */
+
       if (data.deletedForEveryone) {
         messageDiv.innerHTML = `
           <div class="deleted-message">
@@ -137,24 +142,33 @@ function loadMessages() {
           </div>
         `;
       } else {
+
+        let replyHTML = "";
+        if (data.replyTo) {
+          replyHTML = `
+            <div class="reply-box">
+              ${data.replyTo}
+            </div>
+          `;
+        }
+
         messageDiv.innerHTML = `
+          ${replyHTML}
           <div class="message-text">${data.text}</div>
           <div class="message-time">${timeString}</div>
         `;
       }
 
-      /* ===== DELETE (ONLY YOUR MESSAGES) ===== */
+      /* ===== DELETE ===== */
+
       if (isMine && !data.deletedForEveryone) {
 
-        // Desktop right-click
         messageDiv.addEventListener("contextmenu", (e) => {
           e.preventDefault();
           confirmDelete(docSnap.id);
         });
 
-        // Mobile long press
         let pressTimer;
-
         messageDiv.addEventListener("touchstart", () => {
           pressTimer = setTimeout(() => {
             confirmDelete(docSnap.id);
@@ -167,6 +181,7 @@ function loadMessages() {
       }
 
       /* ===== SWIPE TO REPLY ===== */
+
       let startX = 0;
 
       messageDiv.addEventListener("touchstart", (e) => {
@@ -199,11 +214,7 @@ function loadMessages() {
 /* ================= DELETE ================= */
 
 function confirmDelete(messageId) {
-  const confirmAction = confirm(
-    "Delete this message for everyone?"
-  );
-
-  if (confirmAction) {
+  if (confirm("Delete this message for everyone?")) {
     deleteForEveryone(messageId);
   }
 }
@@ -225,10 +236,15 @@ window.deleteForEveryone = async function (messageId) {
 /* ================= REPLY ================= */
 
 function triggerReply(text) {
-  const input = document.getElementById("messageInput");
-  if (!input) return;
+  replyingTo = text;
 
-  input.value = "↪ " + text + " ";
+  const replyPreview = document.getElementById("replyPreview");
+  if (!replyPreview) return;
+
+  replyPreview.style.display = "block";
+  replyPreview.innerText = text;
+
+  const input = document.getElementById("messageInput");
   input.focus();
 }
 
@@ -239,9 +255,7 @@ async function resetUnread() {
     await updateDoc(doc(db, "chats", chatId), {
       [`unread.${currentUserId}`]: 0
     });
-  } catch (err) {
-    console.log("Unread reset skipped");
-  }
+  } catch {}
 }
 
 /* ================= BACK ================= */
