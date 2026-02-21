@@ -2,91 +2,86 @@ import { auth, db } from "./firebase.js";
 
 import {
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  setPersistence,
-  browserLocalPersistence,
-  onAuthStateChanged
+  signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 import {
   doc,
-  setDoc
+  setDoc,
+  getDocs,
+  collection,
+  query,
+  where,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-/* ============================= */
-/*  AUTO REDIRECT IF LOGGED IN   */
-/* ============================= */
-
-onAuthStateChanged(auth, (user) => {
-  if (user && window.location.pathname.includes("index.html")) {
-    window.location.href = "dashboard.html";
-  }
-});
-
-/* ============================= */
-/*          SIGN UP              */
-/* ============================= */
-
-window.signUp = async function () {
+/* ===============================
+   SIGN UP
+=================================*/
+window.signup = async function () {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
   const userId = document.getElementById("userId").value.trim();
-  const password = document.getElementById("password").value;
 
-  if (!userId || !password) {
-    alert("Please fill all fields");
+  if (!email || !password || !userId) {
+    alert("Fill all fields");
     return;
   }
-
-  if (password.length < 6) {
-    alert("Password must be at least 6 characters");
-    return;
-  }
-
-  const email = userId + "@chatapp.com";
 
   try {
-    await setPersistence(auth, browserLocalPersistence);
+    // 🔎 Check if userId already exists
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("userId", "==", userId));
+    const snapshot = await getDocs(q);
 
+    if (!snapshot.empty) {
+      alert("User ID already taken");
+      return;
+    }
+
+    // 🔐 Create auth account
     const userCredential = await createUserWithEmailAndPassword(
       auth,
       email,
       password
     );
 
-    await setDoc(doc(db, "users", userCredential.user.uid), {
+    const user = userCredential.user;
+
+    // 💾 Save user profile in Firestore
+    await setDoc(doc(db, "users", user.uid), {
       userId: userId,
-      createdAt: new Date()
+      email: email,
+      createdAt: serverTimestamp()
     });
 
+    alert("Signup successful!");
     window.location.href = "dashboard.html";
 
   } catch (error) {
+    console.error(error);
     alert(error.message);
   }
 };
 
-/* ============================= */
-/*            LOGIN              */
-/* ============================= */
-
+/* ===============================
+   LOGIN
+=================================*/
 window.login = async function () {
-  const userId = document.getElementById("userId").value.trim();
-  const password = document.getElementById("password").value;
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
 
-  if (!userId || !password) {
-    alert("Please fill all fields");
+  if (!email || !password) {
+    alert("Fill all fields");
     return;
   }
 
-  const email = userId + "@chatapp.com";
-
   try {
-    await setPersistence(auth, browserLocalPersistence);
-
     await signInWithEmailAndPassword(auth, email, password);
-
     window.location.href = "dashboard.html";
 
   } catch (error) {
-    alert("Invalid ID or password");
+    console.error(error);
+    alert("Invalid email or password");
   }
 };
