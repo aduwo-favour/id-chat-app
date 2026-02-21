@@ -1,4 +1,4 @@
-import { auth, db } from "./firebase.js";
+import { auth, db, storage } from "./firebase.js";
 
 import { onAuthStateChanged } from 
 "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
@@ -16,6 +16,12 @@ import {
   serverTimestamp,
   increment
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
 
 /* ================= GLOBALS ================= */
 
@@ -68,7 +74,7 @@ async function createChatIfNotExists() {
   }
 }
 
-/* ================= SEND MESSAGE ================= */
+/* ================= SEND TEXT ================= */
 
 window.sendMessage = async function () {
   const input = document.getElementById("messageInput");
@@ -77,13 +83,50 @@ window.sendMessage = async function () {
   const text = input.value.trim();
   if (!text) return;
 
-  try {
+  await addDoc(collection(db, "chats", chatId, "messages"), {
+    sender: currentUserId,
+    text,
+    imageUrl: null,
+    timestamp: serverTimestamp(),
+    deletedForEveryone: false,
+    replyTo: replyingTo,
+    seen: false,
+    seenAt: null
+  });
+
+  await updateDoc(doc(db, "chats", chatId), {
+    [`unread.${otherUserId}`]: increment(1)
+  });
+
+  input.value = "";
+  replyingTo = null;
+
+  const replyPreview = document.getElementById("replyPreview");
+  if (replyPreview) replyPreview.style.display = "none";
+};
+
+/* ================= SEND IMAGE ================= */
+
+const imageInput = document.getElementById("imageInput");
+
+if (imageInput) {
+  imageInput.addEventListener("change", async (e) => {
+
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const imageRef = ref(storage, `chatImages/${chatId}/${Date.now()}`);
+
+    await uploadBytes(imageRef, file);
+    const downloadURL = await getDownloadURL(imageRef);
+
     await addDoc(collection(db, "chats", chatId, "messages"), {
       sender: currentUserId,
-      text,
+      text: null,
+      imageUrl: downloadURL,
       timestamp: serverTimestamp(),
       deletedForEveryone: false,
-      replyTo: replyingTo,
+      replyTo: null,
       seen: false,
       seenAt: null
     });
@@ -91,17 +134,8 @@ window.sendMessage = async function () {
     await updateDoc(doc(db, "chats", chatId), {
       [`unread.${otherUserId}`]: increment(1)
     });
-
-    input.value = "";
-    replyingTo = null;
-
-    const replyPreview = document.getElementById("replyPreview");
-    if (replyPreview) replyPreview.style.display = "none";
-
-  } catch (err) {
-    console.error("Send error:", err);
-  }
-};
+  });
+}
 
 /* ================= LOAD MESSAGES ================= */
 
@@ -122,7 +156,7 @@ function loadMessages() {
       const data = docSnap.data();
       const isMine = data.sender === currentUserId;
 
-      /* ===== AUTO MARK SEEN ===== */
+      /* AUTO MARK SEEN */
       if (!isMine && !data.seen) {
         updateDoc(
           doc(db, "chats", chatId, "messages", docSnap.id),
@@ -138,7 +172,6 @@ function loadMessages() {
         ? "message my-message"
         : "message other-message";
 
-      /* ===== FORMAT TIME ===== */
       let timeString = "";
       if (data.timestamp?.toDate) {
         const date = data.timestamp.toDate();
@@ -148,7 +181,6 @@ function loadMessages() {
         });
       }
 
-      /* ===== SEEN DISPLAY ===== */
       let seenHTML = "";
       if (isMine && data.seen && data.seenAt?.toDate) {
         const seenTime = data.seenAt.toDate().toLocaleTimeString([], {
@@ -156,85 +188,39 @@ function loadMessages() {
           minute: "2-digit"
         });
 
-        seenHTML = `
-          <div class="seen-time">
-            Seen at ${seenTime}
-          </div>
-        `;
+        seenHTML = `<div class="seen-time">Seen at ${seenTime}</div>`;
       }
 
-      /* ===== MESSAGE DISPLAY ===== */
-
       if (data.deletedForEveryone) {
-
         messageDiv.innerHTML = `
-          <div class="deleted-message">
-            This message was deleted
-          </div>
+          <div class="deleted-message">This message was deleted</div>
         `;
-
       } else {
 
         let replyHTML = "";
         if (data.replyTo) {
-          replyHTML = `
-            <div class="reply-box">
-              ${data.replyTo}
-            </div>
+          replyHTML = `<div class="reply-box">${data.replyTo}</div>`;
+        }
+
+        let contentHTML = "";
+
+        if (data.imageUrl) {
+          contentHTML = `
+            <img src="${data.imageUrl}" class="chat-image">
+          `;
+        } else {
+          contentHTML = `
+            <div class="message-text">${data.text}</div>
           `;
         }
 
         messageDiv.innerHTML = `
           ${replyHTML}
-          <div class="message-text">${data.text}</div>
+          ${contentHTML}
           <div class="message-time">${timeString}</div>
           ${seenHTML}
         `;
       }
-
-      /* ===== DELETE (YOUR MESSAGES ONLY) ===== */
-
-      if (isMine && !data.deletedForEveryone) {
-
-        messageDiv.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          confirmDelete(docSnap.id);
-        });
-
-        let pressTimer;
-        messageDiv.addEventListener("touchstart", () => {
-          pressTimer = setTimeout(() => {
-            confirmDelete(docSnap.id);
-          }, 600);
-        });
-
-        messageDiv.addEventListener("touchend", () => {
-          clearTimeout(pressTimer);
-        });
-      }
-
-      /* ===== SWIPE TO REPLY ===== */
-
-      let startX = 0;
-
-      messageDiv.addEventListener("touchstart", (e) => {
-        startX = e.touches[0].clientX;
-      });
-
-      messageDiv.addEventListener("touchmove", (e) => {
-        const diff = e.touches[0].clientX - startX;
-
-        if (diff > 60 && !data.deletedForEveryone) {
-          triggerReply(data.text);
-        }
-
-        messageDiv.style.transform =
-          `translateX(${Math.min(diff, 60)}px)`;
-      });
-
-      messageDiv.addEventListener("touchend", () => {
-        messageDiv.style.transform = "translateX(0)";
-      });
 
       messagesDiv.appendChild(messageDiv);
     });
@@ -243,50 +229,12 @@ function loadMessages() {
   });
 }
 
-/* ================= DELETE ================= */
-
-function confirmDelete(messageId) {
-  if (confirm("Delete this message for everyone?")) {
-    deleteForEveryone(messageId);
-  }
-}
-
-window.deleteForEveryone = async function (messageId) {
-  try {
-    await updateDoc(
-      doc(db, "chats", chatId, "messages", messageId),
-      {
-        deletedForEveryone: true,
-        text: ""
-      }
-    );
-  } catch (err) {
-    console.error("Delete error:", err);
-  }
-};
-
-/* ================= REPLY ================= */
-
-function triggerReply(text) {
-  replyingTo = text;
-
-  const replyPreview = document.getElementById("replyPreview");
-  if (!replyPreview) return;
-
-  replyPreview.style.display = "block";
-  replyPreview.innerText = text;
-
-  document.getElementById("messageInput").focus();
-}
-
 /* ================= RESET UNREAD ================= */
 
 async function resetUnread() {
-  try {
-    await updateDoc(doc(db, "chats", chatId), {
-      [`unread.${currentUserId}`]: 0
-    });
-  } catch {}
+  await updateDoc(doc(db, "chats", chatId), {
+    [`unread.${currentUserId}`]: 0
+  });
 }
 
 /* ================= BACK ================= */
