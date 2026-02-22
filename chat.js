@@ -50,13 +50,13 @@ onAuthStateChanged(auth, async (user) => {
   const title = document.getElementById("chatTitle");
   if (title) title.innerText = otherUserId;
 
-  /* ===== SET USER ONLINE (FIXED LOCATION) ===== */
+  /* ===== SET USER ONLINE ===== */
   await updateDoc(userRef, {
     online: true,
     lastSeen: serverTimestamp()
   });
 
-  /* ===== SET OFFLINE WHEN LEAVING CHAT ===== */
+  /* ===== SET OFFLINE WHEN LEAVING ===== */
   window.addEventListener("beforeunload", () => {
     updateDoc(userRef, {
       online: false,
@@ -64,11 +64,41 @@ onAuthStateChanged(auth, async (user) => {
     }).catch(() => {});
   });
 
+  /* ===== LISTEN TO OTHER USER STATUS ===== */
+
+  const otherUserRef = doc(db, "users", participants.find(p => p !== currentUserId));
+
+  onSnapshot(otherUserRef, (snap) => {
+
+    const statusEl = document.getElementById("onlineStatus");
+    if (!statusEl) return;
+
+    if (!snap.exists()) {
+      statusEl.innerText = "";
+      return;
+    }
+
+    const data = snap.data();
+
+    if (data.online) {
+      statusEl.innerText = "Online";
+    } else if (data.lastSeen?.toDate) {
+      const date = data.lastSeen.toDate();
+      const time = date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+      statusEl.innerText = "Last seen at " + time;
+    } else {
+      statusEl.innerText = "Offline";
+    }
+
+  });
+
   await createChatIfNotExists();
   loadMessages();
   resetUnread();
 });
-
 
 /* ================= CREATE CHAT ================= */
 
@@ -85,7 +115,6 @@ async function createChatIfNotExists() {
     });
   }
 }
-
 
 /* ================= SEND MESSAGE ================= */
 
@@ -122,9 +151,7 @@ window.sendMessage = async function () {
   } catch (error) {
     console.error("Send message error:", error);
   }
-
 };
-
 
 /* ================= LOAD MESSAGES ================= */
 
@@ -147,6 +174,7 @@ function loadMessages() {
       const data = docSnap.data();
       const isMine = data.sender === currentUserId;
 
+      /* ===== AUTO MARK SEEN ===== */
       if (!isMine && !data.seen) {
         updateDoc(docSnap.ref, {
           seen: true,
@@ -204,7 +232,6 @@ function loadMessages() {
         `;
       }
 
-
       /* ===== DELETE ===== */
 
       if (isMine && !data.deletedForEveryone) {
@@ -227,7 +254,6 @@ function loadMessages() {
         });
       }
 
-
       /* ===== SWIPE TO REPLY ===== */
 
       let startX = 0;
@@ -244,8 +270,7 @@ function loadMessages() {
 
         if (!isSwiping) return;
 
-        const currentX = e.touches[0].clientX;
-        const diff = currentX - startX;
+        const diff = e.touches[0].clientX - startX;
 
         if (diff > 0) {
 
@@ -273,7 +298,6 @@ function loadMessages() {
   });
 }
 
-
 /* ================= REPLY ================= */
 
 function triggerReply(text) {
@@ -283,13 +307,11 @@ function triggerReply(text) {
   const replyPreview = document.getElementById("replyPreview");
   if (!replyPreview) return;
 
-  replyPreview.innerText = text.length > 60
-    ? text.substring(0, 60) + "..."
-    : text;
+  replyPreview.innerText =
+    text.length > 60 ? text.substring(0, 60) + "..." : text;
 
   replyPreview.style.display = "block";
 }
-
 
 /* ================= DELETE ================= */
 
@@ -313,7 +335,6 @@ async function deleteForEveryone(messageId) {
   }
 }
 
-
 /* ================= RESET UNREAD ================= */
 
 async function resetUnread() {
@@ -321,7 +342,6 @@ async function resetUnread() {
     [`unread.${currentUserId}`]: 0
   });
 }
-
 
 /* ================= BACK ================= */
 
