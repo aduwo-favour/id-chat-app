@@ -54,7 +54,6 @@ onAuthStateChanged(auth, async (user) => {
     if (welcome) {
       welcome.innerText = "Logged in as: " + currentUserId;
     }
-/* ===== SET USER ONLINE ===== */
 
 /* ===== SET USER ONLINE ===== */
 
@@ -66,13 +65,11 @@ await updateDoc(userRef, {
 });
 /* ===== SET OFFLINE WHEN TAB CLOSES ===== */
 
-window.addEventListener("beforeunload", async () => {
-  try {
-    await updateDoc(doc(db, "users", currentUid), {
-      online: false,
-      lastSeen: serverTimestamp()
-    });
-  } catch {}
+window.addEventListener("beforeunload", () => {
+  updateDoc(userRef, {
+    online: false,
+    lastSeen: serverTimestamp()
+  }).catch(() => {});
 });
 
 /* ================= LOGOUT ================= */
@@ -80,7 +77,7 @@ window.addEventListener("beforeunload", async () => {
 window.logout = async function () {
   try {
     if (currentUid) {
-      await updateDoc(doc(db, "users", currentUid), {
+      await updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
       });
@@ -223,5 +220,6 @@ function showNotification(message) {
     notification.remove();
   }, 3000);
                     }
+
 
 
