@@ -40,7 +40,8 @@ onAuthStateChanged(auth, async (user) => {
 
   currentUid = user.uid;
 
-  const userDoc = await getDoc(doc(db, "users", currentUid));
+  const userRef = doc(db, "users", currentUid);
+  const userDoc = await getDoc(userRef);
   if (!userDoc.exists()) return;
 
   currentUserId = userDoc.data().userId;
@@ -49,18 +50,25 @@ onAuthStateChanged(auth, async (user) => {
   const title = document.getElementById("chatTitle");
   if (title) title.innerText = otherUserId;
 
+  /* ===== SET USER ONLINE (FIXED LOCATION) ===== */
+  await updateDoc(userRef, {
+    online: true,
+    lastSeen: serverTimestamp()
+  });
+
+  /* ===== SET OFFLINE WHEN LEAVING CHAT ===== */
+  window.addEventListener("beforeunload", () => {
+    updateDoc(userRef, {
+      online: false,
+      lastSeen: serverTimestamp()
+    }).catch(() => {});
+  });
+
   await createChatIfNotExists();
   loadMessages();
   resetUnread();
 });
 
-
-/* ===== SET USER ONLINE ===== */
-
-await updateDoc(doc(db, "users", currentUid), {
-  online: true,
-  lastSeen: serverTimestamp()
-});
 
 /* ================= CREATE CHAT ================= */
 
@@ -78,36 +86,45 @@ async function createChatIfNotExists() {
   }
 }
 
+
 /* ================= SEND MESSAGE ================= */
 
 window.sendMessage = async function () {
 
-  const input = document.getElementById("messageInput");
-  if (!input) return;
+  try {
 
-  const text = input.value.trim();
-  if (!text) return;
+    const input = document.getElementById("messageInput");
+    if (!input) return;
 
-  await addDoc(collection(db, "chats", chatId, "messages"), {
-    sender: currentUserId,
-    text,
-    timestamp: serverTimestamp(),
-    deletedForEveryone: false,
-    replyTo: replyingTo,
-    seen: false,
-    seenAt: null
-  });
+    const text = input.value.trim();
+    if (!text) return;
 
-  await updateDoc(doc(db, "chats", chatId), {
-    [`unread.${otherUserId}`]: increment(1)
-  });
+    await addDoc(collection(db, "chats", chatId, "messages"), {
+      sender: currentUserId,
+      text,
+      timestamp: serverTimestamp(),
+      deletedForEveryone: false,
+      replyTo: replyingTo,
+      seen: false,
+      seenAt: null
+    });
 
-  input.value = "";
-  replyingTo = null;
+    await updateDoc(doc(db, "chats", chatId), {
+      [`unread.${otherUserId}`]: increment(1)
+    });
 
-  const replyPreview = document.getElementById("replyPreview");
-  if (replyPreview) replyPreview.style.display = "none";
+    input.value = "";
+    replyingTo = null;
+
+    const replyPreview = document.getElementById("replyPreview");
+    if (replyPreview) replyPreview.style.display = "none";
+
+  } catch (error) {
+    console.error("Send message error:", error);
+  }
+
 };
+
 
 /* ================= LOAD MESSAGES ================= */
 
@@ -130,8 +147,6 @@ function loadMessages() {
       const data = docSnap.data();
       const isMine = data.sender === currentUserId;
 
-      /* ===== AUTO MARK SEEN ===== */
-
       if (!isMine && !data.seen) {
         updateDoc(docSnap.ref, {
           seen: true,
@@ -144,8 +159,6 @@ function loadMessages() {
         ? "message my-message"
         : "message other-message";
 
-      /* ===== FORMAT TIME ===== */
-
       let timeString = "";
       if (data.timestamp?.toDate) {
         const date = data.timestamp.toDate();
@@ -155,19 +168,14 @@ function loadMessages() {
         });
       }
 
-      /* ===== SEEN DISPLAY ===== */
-
       let seenHTML = "";
       if (isMine && data.seen && data.seenAt?.toDate) {
         const seenTime = data.seenAt.toDate().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit"
         });
-
         seenHTML = `<div class="seen-time">Seen at ${seenTime}</div>`;
       }
-
-      /* ===== MESSAGE CONTENT ===== */
 
       if (data.deletedForEveryone) {
 
@@ -197,72 +205,74 @@ function loadMessages() {
       }
 
 
-      /* ===== DELETE (YOUR MESSAGES ONLY) ===== */
+      /* ===== DELETE ===== */
 
-if (isMine && !data.deletedForEveryone) {
+      if (isMine && !data.deletedForEveryone) {
 
-  // Desktop right click
-  messageDiv.addEventListener("contextmenu", (e) => {
-    e.preventDefault();
-    confirmDelete(docSnap.id);
-  });
+        messageDiv.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          confirmDelete(docSnap.id);
+        });
 
-  // Mobile long press
-  let pressTimer;
+        let pressTimer;
 
-  messageDiv.addEventListener("touchstart", () => {
-    pressTimer = setTimeout(() => {
-      confirmDelete(docSnap.id);
-    }, 600);
-  });
+        messageDiv.addEventListener("touchstart", () => {
+          pressTimer = setTimeout(() => {
+            confirmDelete(docSnap.id);
+          }, 600);
+        });
 
-  messageDiv.addEventListener("touchend", () => {
-    clearTimeout(pressTimer);
-  });
-}
+        messageDiv.addEventListener("touchend", () => {
+          clearTimeout(pressTimer);
+        });
+      }
+
+
       /* ===== SWIPE TO REPLY ===== */
 
-let startX = 0;
-let isSwiping = false;
-let hasTriggered = false;
+      let startX = 0;
+      let isSwiping = false;
+      let hasTriggered = false;
 
-messageDiv.addEventListener("touchstart", (e) => {
-  startX = e.touches[0].clientX;
-  isSwiping = true;
-  hasTriggered = false;
-});
+      messageDiv.addEventListener("touchstart", (e) => {
+        startX = e.touches[0].clientX;
+        isSwiping = true;
+        hasTriggered = false;
+      });
 
-messageDiv.addEventListener("touchmove", (e) => {
-  if (!isSwiping) return;
+      messageDiv.addEventListener("touchmove", (e) => {
 
-  const currentX = e.touches[0].clientX;
-  const diff = currentX - startX;
+        if (!isSwiping) return;
 
-  if (diff > 0) {
+        const currentX = e.touches[0].clientX;
+        const diff = currentX - startX;
 
-    const moveAmount = Math.min(diff, 80);
-    messageDiv.style.transform = `translateX(${moveAmount}px)`;
+        if (diff > 0) {
 
-    if (diff > 70 && !hasTriggered && !data.deletedForEveryone) {
-      hasTriggered = true;
-      triggerReply(data.text);
-    }
-  }
-});
+          const moveAmount = Math.min(diff, 80);
+          messageDiv.style.transform = `translateX(${moveAmount}px)`;
 
-messageDiv.addEventListener("touchend", () => {
-  isSwiping = false;
-  messageDiv.style.transform = "translateX(0)";
-});
+          if (diff > 70 && !hasTriggered && !data.deletedForEveryone) {
+            hasTriggered = true;
+            triggerReply(data.text);
+          }
+        }
+      });
 
-      // swipe code here
+      messageDiv.addEventListener("touchend", () => {
+        isSwiping = false;
+        messageDiv.style.transform = "translateX(0)";
+      });
 
-messagesDiv.appendChild(messageDiv);
+      messagesDiv.appendChild(messageDiv);
+
     });
 
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
   });
 }
+
 
 /* ================= REPLY ================= */
 
@@ -271,18 +281,11 @@ function triggerReply(text) {
   replyingTo = text;
 
   const replyPreview = document.getElementById("replyPreview");
-  const replyText = document.getElementById("replyText");
-
   if (!replyPreview) return;
 
-  // If you don't have replyText span, fallback
-  if (replyText) {
-    replyText.innerText = text.length > 60
-      ? text.substring(0, 60) + "..."
-      : text;
-  } else {
-    replyPreview.innerText = text;
-  }
+  replyPreview.innerText = text.length > 60
+    ? text.substring(0, 60) + "..."
+    : text;
 
   replyPreview.style.display = "block";
 }
@@ -310,16 +313,6 @@ async function deleteForEveryone(messageId) {
   }
 }
 
-/* ===== SET OFFLINE WHEN LEAVING CHAT ===== */
-
-window.addEventListener("beforeunload", async () => {
-  try {
-    await updateDoc(doc(db, "users", currentUid), {
-      online: false,
-      lastSeen: serverTimestamp()
-    });
-  } catch {}
-});
 
 /* ================= RESET UNREAD ================= */
 
@@ -329,11 +322,9 @@ async function resetUnread() {
   });
 }
 
+
 /* ================= BACK ================= */
 
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
-
-
-
