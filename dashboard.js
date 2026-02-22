@@ -24,15 +24,18 @@ let originalTitle = document.title;
 /* ================= AUTH CHECK ================= */
 
 onAuthStateChanged(auth, async (user) => {
+
   if (!user) {
     window.location.href = "index.html";
     return;
   }
 
   try {
+
     currentUid = user.uid;
 
-    const userDoc = await getDoc(doc(db, "users", user.uid));
+    const userRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userRef);
 
     if (!userDoc.exists()) {
       alert("User profile not found.");
@@ -55,33 +58,47 @@ onAuthStateChanged(auth, async (user) => {
       welcome.innerText = "Logged in as: " + currentUserId;
     }
 
-/* ===== SET USER ONLINE ===== */
+    /* ===== SET USER ONLINE ===== */
 
-const userRef = userDoc.ref;
+    await updateDoc(userRef, {
+      online: true,
+      lastSeen: serverTimestamp()
+    });
 
-await updateDoc(userRef, {
-  online: true,
-  lastSeen: serverTimestamp()
-});
-/* ===== SET OFFLINE WHEN TAB CLOSES ===== */
+    /* ===== SET OFFLINE WHEN TAB CLOSES ===== */
 
-window.addEventListener("beforeunload", () => {
-  updateDoc(userRef, {
-    online: false,
-    lastSeen: serverTimestamp()
-  }).catch(() => {});
-});
+    window.addEventListener("beforeunload", () => {
+      updateDoc(userRef, {
+        online: false,
+        lastSeen: serverTimestamp()
+      }).catch(() => {});
+    });
+
+    /* ===== LOAD CHATS AFTER LOGIN ===== */
+    loadChats();
+
+  } catch (error) {
+    console.error("Auth error:", error);
+  }
+
+}); // ✅ THIS WAS MISSING
+
 
 /* ================= LOGOUT ================= */
 
 window.logout = async function () {
+
   try {
+
     if (currentUid) {
+      const userRef = doc(db, "users", currentUid);
+
       await updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
       });
     }
+
   } catch (e) {
     console.log("Offline update skipped");
   }
@@ -90,9 +107,11 @@ window.logout = async function () {
   window.location.href = "index.html";
 };
 
+
 /* ================= START CHAT ================= */
 
 window.startChat = async function () {
+
   const friendIdInput = document.getElementById("friendId");
   if (!friendIdInput) return;
 
@@ -109,6 +128,7 @@ window.startChat = async function () {
   }
 
   try {
+
     const usersRef = collection(db, "users");
     const q = query(usersRef, where("userId", "==", friendId));
     const snapshot = await getDocs(q);
@@ -126,9 +146,11 @@ window.startChat = async function () {
   }
 };
 
+
 /* ================= LOAD CHATS ================= */
 
 function loadChats() {
+
   if (!currentUserId) return;
 
   const chatsRef = collection(db, "chats");
@@ -139,6 +161,7 @@ function loadChats() {
   );
 
   onSnapshot(q, (snapshot) => {
+
     const chatList = document.getElementById("chatList");
     if (!chatList) return;
 
@@ -147,8 +170,8 @@ function loadChats() {
     let totalUnread = 0;
 
     snapshot.forEach((docSnap) => {
-      const data = docSnap.data() || {};
 
+      const data = docSnap.data() || {};
       if (!data.participants) return;
 
       const otherUser = data.participants.find(
@@ -180,6 +203,7 @@ function loadChats() {
       `;
 
       chatList.appendChild(div);
+
     });
 
     if (totalUnread > 0) {
@@ -187,13 +211,18 @@ function loadChats() {
     } else {
       document.title = originalTitle;
     }
+
   });
+
 }
+
 
 /* ================= OPEN CHAT ================= */
 
 window.openChat = async function (chatId) {
+
   try {
+
     const chatRef = doc(db, "chats", chatId);
 
     await updateDoc(chatRef, {
@@ -207,9 +236,11 @@ window.openChat = async function (chatId) {
   window.location.href = "chat.html?chatId=" + chatId;
 };
 
+
 /* ================= SIMPLE POPUP ================= */
 
 function showNotification(message) {
+
   const notification = document.createElement("div");
   notification.className = "custom-notification";
   notification.innerText = message;
@@ -219,7 +250,5 @@ function showNotification(message) {
   setTimeout(() => {
     notification.remove();
   }, 3000);
-                    }
 
-
-
+}
