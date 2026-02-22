@@ -11,6 +11,7 @@
 
   <!-- ===== HEADER ===== -->
   <div class="chat-header">
+    
 
     <button class="back-btn" onclick="goBack()">⬅</button>
 
@@ -18,6 +19,7 @@
       <h3 id="chatTitle"></h3>
       <div id="onlineStatus" class="online-status"></div>
       <div id="typingStatus" class="typing-status"></div>
+      <div id="google_translate_element" style="font-size:12px;"></div>
     </div>
 
   </div>
@@ -51,7 +53,20 @@
 
 <script type="module" src="firebase.js"></script>
 <script type="module" src="chat.js"></script>
+</script>
+
+  <script type="text/javascript">
+function googleTranslateElementInit() {
+  new google.translate.TranslateElement(
+    {pageLanguage: 'en'},
+    'google_translate_element'
+  );
+}
+</script>
+
+<script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
 </body>
 </html>
+
 
