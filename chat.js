@@ -54,6 +54,14 @@ onAuthStateChanged(auth, async (user) => {
   resetUnread();
 });
 
+
+/* ===== SET USER ONLINE ===== */
+
+await updateDoc(doc(db, "users", currentUid), {
+  online: true,
+  lastSeen: serverTimestamp()
+});
+
 /* ================= CREATE CHAT ================= */
 
 async function createChatIfNotExists() {
@@ -302,6 +310,17 @@ async function deleteForEveryone(messageId) {
   }
 }
 
+/* ===== SET OFFLINE WHEN LEAVING CHAT ===== */
+
+window.addEventListener("beforeunload", async () => {
+  try {
+    await updateDoc(doc(db, "users", currentUid), {
+      online: false,
+      lastSeen: serverTimestamp()
+    });
+  } catch {}
+});
+
 /* ================= RESET UNREAD ================= */
 
 async function resetUnread() {
@@ -315,5 +334,6 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
 
 
