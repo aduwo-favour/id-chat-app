@@ -14,7 +14,8 @@ import {
   orderBy,
   onSnapshot,
   serverTimestamp,
-  increment
+  increment,
+  where
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 /* ================= GLOBALS ================= */
@@ -50,13 +51,13 @@ onAuthStateChanged(auth, async (user) => {
   const title = document.getElementById("chatTitle");
   if (title) title.innerText = otherUserId;
 
-  /* ===== SET USER ONLINE (FIXED LOCATION) ===== */
+  /* ===== SET USER ONLINE ===== */
   await updateDoc(userRef, {
     online: true,
     lastSeen: serverTimestamp()
   });
 
-  /* ===== SET OFFLINE WHEN LEAVING CHAT ===== */
+  /* ===== SET OFFLINE WHEN LEAVING ===== */
   window.addEventListener("beforeunload", () => {
     updateDoc(userRef, {
       online: false,
@@ -64,11 +65,47 @@ onAuthStateChanged(auth, async (user) => {
     }).catch(() => {});
   });
 
+  /* ===== LISTEN TO OTHER USER STATUS ===== */
+
+  const otherQuery = query(
+    collection(db, "users"),
+    where("userId", "==", otherUserId)
+  );
+
+  onSnapshot(otherQuery, (snapshot) => {
+
+    const statusEl = document.getElementById("onlineStatus");
+    if (!statusEl) return;
+
+    if (snapshot.empty) {
+      statusEl.innerText = "";
+      return;
+    }
+
+    const data = snapshot.docs[0].data();
+
+    if (data.online) {
+      statusEl.innerText = "Online";
+    } else if (data.lastSeen?.toDate) {
+
+      const date = data.lastSeen.toDate();
+      const time = date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+
+      statusEl.innerText = "Last seen at " + time;
+
+    } else {
+      statusEl.innerText = "Offline";
+    }
+
+  });
+
   await createChatIfNotExists();
   loadMessages();
   resetUnread();
 });
-
 
 /* ================= CREATE CHAT ================= */
 
@@ -85,7 +122,6 @@ async function createChatIfNotExists() {
     });
   }
 }
-
 
 /* ================= SEND MESSAGE ================= */
 
@@ -122,9 +158,7 @@ window.sendMessage = async function () {
   } catch (error) {
     console.error("Send message error:", error);
   }
-
 };
-
 
 /* ================= LOAD MESSAGES ================= */
 
@@ -189,11 +223,7 @@ function loadMessages() {
 
         let replyHTML = "";
         if (data.replyTo) {
-          replyHTML = `
-            <div class="reply-box">
-              ${data.replyTo}
-            </div>
-          `;
+          replyHTML = `<div class="reply-box">${data.replyTo}</div>`;
         }
 
         messageDiv.innerHTML = `
@@ -204,92 +234,22 @@ function loadMessages() {
         `;
       }
 
-
-      /* ===== DELETE ===== */
-
-      if (isMine && !data.deletedForEveryone) {
-
-        messageDiv.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          confirmDelete(docSnap.id);
-        });
-
-        let pressTimer;
-
-        messageDiv.addEventListener("touchstart", () => {
-          pressTimer = setTimeout(() => {
-            confirmDelete(docSnap.id);
-          }, 600);
-        });
-
-        messageDiv.addEventListener("touchend", () => {
-          clearTimeout(pressTimer);
-        });
-      }
-
-
-      /* ===== SWIPE TO REPLY ===== */
-
-      let startX = 0;
-      let isSwiping = false;
-      let hasTriggered = false;
-
-      messageDiv.addEventListener("touchstart", (e) => {
-        startX = e.touches[0].clientX;
-        isSwiping = true;
-        hasTriggered = false;
-      });
-
-      messageDiv.addEventListener("touchmove", (e) => {
-
-        if (!isSwiping) return;
-
-        const currentX = e.touches[0].clientX;
-        const diff = currentX - startX;
-
-        if (diff > 0) {
-
-          const moveAmount = Math.min(diff, 80);
-          messageDiv.style.transform = `translateX(${moveAmount}px)`;
-
-          if (diff > 70 && !hasTriggered && !data.deletedForEveryone) {
-            hasTriggered = true;
-            triggerReply(data.text);
-          }
-        }
-      });
-
-      messageDiv.addEventListener("touchend", () => {
-        isSwiping = false;
-        messageDiv.style.transform = "translateX(0)";
-      });
-
       messagesDiv.appendChild(messageDiv);
-
     });
 
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
   });
 }
-
 
 /* ================= REPLY ================= */
 
 function triggerReply(text) {
-
   replyingTo = text;
-
   const replyPreview = document.getElementById("replyPreview");
   if (!replyPreview) return;
-
-  replyPreview.innerText = text.length > 60
-    ? text.substring(0, 60) + "..."
-    : text;
-
+  replyPreview.innerText = text.length > 60 ? text.substring(0, 60) + "..." : text;
   replyPreview.style.display = "block";
 }
-
 
 /* ================= DELETE ================= */
 
@@ -313,7 +273,6 @@ async function deleteForEveryone(messageId) {
   }
 }
 
-
 /* ================= RESET UNREAD ================= */
 
 async function resetUnread() {
@@ -321,7 +280,6 @@ async function resetUnread() {
     [`unread.${currentUserId}`]: 0
   });
 }
-
 
 /* ================= BACK ================= */
 
