@@ -54,33 +54,21 @@ onAuthStateChanged(auth, async (user) => {
     if (welcome) {
       welcome.innerText = "Logged in as: " + currentUserId;
     }
-
     /* ===== SET USER ONLINE ===== */
 
+await updateDoc(doc(db, "users", currentUid), {
+  online: true,
+  lastSeen: serverTimestamp()
+});
+/* ===== SET OFFLINE WHEN TAB CLOSES ===== */
+
+window.addEventListener("beforeunload", async () => {
+  try {
     await updateDoc(doc(db, "users", currentUid), {
-      online: true,
+      online: false,
       lastSeen: serverTimestamp()
     });
-
-    /* ===== SET USER OFFLINE WHEN LEAVING ===== */
-
-    window.addEventListener("beforeunload", async () => {
-      try {
-        await updateDoc(doc(db, "users", currentUid), {
-          online: false,
-          lastSeen: serverTimestamp()
-        });
-      } catch (e) {
-        console.log("Offline update skipped");
-      }
-    });
-
-    loadChats();
-
-  } catch (err) {
-    console.error("Dashboard error:", err);
-    alert("Error loading dashboard.");
-  }
+  } catch {}
 });
 
 /* ================= LOGOUT ================= */
@@ -231,3 +219,4 @@ function showNotification(message) {
     notification.remove();
   }, 3000);
                     }
+
