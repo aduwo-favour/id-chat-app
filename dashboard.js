@@ -54,9 +54,13 @@ onAuthStateChanged(auth, async (user) => {
     if (welcome) {
       welcome.innerText = "Logged in as: " + currentUserId;
     }
-    /* ===== SET USER ONLINE ===== */
+/* ===== SET USER ONLINE ===== */
 
-await updateDoc(doc(db, "users", currentUid), {
+/* ===== SET USER ONLINE ===== */
+
+const userRef = userDoc.ref;
+
+await updateDoc(userRef, {
   online: true,
   lastSeen: serverTimestamp()
 });
@@ -219,4 +223,5 @@ function showNotification(message) {
     notification.remove();
   }, 3000);
                     }
+
 
