@@ -18,23 +18,32 @@ import {
   orderBy
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
+import {
+  getDatabase,
+  ref,
+  onValue,
+  onDisconnect,
+  set,
+  serverTimestamp as rtdbServerTimestamp
+} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
 let currentUserId = null;
 let currentUid = null;
 let originalTitle = document.title;
 let userRef = null;
 let unloadListenerAdded = false;
 
+const rtdb = getDatabase();
+
 /* ================= AUTH CHECK ================= */
 
 onAuthStateChanged(auth, async (user) => {
-
   if (!user) {
     window.location.href = "index.html";
     return;
   }
 
   try {
-
     currentUid = user.uid;
     userRef = doc(db, "users", currentUid);
 
@@ -61,21 +70,49 @@ onAuthStateChanged(auth, async (user) => {
       welcome.innerText = "Logged in as: " + currentUserId;
     }
 
-    /* ===== SET USER ONLINE ===== */
+    // ────────────────────────────────────────────────
+    //               PRESENCE SYSTEM
+    // ────────────────────────────────────────────────
 
+    // 1. Realtime Database - true connection status
+    const connectedRef = ref(rtdb, ".info/connected");
+
+    onValue(connectedRef, (snap) => {
+      if (snap.val() === true) {
+        const statusRef = ref(rtdb, "status/" + currentUid);
+
+        set(statusRef, {
+          online: true,
+          lastChanged: rtdbServerTimestamp()
+        });
+
+        onDisconnect(statusRef).set({
+          online: false,
+          lastChanged: rtdbServerTimestamp()
+        });
+      }
+    });
+
+    // 2. Mirror to Firestore (for consistency with your old code)
     await updateDoc(userRef, {
       online: true,
       lastSeen: serverTimestamp()
     }).catch(() => {});
 
-    /* ===== SET OFFLINE WHEN TAB CLOSES ===== */
-
+    // 3. Visibility + unload listeners
     if (!unloadListenerAdded) {
       unloadListenerAdded = true;
 
+      document.addEventListener("visibilitychange", () => {
+        if (!userRef) return;
+        updateDoc(userRef, {
+          online: document.visibilityState === "visible",
+          lastSeen: serverTimestamp()
+        }).catch(() => {});
+      });
+
       window.addEventListener("beforeunload", () => {
         if (!userRef) return;
-
         updateDoc(userRef, {
           online: false,
           lastSeen: serverTimestamp()
@@ -83,66 +120,36 @@ onAuthStateChanged(auth, async (user) => {
       });
     }
 
-    /* ===== MOBILE VISIBILITY FIX ===== */
-
-document.addEventListener("visibilitychange", () => {
-
-  if (!userRef) return;
-
-  if (document.visibilityState === "hidden") {
-
-    updateDoc(userRef, {
-      online: false,
-      lastSeen: serverTimestamp()
-    }).catch(() => {});
-
-  } else {
-
-    updateDoc(userRef, {
-      online: true
-    }).catch(() => {});
-
-  }
-
-});
-
-    /* ===== LOAD CHATS AFTER LOGIN ===== */
+    // ────────────────────────────────────────────────
+    //               LOAD CHATS
+    // ────────────────────────────────────────────────
 
     loadChats();
 
   } catch (error) {
-    console.error("Auth error:", error);
+    console.error("Auth / presence setup error:", error);
   }
-
 });
-
 
 /* ================= LOGOUT ================= */
 
 window.logout = async function () {
-
   try {
-
     if (userRef) {
       await updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
       }).catch(() => {});
     }
-
-  } catch (e) {
-    console.log("Offline update skipped");
-  }
+  } catch {}
 
   await signOut(auth);
   window.location.href = "index.html";
 };
 
-
 /* ================= START CHAT ================= */
 
 window.startChat = async function () {
-
   const friendIdInput = document.getElementById("friendId");
   if (!friendIdInput) return;
 
@@ -159,7 +166,6 @@ window.startChat = async function () {
   }
 
   try {
-
     const usersRef = collection(db, "users");
     const q = query(usersRef, where("userId", "==", friendId));
     const snapshot = await getDocs(q);
@@ -170,30 +176,28 @@ window.startChat = async function () {
     }
 
     const chatId = [currentUserId, friendId].sort().join("_");
-    window.location.href = "chat.html?chatId=" + chatId;
+    window.location.href = "chat.html?chatId=" + chatId + "&from=private";
 
   } catch (err) {
     console.error("Start chat error:", err);
+    showNotification("Error starting chat");
   }
 };
 
-
-/* ================= LOAD CHATS ================= */
+/* ================= LOAD CHATS + PRESENCE ================= */
 
 function loadChats() {
-
   if (!currentUserId) return;
 
   const chatsRef = collection(db, "chats");
 
   const q = query(
-  chatsRef,
-  where("participants", "array-contains", currentUserId),
-  orderBy("lastMessageTime", "desc")
-);
+    chatsRef,
+    where("participants", "array-contains", currentUserId),
+    orderBy("lastMessageTime", "desc")
+  );
 
-  onSnapshot(q, (snapshot) => {
-
+  onSnapshot(q, async (snapshot) => {
     const chatList = document.getElementById("chatList");
     if (!chatList) return;
 
@@ -201,39 +205,17 @@ function loadChats() {
 
     let totalUnread = 0;
 
-    snapshot.forEach((docSnap) => {
-
+    for (const docSnap of snapshot.docs) {
       const data = docSnap.data() || {};
-      if (!data.participants) return;
+      if (!data.participants) continue;
 
-      const otherUser = data.participants.find(
-        id => id !== currentUserId
-      );
+      const otherUser = data.participants.find(id => id !== currentUserId);
+      if (!otherUser) continue;
 
-      // Update Private badge
-const privateBadge = document.getElementById("privateBadge");
-
-if (privateBadge) {
-  if (totalUnread > 0) {
-    privateBadge.style.display = "inline-block";
-    privateBadge.innerText = totalUnread;
-  } else {
-    privateBadge.style.display = "none";
-  }
-}
-
-      if (!otherUser) return;
-
-      const unread =
-        data.unread && data.unread[currentUserId]
-          ? data.unread[currentUserId]
-          : 0;
-
+      const unread = data.unread?.[currentUserId] ?? 0;
       totalUnread += unread;
 
-      const badge = unread > 0
-        ? `<span class="unread-badge">${unread}</span>`
-        : "";
+      const badge = unread > 0 ? `<span class="unread-badge">${unread}</span>` : "";
 
       const div = document.createElement("div");
       div.className = "chat-item";
@@ -241,6 +223,7 @@ if (privateBadge) {
       div.innerHTML = `
         <div class="chat-info">
           <span>Chat with ${otherUser}</span>
+          <span class="chat-status">…</span>
           ${badge}
         </div>
         <button onclick="openChat('${docSnap.id}')">Open</button>
@@ -248,54 +231,117 @@ if (privateBadge) {
 
       chatList.appendChild(div);
 
-    });
+      // ─── Get other user's UID and listen to status ───
+      try {
+        const usersQ = query(collection(db, "users"), where("userId", "==", otherUser));
+        const userSnap = await getDocs(usersQ);
 
-    if (totalUnread > 0) {
-      document.title = `(${totalUnread}) New Messages`;
-    } else {
-      document.title = originalTitle;
+        if (userSnap.empty) {
+          div.querySelector(".chat-status").innerText = "";
+          continue;
+        }
+
+        const otherUid = userSnap.docs[0].id;
+        const statusRef = ref(rtdb, "status/" + otherUid);
+
+        onValue(statusRef, (snap) => {
+          const statusEl = div.querySelector(".chat-status");
+          if (!statusEl) return;
+
+          if (!snap.exists()) {
+            statusEl.innerText = "Offline";
+            statusEl.style.color = "#888";
+            return;
+          }
+
+          const val = snap.val();
+
+          if (val.online === true) {
+            statusEl.innerText = "Online";
+            statusEl.style.color = "#4caf50"; // green
+          } else {
+            const last = val.lastChanged ? new Date(val.lastChanged) : null;
+            if (!last) {
+              statusEl.innerText = "Offline";
+              statusEl.style.color = "#888";
+              return;
+            }
+
+            const diffMs = Date.now() - last.getTime();
+            const diffMin = Math.floor(diffMs / 60000);
+
+            let text = "Offline";
+
+            if (diffMin < 2)          text = "just now";
+            else if (diffMin < 60)    text = `${diffMin} min ago`;
+            else if (diffMin < 1440) {
+              const h = Math.floor(diffMin / 60);
+              text = `${h} ${h === 1 ? "hour" : "hours"} ago`;
+            }
+            else if (diffMin < 10080) { // within a week
+              text = last.toLocaleDateString([], { weekday: "short" }) +
+                     " at " + last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            }
+            else {
+              text = last.toLocaleDateString([], {
+                day: "numeric", month: "short", year: "numeric"
+              });
+            }
+
+            statusEl.innerText = "Last seen " + text;
+            statusEl.style.color = "#888";
+          }
+        });
+
+      } catch (err) {
+        console.warn("Could not load status for", otherUser, err);
+        div.querySelector(".chat-status").innerText = "";
+      }
     }
 
+    // Update badge & title
+    const privateBadge = document.getElementById("privateBadge");
+    if (privateBadge) {
+      if (totalUnread > 0) {
+        privateBadge.style.display = "inline-block";
+        privateBadge.innerText = totalUnread;
+      } else {
+        privateBadge.style.display = "none";
+      }
+    }
+
+    document.title = totalUnread > 0
+      ? `(${totalUnread}) New Messages`
+      : originalTitle;
   });
-
 }
-
 
 /* ================= OPEN CHAT ================= */
 
 window.openChat = async function (chatId) {
-
   try {
-
     const chatRef = doc(db, "chats", chatId);
-
     await updateDoc(chatRef, {
       [`unread.${currentUserId}`]: 0
     }).catch(() => {});
+  } catch {}
 
-  } catch (err) {
-    console.log("Unread reset skipped");
-  }
-
-  window.location.href = "chat.html?chatId=" + chatId + "&from=dashboard";
+  window.location.href = "chat.html?chatId=" + chatId + "&from=private";
 };
 
-
-/* ================= SIMPLE POPUP ================= */
+/* ================= SIMPLE NOTIFICATION ================= */
 
 function showNotification(message) {
-
   const notification = document.createElement("div");
   notification.className = "custom-notification";
   notification.innerText = message;
 
   document.body.appendChild(notification);
+  setTimeout(() => notification.remove(), 3000);
+}
 
-  setTimeout(() => {
-    notification.remove();
-  }, 3000);
+/* ================= NAVIGATION ================= */
 
-  }
 window.openCommunity = function () {
   window.location.href = "community.html";
 };
@@ -303,12 +349,3 @@ window.openCommunity = function () {
 window.openPrivate = function () {
   window.location.href = "private.html";
 };
-
-      
-
-
-
-
-
-             
-
