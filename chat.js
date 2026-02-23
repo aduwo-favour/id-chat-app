@@ -289,6 +289,22 @@ function loadMessages() {
         isSwiping = false;
         messageDiv.style.transform = "translateX(0)";
       });
+      // ===== REACTION MENU (Desktop Double Click) =====
+messageDiv.addEventListener("dblclick", () => {
+  showReactionMenu(messageDiv, docSnap.id);
+});
+
+      let reactionTimer;
+
+messageDiv.addEventListener("touchstart", () => {
+  reactionTimer = setTimeout(() => {
+    showReactionMenu(messageDiv, docSnap.id);
+  }, 500);
+});
+
+messageDiv.addEventListener("touchend", () => {
+  clearTimeout(reactionTimer);
+});
 
       messagesDiv.appendChild(messageDiv);
 
@@ -362,4 +378,5 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
 
