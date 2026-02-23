@@ -14,7 +14,9 @@ import {
   orderBy,
   onSnapshot,
   serverTimestamp,
-  increment
+  increment,
+  where,
+  getDocs
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 /* ================= GLOBALS ================= */
@@ -75,10 +77,19 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   /* ===== LISTEN TO OTHER USER STATUS ===== */
+/* ===== LISTEN TO OTHER USER STATUS ===== */
 
-  const otherUserRef = doc(db, "users", otherUserId);
+const usersRef = collection(db, "users");
+const q = query(usersRef, where("userId", "==", otherUserId));
+const querySnapshot = await getDocs(q);
+
+if (!querySnapshot.empty) {
+
+  const otherDoc = querySnapshot.docs[0];
+  const otherUserRef = doc(db, "users", otherDoc.id);
 
   onSnapshot(otherUserRef, (snap) => {
+
     const statusEl = document.getElementById("onlineStatus");
     if (!statusEl) return;
 
@@ -92,16 +103,21 @@ onAuthStateChanged(auth, async (user) => {
     if (data.online === true) {
       statusEl.innerText = "Online";
     } else if (data.lastSeen?.toDate) {
+
       const time = data.lastSeen.toDate().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
       });
+
       statusEl.innerText = "Last seen at " + time;
     } else {
       statusEl.innerText = "Offline";
     }
+
   });
 
+}
+  
   await createChatIfNotExists();
   loadMessages();
   resetUnread();
@@ -384,3 +400,5 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
+      
