@@ -184,8 +184,9 @@ window.sendMessage = async function () {
   });
 
   await updateDoc(doc(db, "chats", chatId), {
-    [`unread.${otherUserId}`]: increment(1)
-  }).catch(() => {});
+  [`unread.${otherUserId}`]: increment(1),
+  lastMessageTime: serverTimestamp()
+}).catch(() => {});
 
   input.value = "";
   replyingTo = null;
@@ -471,3 +472,4 @@ window.goBack = function () {
     
 
                                                       
+
