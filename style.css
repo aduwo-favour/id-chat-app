@@ -373,6 +373,22 @@ body {
   font-weight: 500;
 }
 
+/* ===== UNREAD DIVIDER ===== */
+
+.unread-divider {
+  text-align: center;
+  margin: 15px 0;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  background: #6f4e37;
+  border-radius: 20px;
+  width: fit-content;
+  align-self: center;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
 /* MOBILE */
 
 @media (max-width: 480px) {
@@ -399,3 +415,4 @@ body {
   top: 10px;
   z-index: 1000;
   }
+
