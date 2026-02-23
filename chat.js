@@ -402,4 +402,88 @@ function loadMessages() {
   });
 }
 
-// ... (keep all your other functions: triggerReply, confirmDelete, deleteForEveryone, addReaction, showReactionMenu, resetUnread, goBack)
+/* ================= REPLY ================= */
+
+function triggerReply(text) {
+  replyingTo = text;
+  const replyPreview = document.getElementById("replyPreview");
+  if (!replyPreview) return;
+
+  replyPreview.innerText = text.length > 60 ? text.substring(0, 60) + "..." : text;
+  replyPreview.style.display = "block";
+}
+
+/* ================= DELETE ================= */
+
+function confirmDelete(messageId) {
+  if (confirm("Delete this message for everyone?")) {
+    deleteForEveryone(messageId);
+  }
+}
+
+async function deleteForEveryone(messageId) {
+  await updateDoc(
+    doc(db, "chats", chatId, "messages", messageId),
+    { deletedForEveryone: true, text: "" }
+  ).catch(() => {});
+}
+
+/* ================= REACTION ================= */
+
+async function addReaction(messageId, emoji) {
+  await updateDoc(
+    doc(db, "chats", chatId, "messages", messageId),
+    { [`reactions.${currentUserId}`]: emoji }
+  ).catch(() => {});
+}
+
+function showReactionMenu(messageDiv, messageId) {
+  document.querySelectorAll(".reaction-menu").forEach(el => el.remove());
+
+  const menu = document.createElement("div");
+  menu.className = "reaction-menu";
+
+  ["❤️", "😂", "🔥", "👍", "😮", "😢"].forEach(emoji => {
+    const span = document.createElement("span");
+    span.innerText = emoji;
+    span.onclick = () => {
+      addReaction(messageId, emoji);
+      menu.remove();
+    };
+    menu.appendChild(span);
+  });
+
+  document.body.appendChild(menu);
+
+  const rect = messageDiv.getBoundingClientRect();
+  menu.style.position = "absolute";
+  menu.style.top = `${rect.top - 40}px`;
+  menu.style.left = `${rect.left}px`;
+
+  setTimeout(() => {
+    document.addEventListener("click", () => menu.remove(), { once: true });
+  }, 50);
+}
+
+/* ================= RESET UNREAD ================= */
+
+async function resetUnread() {
+  await updateDoc(doc(db, "chats", chatId), {
+    [`unread.${currentUserId}`]: 0
+  }).catch(() => {});
+}
+
+/* ================= BACK ================= */
+
+window.goBack = function () {
+  const params = new URLSearchParams(window.location.search);
+  const from = params.get("from");
+
+  if (from === "private") {
+    window.location.href = "private.html";
+  } else if (from === "community") {
+    window.location.href = "community.html";
+  } else {
+    window.location.href = "dashboard.html";
+  }
+};
