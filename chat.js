@@ -51,6 +51,15 @@ onAuthStateChanged(auth, async (user) => {
 
   currentUid = user.uid;
   userRef = doc(db, "users", currentUid);
+  // ===== GET OTHER USER UID FROM FIRESTORE =====
+
+const usersRef = collection(db, "users");
+const q = query(usersRef, where("userId", "==", otherUserId));
+const querySnapshot = await getDocs(q);
+
+if (querySnapshot.empty) return;
+
+const otherDoc = querySnapshot.docs[0];
   // ===== REALTIME PRESENCE SYSTEM =====
 
 const rtdb = getDatabase();
@@ -533,6 +542,7 @@ window.goBack = function () {
     window.location.href = "dashboard.html";
   }
 };
+
 
 
 
