@@ -286,6 +286,10 @@ window.openCommunity = function () {
   window.location.href = "community.html";
 };
 
+window.openPrivate = function () {
+  window.location.href = "private.html";
+};
 
       
+
 
