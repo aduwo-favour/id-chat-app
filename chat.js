@@ -10,6 +10,7 @@ import {
   onDisconnect,
   set
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
 import {
   doc,
   getDoc,
@@ -49,43 +50,10 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
+  /* ===== GET CURRENT USER DATA FIRST ===== */
+
   currentUid = user.uid;
   userRef = doc(db, "users", currentUid);
-  // ===== GET OTHER USER UID FROM FIRESTORE =====
-
-const usersRef = collection(db, "users");
-const q = query(usersRef, where("userId", "==", otherUserId));
-const querySnapshot = await getDocs(q);
-
-if (querySnapshot.empty) return;
-
-const otherDoc = querySnapshot.docs[0];
-  // ===== REALTIME PRESENCE SYSTEM =====
-
-const rtdb = getDatabase();
-
-const connectedRef = ref(rtdb, ".info/connected");
-
-onValue(connectedRef, (snap) => {
-
-  if (snap.val() === true) {
-
-    const statusRef = ref(rtdb, "status/" + currentUid);
-
-    // Set online
-    set(statusRef, {
-      online: true,
-      lastChanged: Date.now()
-    });
-
-    // Auto set offline on disconnect
-    onDisconnect(statusRef).set({
-      online: false,
-      lastChanged: Date.now()
-    });
-  }
-
-});
 
   const userDoc = await getDoc(userRef);
   if (!userDoc.exists()) return;
@@ -96,14 +64,77 @@ onValue(connectedRef, (snap) => {
   const title = document.getElementById("chatTitle");
   if (title) title.innerText = otherUserId;
 
-  /* ===== SET ONLINE ===== */
+  /* ===== GET OTHER USER DOC AFTER otherUserId EXISTS ===== */
+
+  const usersRef = collection(db, "users");
+  const q = query(usersRef, where("userId", "==", otherUserId));
+  const querySnapshot = await getDocs(q);
+
+  if (querySnapshot.empty) return;
+
+  const otherDoc = querySnapshot.docs[0];
+
+  /* ===== REALTIME PRESENCE SYSTEM ===== */
+
+  const rtdb = getDatabase();
+
+  const connectedRef = ref(rtdb, ".info/connected");
+
+  onValue(connectedRef, (snap) => {
+
+    if (snap.val() === true) {
+
+      const statusRef = ref(rtdb, "status/" + currentUid);
+
+      set(statusRef, {
+        online: true,
+        lastChanged: Date.now()
+      });
+
+      onDisconnect(statusRef).set({
+        online: false,
+        lastChanged: Date.now()
+      });
+    }
+
+  });
+
+  /* ===== LISTEN TO OTHER USER PRESENCE ===== */
+
+  const otherStatusRef = ref(rtdb, "status/" + otherDoc.id);
+
+  onValue(otherStatusRef, (snap) => {
+
+    const statusEl = document.getElementById("onlineStatus");
+    if (!statusEl) return;
+
+    if (!snap.exists()) {
+      statusEl.innerText = "Offline";
+      return;
+    }
+
+    const data = snap.val();
+
+    if (data.online === true) {
+      statusEl.innerText = "Online";
+    } else {
+      const date = new Date(data.lastChanged);
+      const time = date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+
+      statusEl.innerText = "Last seen at " + time;
+    }
+
+  });
+
+  /* ===== ALSO UPDATE FIRESTORE STATUS (YOUR OLD SYSTEM KEPT) ===== */
 
   await updateDoc(userRef, {
     online: true,
     lastSeen: serverTimestamp()
   }).catch(() => {});
-
-  /* ===== SET OFFLINE ON LEAVE ===== */
 
   if (!unloadListenerAdded) {
     unloadListenerAdded = true;
@@ -118,96 +149,30 @@ onValue(connectedRef, (snap) => {
     });
   }
 
+  document.addEventListener("visibilitychange", () => {
 
-    /* ===== MOBILE VISIBILITY FIX ===== */
+    if (!userRef) return;
 
-document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
 
-  if (!userRef) return;
+      updateDoc(userRef, {
+        online: false,
+        lastSeen: serverTimestamp()
+      }).catch(() => {});
 
-  if (document.visibilityState === "hidden") {
-
-    updateDoc(userRef, {
-      online: false,
-      lastSeen: serverTimestamp()
-    }).catch(() => {});
-
-  } else {
-
-    updateDoc(userRef, {
-      online: true
-    }).catch(() => {});
-
-  }
-
-});
-
-  /* ===== LISTEN TO OTHER USER STATUS ===== */
-/* ===== LISTEN TO OTHER USER STATUS ===== */
-
-// ===== LISTEN TO OTHER USER PRESENCE (REALTIME DB) =====
-
-const rtdb = getDatabase();
-const otherStatusRef = ref(rtdb, "status/" + otherDoc.id);
-
-onValue(otherStatusRef, (snap) => {
-
-  const statusEl = document.getElementById("onlineStatus");
-  if (!statusEl) return;
-
-  if (!snap.exists()) {
-    statusEl.innerText = "Offline";
-    return;
-  }
-
-  const data = snap.val();
-
-  if (data.online === true) {
-    statusEl.innerText = "Online";
-  } else {
-
-    const date = new Date(data.lastChanged);
-    const time = date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-
-    statusEl.innerText = "Last seen at " + time;
-  }
-
-});
-
-    const statusEl = document.getElementById("onlineStatus");
-    if (!statusEl) return;
-
-    if (!snap.exists()) {
-      statusEl.innerText = "";
-      return;
-    }
-
-    const data = snap.data();
-
-    if (data.online === true) {
-      statusEl.innerText = "Online";
-    } else if (data.lastSeen?.toDate) {
-
-      const time = data.lastSeen.toDate().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-
-      statusEl.innerText = "Last seen at " + time;
     } else {
-      statusEl.innerText = "Offline";
+
+      updateDoc(userRef, {
+        online: true
+      }).catch(() => {});
     }
 
   });
 
-}
-  
   await createChatIfNotExists();
-loadMessages();
-await resetUnread();
+  loadMessages();
+  await resetUnread();
+
 });
 
 /* ================= CREATE CHAT ================= */
@@ -218,11 +183,11 @@ async function createChatIfNotExists() {
 
   if (!snap.exists()) {
     await setDoc(chatRef, {
-  participants,
-  unread: {},
-  createdAt: serverTimestamp(),
-  lastMessageTime: serverTimestamp()
-});
+      participants,
+      unread: {},
+      createdAt: serverTimestamp(),
+      lastMessageTime: serverTimestamp()
+    });
   }
 }
 
@@ -248,9 +213,9 @@ window.sendMessage = async function () {
   });
 
   await updateDoc(doc(db, "chats", chatId), {
-  [`unread.${otherUserId}`]: increment(1),
-  lastMessageTime: serverTimestamp()
-}).catch(() => {});
+    [`unread.${otherUserId}`]: increment(1),
+    lastMessageTime: serverTimestamp()
+  }).catch(() => {});
 
   input.value = "";
   replyingTo = null;
@@ -281,45 +246,41 @@ function loadMessages() {
       const data = docSnap.data();
       let messageDate = null;
 
-if (data.timestamp?.toDate) {
-  messageDate = data.timestamp.toDate();
-}
+      if (data.timestamp?.toDate) {
+        messageDate = data.timestamp.toDate();
+      }
+
       const isMine = data.sender === currentUserId;
-      /* ===== DATE DIVIDER ===== */
 
-if (messageDate) {
+      if (messageDate) {
 
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
 
-  const messageDay = messageDate.toDateString();
+        const messageDay = messageDate.toDateString();
+        let label = "";
 
-  let label = "";
+        if (messageDay === today.toDateString()) {
+          label = "Today";
+        } else if (messageDay === yesterday.toDateString()) {
+          label = "Yesterday";
+        } else {
+          label = messageDate.toLocaleDateString([], {
+            year: "numeric",
+            month: "short",
+            day: "numeric"
+          });
+        }
 
-  if (messageDay === today.toDateString()) {
-    label = "Today";
-  } else if (messageDay === yesterday.toDateString()) {
-    label = "Yesterday";
-  } else {
-    label = messageDate.toLocaleDateString([], {
-      year: "numeric",
-      month: "short",
-      day: "numeric"
-    });
-  }
-
-  if (lastDate !== messageDay) {
-
-    lastDate = messageDay;
-
-    const divider = document.createElement("div");
-    divider.className = "date-divider";
-    divider.innerText = label;
-
-    messagesDiv.appendChild(divider);
-  }
-}
+        if (lastDate !== messageDay) {
+          lastDate = messageDay;
+          const divider = document.createElement("div");
+          divider.className = "date-divider";
+          divider.innerText = label;
+          messagesDiv.appendChild(divider);
+        }
+      }
 
       if (!isMine && data.seen === false) {
         updateDoc(docSnap.ref, {
@@ -372,8 +333,6 @@ if (messageDate) {
           ${seenHTML}
         `;
 
-        /* ===== SHOW REACTIONS ===== */
-
         if (data.reactions && Object.keys(data.reactions).length > 0) {
           const reactionContainer = document.createElement("div");
           reactionContainer.className = "reaction-container";
@@ -387,60 +346,6 @@ if (messageDate) {
           messageDiv.appendChild(reactionContainer);
         }
       }
-
-      /* ===== DELETE (DESKTOP) ===== */
-
-      if (isMine && !data.deletedForEveryone) {
-        messageDiv.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          confirmDelete(docSnap.id);
-        });
-      }
-
-      /* ===== TOUCH HANDLING (SWIPE + REACTION SAFE) ===== */
-
-      let startX = 0;
-      let pressTimer = null;
-      let triggeredReply = false;
-
-      messageDiv.addEventListener("touchstart", (e) => {
-
-        startX = e.touches[0].clientX;
-        triggeredReply = false;
-
-        pressTimer = setTimeout(() => {
-          showReactionMenu(messageDiv, docSnap.id);
-        }, 500);
-      });
-
-      messageDiv.addEventListener("touchmove", (e) => {
-
-        const diff = e.touches[0].clientX - startX;
-
-        if (diff > 0) {
-
-          clearTimeout(pressTimer);
-
-          const moveAmount = Math.min(diff, 80);
-          messageDiv.style.transform = `translateX(${moveAmount}px)`;
-
-          if (diff > 70 && !triggeredReply && !data.deletedForEveryone) {
-            triggeredReply = true;
-            triggerReply(data.text || "");
-          }
-        }
-      });
-
-      messageDiv.addEventListener("touchend", () => {
-        clearTimeout(pressTimer);
-        messageDiv.style.transform = "translateX(0)";
-      });
-
-      /* ===== DESKTOP REACTION ===== */
-
-      messageDiv.addEventListener("dblclick", () => {
-        showReactionMenu(messageDiv, docSnap.id);
-      });
 
       messagesDiv.appendChild(messageDiv);
     });
@@ -542,8 +447,6 @@ window.goBack = function () {
     window.location.href = "dashboard.html";
   }
 };
-
-
 
 
 
