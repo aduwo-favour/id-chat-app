@@ -209,11 +209,52 @@ function loadMessages() {
     if (!messagesDiv) return;
 
     messagesDiv.innerHTML = "";
+    let lastDate = null;
 
     snapshot.forEach((docSnap) => {
 
       const data = docSnap.data();
+      let messageDate = null;
+
+if (data.timestamp?.toDate) {
+  messageDate = data.timestamp.toDate();
+}
       const isMine = data.sender === currentUserId;
+      /* ===== DATE DIVIDER ===== */
+
+if (messageDate) {
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const messageDay = messageDate.toDateString();
+
+  let label = "";
+
+  if (messageDay === today.toDateString()) {
+    label = "Today";
+  } else if (messageDay === yesterday.toDateString()) {
+    label = "Yesterday";
+  } else {
+    label = messageDate.toLocaleDateString([], {
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    });
+  }
+
+  if (lastDate !== messageDay) {
+
+    lastDate = messageDay;
+
+    const divider = document.createElement("div");
+    divider.className = "date-divider";
+    divider.innerText = label;
+
+    messagesDiv.appendChild(divider);
+  }
+}
 
       if (!isMine && data.seen === false) {
         updateDoc(docSnap.ref, {
@@ -428,3 +469,4 @@ window.goBack = function () {
       
 
     
+
