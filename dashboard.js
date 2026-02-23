@@ -282,5 +282,10 @@ function showNotification(message) {
   }, 3000);
 
   }
+window.openCommunity = function () {
+  window.location.href = "community.html";
+};
+
 
       
+
