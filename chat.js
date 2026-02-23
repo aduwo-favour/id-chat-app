@@ -155,10 +155,11 @@ async function createChatIfNotExists() {
 
   if (!snap.exists()) {
     await setDoc(chatRef, {
-      participants,
-      unread: {},
-      createdAt: serverTimestamp()
-    });
+  participants,
+  unread: {},
+  createdAt: serverTimestamp(),
+  lastMessageTime: serverTimestamp()
+});
   }
 }
 
@@ -472,4 +473,5 @@ window.goBack = function () {
     
 
                                                       
+
 
