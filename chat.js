@@ -128,15 +128,16 @@ window.sendMessage = async function () {
     const text = input.value.trim();
     if (!text) return;
 
-    await addDoc(collection(db, "chats", chatId, "messages"), {
-      sender: currentUserId,
-      text,
-      timestamp: serverTimestamp(),
-      deletedForEveryone: false,
-      replyTo: replyingTo,
-      seen: false,
-      seenAt: null
-    });
+     await addDoc(collection(db, "chats", chatId, "messages"), {
+  sender: currentUserId,
+  text,
+  timestamp: serverTimestamp(),
+  deletedForEveryone: false,
+  replyTo: replyingTo,
+  seen: false,
+  seenAt: null,
+  reactions: {}   // ← ADD THIS LINE
+});
 
     await updateDoc(doc(db, "chats", chatId), {
       [`unread.${otherUserId}`]: increment(1)
@@ -335,6 +336,19 @@ async function deleteForEveryone(messageId) {
   }
 }
 
+async function addReaction(messageId, emoji) {
+  try {
+    await updateDoc(
+      doc(db, "chats", chatId, "messages", messageId),
+      {
+        [`reactions.${currentUserId}`]: emoji
+      }
+    );
+  } catch (err) {
+    console.error("Reaction error:", err);
+  }
+}
+
 /* ================= RESET UNREAD ================= */
 
 async function resetUnread() {
@@ -348,3 +362,4 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
