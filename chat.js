@@ -252,15 +252,7 @@ snapshot.forEach((docSnap) => {
 
       messagesDiv.appendChild(divider);
     }
-  }
-
-  if (!isMine && data.seen === false) {
-    updateDoc(docSnap.ref, {
-      seen: true,
-      seenAt: serverTimestamp()
-    }).catch(() => {});
-  }
-
+  }  
   const messageDiv = document.createElement("div");
 
   // FIXED unread detection placement (AFTER messageDiv exists)
@@ -337,6 +329,18 @@ if (firstUnreadElement) {
 } else {
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
 }
+    // ===== MARK MESSAGES AS SEEN AFTER SCROLL =====
+snapshot.forEach((docSnap) => {
+  const data = docSnap.data();
+  const isMine = data.sender === currentUserId;
+
+  if (!isMine && data.seen === false) {
+    updateDoc(docSnap.ref, {
+      seen: true,
+      seenAt: serverTimestamp()
+    }).catch(() => {});
+  }
+});
     // ===== RESET UNREAD AFTER LOADING =====
 resetUnread();
   });
@@ -359,3 +363,4 @@ window.goBack = function () {
 
 
     
+
