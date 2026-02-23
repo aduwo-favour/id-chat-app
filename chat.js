@@ -1,6 +1,6 @@
 import { auth, db } from "./firebase.js";
 
-import { onAuthStateChanged } from 
+import { onAuthStateChanged } from
 "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 import {
@@ -22,6 +22,8 @@ import {
 let currentUserId = null;
 let currentUid = null;
 let replyingTo = null;
+let userRef = null;
+let unloadListenerAdded = false;
 
 let chatId = new URLSearchParams(window.location.search).get("chatId");
 if (!chatId) window.location.href = "dashboard.html";
@@ -39,8 +41,8 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   currentUid = user.uid;
+  userRef = doc(db, "users", currentUid);
 
-  const userRef = doc(db, "users", currentUid);
   const userDoc = await getDoc(userRef);
   if (!userDoc.exists()) return;
 
@@ -51,19 +53,29 @@ onAuthStateChanged(auth, async (user) => {
   if (title) title.innerText = otherUserId;
 
   /* ===== SET ONLINE ===== */
+
   await updateDoc(userRef, {
     online: true,
     lastSeen: serverTimestamp()
-  });
+  }).catch(() => {});
 
-  window.addEventListener("beforeunload", () => {
-    updateDoc(userRef, {
-      online: false,
-      lastSeen: serverTimestamp()
-    }).catch(() => {});
-  });
+  /* ===== SET OFFLINE ON LEAVE ===== */
 
-  /* ===== LISTEN OTHER USER STATUS ===== */
+  if (!unloadListenerAdded) {
+    unloadListenerAdded = true;
+
+    window.addEventListener("beforeunload", () => {
+      if (!userRef) return;
+
+      updateDoc(userRef, {
+        online: false,
+        lastSeen: serverTimestamp()
+      }).catch(() => {});
+    });
+  }
+
+  /* ===== LISTEN TO OTHER USER STATUS ===== */
+
   const otherUserRef = doc(db, "users", otherUserId);
 
   onSnapshot(otherUserRef, (snap) => {
@@ -77,7 +89,7 @@ onAuthStateChanged(auth, async (user) => {
 
     const data = snap.data();
 
-    if (data.online) {
+    if (data.online === true) {
       statusEl.innerText = "Online";
     } else if (data.lastSeen?.toDate) {
       const time = data.lastSeen.toDate().toLocaleTimeString([], {
@@ -133,7 +145,7 @@ window.sendMessage = async function () {
 
   await updateDoc(doc(db, "chats", chatId), {
     [`unread.${otherUserId}`]: increment(1)
-  });
+  }).catch(() => {});
 
   input.value = "";
   replyingTo = null;
@@ -163,7 +175,7 @@ function loadMessages() {
       const data = docSnap.data();
       const isMine = data.sender === currentUserId;
 
-      if (!isMine && !data.seen) {
+      if (!isMine && data.seen === false) {
         updateDoc(docSnap.ref, {
           seen: true,
           seenAt: serverTimestamp()
@@ -193,11 +205,13 @@ function loadMessages() {
       }
 
       if (data.deletedForEveryone) {
+
         messageDiv.innerHTML = `
           <div class="deleted-message">
             This message was deleted
           </div>
         `;
+
       } else {
 
         let replyHTML = "";
@@ -213,7 +227,8 @@ function loadMessages() {
         `;
 
         /* ===== SHOW REACTIONS ===== */
-        if (data.reactions) {
+
+        if (data.reactions && Object.keys(data.reactions).length > 0) {
           const reactionContainer = document.createElement("div");
           reactionContainer.className = "reaction-container";
 
@@ -227,7 +242,8 @@ function loadMessages() {
         }
       }
 
-      /* ===== DESKTOP DELETE ===== */
+      /* ===== DELETE (DESKTOP) ===== */
+
       if (isMine && !data.deletedForEveryone) {
         messageDiv.addEventListener("contextmenu", (e) => {
           e.preventDefault();
@@ -235,15 +251,16 @@ function loadMessages() {
         });
       }
 
-      /* ===== MOBILE HANDLER (SWIPE + LONG PRESS SPLIT) ===== */
+      /* ===== TOUCH HANDLING (SWIPE + REACTION SAFE) ===== */
 
       let startX = 0;
       let pressTimer = null;
-      let isSwiping = false;
+      let triggeredReply = false;
 
       messageDiv.addEventListener("touchstart", (e) => {
+
         startX = e.touches[0].clientX;
-        isSwiping = true;
+        triggeredReply = false;
 
         pressTimer = setTimeout(() => {
           showReactionMenu(messageDiv, docSnap.id);
@@ -255,12 +272,14 @@ function loadMessages() {
         const diff = e.touches[0].clientX - startX;
 
         if (diff > 0) {
+
           clearTimeout(pressTimer);
 
           const moveAmount = Math.min(diff, 80);
           messageDiv.style.transform = `translateX(${moveAmount}px)`;
 
-          if (diff > 70 && !data.deletedForEveryone) {
+          if (diff > 70 && !triggeredReply && !data.deletedForEveryone) {
+            triggeredReply = true;
             triggerReply(data.text || "");
           }
         }
@@ -268,11 +287,11 @@ function loadMessages() {
 
       messageDiv.addEventListener("touchend", () => {
         clearTimeout(pressTimer);
-        isSwiping = false;
         messageDiv.style.transform = "translateX(0)";
       });
 
       /* ===== DESKTOP REACTION ===== */
+
       messageDiv.addEventListener("dblclick", () => {
         showReactionMenu(messageDiv, docSnap.id);
       });
@@ -290,7 +309,10 @@ function triggerReply(text) {
   replyingTo = text;
   const replyPreview = document.getElementById("replyPreview");
   if (!replyPreview) return;
-  replyPreview.innerText = text.length > 60 ? text.substring(0, 60) + "..." : text;
+
+  replyPreview.innerText =
+    text.length > 60 ? text.substring(0, 60) + "..." : text;
+
   replyPreview.style.display = "block";
 }
 
@@ -306,7 +328,7 @@ async function deleteForEveryone(messageId) {
   await updateDoc(
     doc(db, "chats", chatId, "messages", messageId),
     { deletedForEveryone: true, text: "" }
-  );
+  ).catch(() => {});
 }
 
 /* ================= REACTION ================= */
@@ -315,7 +337,7 @@ async function addReaction(messageId, emoji) {
   await updateDoc(
     doc(db, "chats", chatId, "messages", messageId),
     { [`reactions.${currentUserId}`]: emoji }
-  );
+  ).catch(() => {});
 }
 
 function showReactionMenu(messageDiv, messageId) {
@@ -338,6 +360,7 @@ function showReactionMenu(messageDiv, messageId) {
   document.body.appendChild(menu);
 
   const rect = messageDiv.getBoundingClientRect();
+  menu.style.position = "absolute";
   menu.style.top = rect.top - 40 + "px";
   menu.style.left = rect.left + "px";
 
@@ -353,7 +376,7 @@ function showReactionMenu(messageDiv, messageId) {
 async function resetUnread() {
   await updateDoc(doc(db, "chats", chatId), {
     [`unread.${currentUserId}`]: 0
-  });
+  }).catch(() => {});
 }
 
 /* ================= BACK ================= */
