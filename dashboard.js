@@ -20,6 +20,8 @@ import {
 let currentUserId = null;
 let currentUid = null;
 let originalTitle = document.title;
+let userRef = null;
+let unloadListenerAdded = false;
 
 /* ================= AUTH CHECK ================= */
 
@@ -33,8 +35,8 @@ onAuthStateChanged(auth, async (user) => {
   try {
 
     currentUid = user.uid;
+    userRef = doc(db, "users", currentUid);
 
-    const userRef = doc(db, "users", user.uid);
     const userDoc = await getDoc(userRef);
 
     if (!userDoc.exists()) {
@@ -63,25 +65,32 @@ onAuthStateChanged(auth, async (user) => {
     await updateDoc(userRef, {
       online: true,
       lastSeen: serverTimestamp()
-    });
+    }).catch(() => {});
 
     /* ===== SET OFFLINE WHEN TAB CLOSES ===== */
 
-    window.addEventListener("beforeunload", () => {
-      updateDoc(userRef, {
-        online: false,
-        lastSeen: serverTimestamp()
-      }).catch(() => {});
-    });
+    if (!unloadListenerAdded) {
+      unloadListenerAdded = true;
+
+      window.addEventListener("beforeunload", () => {
+        if (!userRef) return;
+
+        updateDoc(userRef, {
+          online: false,
+          lastSeen: serverTimestamp()
+        }).catch(() => {});
+      });
+    }
 
     /* ===== LOAD CHATS AFTER LOGIN ===== */
+
     loadChats();
 
   } catch (error) {
     console.error("Auth error:", error);
   }
 
-}); // ✅ THIS WAS MISSING
+});
 
 
 /* ================= LOGOUT ================= */
@@ -90,13 +99,11 @@ window.logout = async function () {
 
   try {
 
-    if (currentUid) {
-      const userRef = doc(db, "users", currentUid);
-
+    if (userRef) {
       await updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
-      });
+      }).catch(() => {});
     }
 
   } catch (e) {
@@ -227,7 +234,7 @@ window.openChat = async function (chatId) {
 
     await updateDoc(chatRef, {
       [`unread.${currentUserId}`]: 0
-    });
+    }).catch(() => {});
 
   } catch (err) {
     console.log("Unread reset skipped");
@@ -251,4 +258,4 @@ function showNotification(message) {
     notification.remove();
   }, 3000);
 
-}
+  }
