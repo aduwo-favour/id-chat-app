@@ -207,126 +207,128 @@ function loadMessages() {
     let firstUnreadElement = null;
     let lastDate = null;
 
-    snapshot.forEach((docSnap) => {
+snapshot.forEach((docSnap) => {
 
-      const data = docSnap.data();
-      let messageDate = null;
+  const data = docSnap.data();
+  let messageDate = null;
 
-      if (data.timestamp?.toDate) {
-        messageDate = data.timestamp.toDate();
-      }
+  if (data.timestamp?.toDate) {
+    messageDate = data.timestamp.toDate();
+  }
 
-      const isMine = data.sender === currentUserId// Detect first unread message
-if (!isMine && data.seen === false && !firstUnreadElement) {
-  firstUnreadElement = messageDiv;
-}
+  const isMine = data.sender === currentUserId; // FIXED (semicolon added)
 
-      /* ===== DATE DIVIDER ===== */
+  /* ===== DATE DIVIDER ===== */
 
-      if (messageDate) {
+  if (messageDate) {
 
-        const today = new Date();
-        const yesterday = new Date();
-        yesterday.setDate(today.getDate() - 1);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
 
-        const messageDay = messageDate.toDateString();
+    const messageDay = messageDate.toDateString();
 
-        let label = "";
+    let label = "";
 
-        if (messageDay === today.toDateString()) {
-          label = "Today";
-        } else if (messageDay === yesterday.toDateString()) {
-          label = "Yesterday";
-        } else {
-          label = messageDate.toLocaleDateString([], {
-            year: "numeric",
-            month: "short",
-            day: "numeric"
-          });
-        }
+    if (messageDay === today.toDateString()) {
+      label = "Today";
+    } else if (messageDay === yesterday.toDateString()) {
+      label = "Yesterday";
+    } else {
+      label = messageDate.toLocaleDateString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      });
+    }
 
-        if (lastDate !== messageDay) {
+    if (lastDate !== messageDay) {
 
-          lastDate = messageDay;
+      lastDate = messageDay;
 
-          const divider = document.createElement("div");
-          divider.className = "date-divider";
-          divider.innerText = label;
+      const divider = document.createElement("div");
+      divider.className = "date-divider";
+      divider.innerText = label;
 
-          messagesDiv.appendChild(divider);
-        }
-      }
+      messagesDiv.appendChild(divider);
+    }
+  }
 
-      if (!isMine && data.seen === false) {
-        updateDoc(docSnap.ref, {
-          seen: true,
-          seenAt: serverTimestamp()
-        }).catch(() => {});
-      }
+  if (!isMine && data.seen === false) {
+    updateDoc(docSnap.ref, {
+      seen: true,
+      seenAt: serverTimestamp()
+    }).catch(() => {});
+  }
 
-      const messageDiv = document.createElement("div");
-      if (!isMine && data.seen === false && !firstUnreadElement) {
-  firstUnreadElement = messageDiv;
-      }
-      messageDiv.className = isMine
-        ? "message my-message"
-        : "message other-message";
+  const messageDiv = document.createElement("div");
 
-      let timeString = "";
-      if (data.timestamp?.toDate) {
-        timeString = data.timestamp.toDate().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-      }
+  // FIXED unread detection placement (AFTER messageDiv exists)
+  if (!isMine && data.seen === false && !firstUnreadElement) {
+    firstUnreadElement = messageDiv;
+  }
 
-      let seenHTML = "";
-      if (isMine && data.seen && data.seenAt?.toDate) {
-        const seenTime = data.seenAt.toDate().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-        seenHTML = `<div class="seen-time">Seen at ${seenTime}</div>`;
-      }
+  messageDiv.className = isMine
+    ? "message my-message"
+    : "message other-message";
 
-      if (data.deletedForEveryone) {
-
-        messageDiv.innerHTML = `
-          <div class="deleted-message">
-            This message was deleted
-          </div>
-        `;
-
-      } else {
-
-        let replyHTML = "";
-        if (data.replyTo) {
-          replyHTML = `<div class="reply-box">${data.replyTo}</div>`;
-        }
-
-        messageDiv.innerHTML = `
-          ${replyHTML}
-          <div class="message-text">${data.text || ""}</div>
-          <div class="message-time">${timeString}</div>
-          ${seenHTML}
-        `;
-
-        if (data.reactions && Object.keys(data.reactions).length > 0) {
-          const reactionContainer = document.createElement("div");
-          reactionContainer.className = "reaction-container";
-
-          Object.values(data.reactions).forEach(emoji => {
-            const span = document.createElement("span");
-            span.innerText = emoji;
-            reactionContainer.appendChild(span);
-          });
-
-          messageDiv.appendChild(reactionContainer);
-        }
-      }
-
-      messagesDiv.appendChild(messageDiv);
+  let timeString = "";
+  if (data.timestamp?.toDate) {
+    timeString = data.timestamp.toDate().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
     });
+  }
+
+  let seenHTML = "";
+  if (isMine && data.seen && data.seenAt?.toDate) {
+    const seenTime = data.seenAt.toDate().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+    seenHTML = `<div class="seen-time">Seen at ${seenTime}</div>`;
+  }
+
+  if (data.deletedForEveryone) {
+
+    messageDiv.innerHTML = `
+      <div class="deleted-message">
+        This message was deleted
+      </div>
+    `;
+
+  } else {
+
+    let replyHTML = "";
+    if (data.replyTo) {
+      replyHTML = `<div class="reply-box">${data.replyTo}</div>`;
+    }
+
+    messageDiv.innerHTML = `
+      ${replyHTML}
+      <div class="message-text">${data.text || ""}</div>
+      <div class="message-time">${timeString}</div>
+      ${seenHTML}
+    `;
+
+    if (data.reactions && Object.keys(data.reactions).length > 0) {
+      const reactionContainer = document.createElement("div");
+      reactionContainer.className = "reaction-container";
+
+      Object.values(data.reactions).forEach(emoji => {
+        const span = document.createElement("span");
+        span.innerText = emoji;
+        reactionContainer.appendChild(span);
+      });
+
+      messageDiv.appendChild(reactionContainer);
+    }
+  }
+
+  messagesDiv.appendChild(messageDiv);
+});
+
+    
 if (firstUnreadElement) {
   firstUnreadElement.scrollIntoView({
     behavior: "smooth",
@@ -355,3 +357,5 @@ window.goBack = function () {
 };
 
 
+
+    
