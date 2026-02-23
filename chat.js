@@ -465,6 +465,20 @@ async function resetUnread() {
 /* ================= BACK ================= */
 
 window.goBack = function () {
-  window.location.href = "dashboard.html";
+
+  const params = new URLSearchParams(window.location.search);
+  const from = params.get("from");
+
+  if (from === "private") {
+    window.location.href = "private.html";
+  } 
+  else if (from === "community") {
+    window.location.href = "community.html";
+  } 
+  else {
+    window.location.href = "dashboard.html";
+  }
 };
+};
+
 
