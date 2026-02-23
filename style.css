@@ -422,6 +422,31 @@ body {
   border-radius: 0 8px 8px 0;
 }
 
+/* ===== REACTIONS ===== */
+
+.reaction-menu {
+  position: absolute;
+  background: white;
+  padding: 6px 10px;
+  border-radius: 20px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+  display: flex;
+  gap: 8px;
+  z-index: 9999;
+}
+
+.reaction-menu span {
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.reaction-container {
+  display: flex;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 14px;
+}
+
 /* ===== MOBILE ===== */
 
 @media (max-width: 480px) {
@@ -431,5 +456,6 @@ body {
   }
 
 }
+
 
 
