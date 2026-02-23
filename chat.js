@@ -50,13 +50,12 @@ onAuthStateChanged(auth, async (user) => {
   const title = document.getElementById("chatTitle");
   if (title) title.innerText = otherUserId;
 
-  /* ===== SET USER ONLINE ===== */
+  /* ===== SET ONLINE ===== */
   await updateDoc(userRef, {
     online: true,
     lastSeen: serverTimestamp()
   });
 
-  /* ===== SET OFFLINE WHEN LEAVING ===== */
   window.addEventListener("beforeunload", () => {
     updateDoc(userRef, {
       online: false,
@@ -64,12 +63,10 @@ onAuthStateChanged(auth, async (user) => {
     }).catch(() => {});
   });
 
-  /* ===== LISTEN TO OTHER USER STATUS ===== */
-
-  const otherUserRef = doc(db, "users", participants.find(p => p !== currentUserId));
+  /* ===== LISTEN OTHER USER STATUS ===== */
+  const otherUserRef = doc(db, "users", otherUserId);
 
   onSnapshot(otherUserRef, (snap) => {
-
     const statusEl = document.getElementById("onlineStatus");
     if (!statusEl) return;
 
@@ -83,8 +80,7 @@ onAuthStateChanged(auth, async (user) => {
     if (data.online) {
       statusEl.innerText = "Online";
     } else if (data.lastSeen?.toDate) {
-      const date = data.lastSeen.toDate();
-      const time = date.toLocaleTimeString([], {
+      const time = data.lastSeen.toDate().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit"
       });
@@ -92,7 +88,6 @@ onAuthStateChanged(auth, async (user) => {
     } else {
       statusEl.innerText = "Offline";
     }
-
   });
 
   await createChatIfNotExists();
@@ -103,7 +98,6 @@ onAuthStateChanged(auth, async (user) => {
 /* ================= CREATE CHAT ================= */
 
 async function createChatIfNotExists() {
-
   const chatRef = doc(db, "chats", chatId);
   const snap = await getDoc(chatRef);
 
@@ -120,38 +114,32 @@ async function createChatIfNotExists() {
 
 window.sendMessage = async function () {
 
-  try {
+  const input = document.getElementById("messageInput");
+  if (!input) return;
 
-    const input = document.getElementById("messageInput");
-    if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
 
-    const text = input.value.trim();
-    if (!text) return;
+  await addDoc(collection(db, "chats", chatId, "messages"), {
+    sender: currentUserId,
+    text,
+    timestamp: serverTimestamp(),
+    deletedForEveryone: false,
+    replyTo: replyingTo,
+    seen: false,
+    seenAt: null,
+    reactions: {}
+  });
 
-     await addDoc(collection(db, "chats", chatId, "messages"), {
-  sender: currentUserId,
-  text,
-  timestamp: serverTimestamp(),
-  deletedForEveryone: false,
-  replyTo: replyingTo,
-  seen: false,
-  seenAt: null,
-  reactions: {}   // ← ADD THIS LINE
-});
+  await updateDoc(doc(db, "chats", chatId), {
+    [`unread.${otherUserId}`]: increment(1)
+  });
 
-    await updateDoc(doc(db, "chats", chatId), {
-      [`unread.${otherUserId}`]: increment(1)
-    });
+  input.value = "";
+  replyingTo = null;
 
-    input.value = "";
-    replyingTo = null;
-
-    const replyPreview = document.getElementById("replyPreview");
-    if (replyPreview) replyPreview.style.display = "none";
-
-  } catch (error) {
-    console.error("Send message error:", error);
-  }
+  const replyPreview = document.getElementById("replyPreview");
+  if (replyPreview) replyPreview.style.display = "none";
 };
 
 /* ================= LOAD MESSAGES ================= */
@@ -160,7 +148,7 @@ function loadMessages() {
 
   const q = query(
     collection(db, "chats", chatId, "messages"),
-    orderBy("timestamp")
+    orderBy("timestamp", "asc")
   );
 
   onSnapshot(q, (snapshot) => {
@@ -175,7 +163,6 @@ function loadMessages() {
       const data = docSnap.data();
       const isMine = data.sender === currentUserId;
 
-      /* ===== AUTO MARK SEEN ===== */
       if (!isMine && !data.seen) {
         updateDoc(docSnap.ref, {
           seen: true,
@@ -190,8 +177,7 @@ function loadMessages() {
 
       let timeString = "";
       if (data.timestamp?.toDate) {
-        const date = data.timestamp.toDate();
-        timeString = date.toLocaleTimeString([], {
+        timeString = data.timestamp.toDate().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit"
         });
@@ -207,142 +193,104 @@ function loadMessages() {
       }
 
       if (data.deletedForEveryone) {
-
         messageDiv.innerHTML = `
           <div class="deleted-message">
             This message was deleted
           </div>
         `;
-
       } else {
 
         let replyHTML = "";
         if (data.replyTo) {
-          replyHTML = `
-            <div class="reply-box">
-              ${data.replyTo}
-            </div>
-          `;
+          replyHTML = `<div class="reply-box">${data.replyTo}</div>`;
         }
-messageDiv.innerHTML = `
-  ${replyHTML}
-  <div class="message-text">${data.text}</div>
-  <div class="message-time">${timeString}</div>
-  ${seenHTML}
-`;
 
+        messageDiv.innerHTML = `
+          ${replyHTML}
+          <div class="message-text">${data.text || ""}</div>
+          <div class="message-time">${timeString}</div>
+          ${seenHTML}
+        `;
 
-// ===== SHOW REACTIONS =====
-if (data.reactions) {
+        /* ===== SHOW REACTIONS ===== */
+        if (data.reactions) {
+          const reactionContainer = document.createElement("div");
+          reactionContainer.className = "reaction-container";
 
-  const reactionContainer = document.createElement("div");
-  reactionContainer.className = "reaction-container";
+          Object.values(data.reactions).forEach(emoji => {
+            const span = document.createElement("span");
+            span.innerText = emoji;
+            reactionContainer.appendChild(span);
+          });
 
-  const uniqueReactions = Object.values(data.reactions);
+          messageDiv.appendChild(reactionContainer);
+        }
+      }
 
-  uniqueReactions.forEach(emoji => {
-    const span = document.createElement("span");
-    span.innerText = emoji;
-    reactionContainer.appendChild(span);
-  });
-
-  messageDiv.appendChild(reactionContainer);
-}
-
-      /* ===== DELETE ===== */
-
+      /* ===== DESKTOP DELETE ===== */
       if (isMine && !data.deletedForEveryone) {
-
         messageDiv.addEventListener("contextmenu", (e) => {
           e.preventDefault();
           confirmDelete(docSnap.id);
         });
-
-        let pressTimer;
-
-        messageDiv.addEventListener("touchstart", () => {
-          pressTimer = setTimeout(() => {
-            confirmDelete(docSnap.id);
-          }, 600);
-        });
-
-        messageDiv.addEventListener("touchend", () => {
-          clearTimeout(pressTimer);
-        });
       }
 
-      /* ===== SWIPE TO REPLY ===== */
+      /* ===== MOBILE HANDLER (SWIPE + LONG PRESS SPLIT) ===== */
 
       let startX = 0;
+      let pressTimer = null;
       let isSwiping = false;
-      let hasTriggered = false;
 
       messageDiv.addEventListener("touchstart", (e) => {
         startX = e.touches[0].clientX;
         isSwiping = true;
-        hasTriggered = false;
+
+        pressTimer = setTimeout(() => {
+          showReactionMenu(messageDiv, docSnap.id);
+        }, 500);
       });
 
       messageDiv.addEventListener("touchmove", (e) => {
 
-        if (!isSwiping) return;
-
         const diff = e.touches[0].clientX - startX;
 
         if (diff > 0) {
+          clearTimeout(pressTimer);
 
           const moveAmount = Math.min(diff, 80);
           messageDiv.style.transform = `translateX(${moveAmount}px)`;
 
-          if (diff > 70 && !hasTriggered && !data.deletedForEveryone) {
-            hasTriggered = true;
-            triggerReply(data.text);
+          if (diff > 70 && !data.deletedForEveryone) {
+            triggerReply(data.text || "");
           }
         }
       });
 
       messageDiv.addEventListener("touchend", () => {
+        clearTimeout(pressTimer);
         isSwiping = false;
         messageDiv.style.transform = "translateX(0)";
       });
-      // ===== REACTION MENU (Desktop Double Click) =====
-messageDiv.addEventListener("dblclick", () => {
-  showReactionMenu(messageDiv, docSnap.id);
-});
 
-      let reactionTimer;
-
-messageDiv.addEventListener("touchstart", () => {
-  reactionTimer = setTimeout(() => {
-    showReactionMenu(messageDiv, docSnap.id);
-  }, 500);
-});
-
-messageDiv.addEventListener("touchend", () => {
-  clearTimeout(reactionTimer);
-});
+      /* ===== DESKTOP REACTION ===== */
+      messageDiv.addEventListener("dblclick", () => {
+        showReactionMenu(messageDiv, docSnap.id);
+      });
 
       messagesDiv.appendChild(messageDiv);
-
     });
 
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
   });
 }
 
 /* ================= REPLY ================= */
 
 function triggerReply(text) {
-
   replyingTo = text;
-
   const replyPreview = document.getElementById("replyPreview");
   if (!replyPreview) return;
-
-  replyPreview.innerText =
-    text.length > 60 ? text.substring(0, 60) + "..." : text;
-
+  replyPreview.innerText = text.length > 60 ? text.substring(0, 60) + "..." : text;
   replyPreview.style.display = "block";
 }
 
@@ -355,55 +303,41 @@ function confirmDelete(messageId) {
 }
 
 async function deleteForEveryone(messageId) {
-  try {
-    await updateDoc(
-      doc(db, "chats", chatId, "messages", messageId),
-      {
-        deletedForEveryone: true,
-        text: ""
-      }
-    );
-  } catch (err) {
-    console.error("Delete error:", err);
-  }
+  await updateDoc(
+    doc(db, "chats", chatId, "messages", messageId),
+    { deletedForEveryone: true, text: "" }
+  );
 }
+
+/* ================= REACTION ================= */
 
 async function addReaction(messageId, emoji) {
-  try {
-    await updateDoc(
-      doc(db, "chats", chatId, "messages", messageId),
-      {
-        [`reactions.${currentUserId}`]: emoji
-      }
-    );
-  } catch (err) {
-    console.error("Reaction error:", err);
-  }
+  await updateDoc(
+    doc(db, "chats", chatId, "messages", messageId),
+    { [`reactions.${currentUserId}`]: emoji }
+  );
 }
 
-// ===== ADD THIS BELOW =====
-
 function showReactionMenu(messageDiv, messageId) {
+
+  document.querySelectorAll(".reaction-menu").forEach(el => el.remove());
 
   const menu = document.createElement("div");
   menu.className = "reaction-menu";
 
-  const emojis = ["❤️","😂","🔥","👍","😮","😢"];
-
-  emojis.forEach(emoji => {
+  ["❤️","😂","🔥","👍","😮","😢"].forEach(emoji => {
     const span = document.createElement("span");
     span.innerText = emoji;
-    span.addEventListener("click", () => {
+    span.onclick = () => {
       addReaction(messageId, emoji);
       menu.remove();
-    });
+    };
     menu.appendChild(span);
   });
 
   document.body.appendChild(menu);
 
   const rect = messageDiv.getBoundingClientRect();
-  menu.style.position = "absolute";
   menu.style.top = rect.top - 40 + "px";
   menu.style.left = rect.left + "px";
 
@@ -427,6 +361,3 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
-
-
-
