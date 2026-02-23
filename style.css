@@ -8,7 +8,6 @@
 
 html, body {
   height: 100%;
-  overflow: hidden;
 }
 
 body {
@@ -130,12 +129,12 @@ body {
 .chat-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100dvh; /* mobile-safe viewport */
+  height: 100dvh;
   max-width: 700px;
   margin: auto;
   background: #f4f4f4;
+  overflow: hidden; /* lock scroll only inside chat */
 }
-
 /* HEADER */
 
 .chat-header {
@@ -339,3 +338,4 @@ body {
   top: 10px;
   z-index: 1000;
 }
+
