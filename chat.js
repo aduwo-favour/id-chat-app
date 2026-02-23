@@ -50,8 +50,6 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  /* ===== GET CURRENT USER DATA FIRST ===== */
-
   currentUid = user.uid;
   userRef = doc(db, "users", currentUid);
 
@@ -64,26 +62,21 @@ onAuthStateChanged(auth, async (user) => {
   const title = document.getElementById("chatTitle");
   if (title) title.innerText = otherUserId;
 
-  /* ===== GET OTHER USER DOC AFTER otherUserId EXISTS ===== */
+  /* ===== GET OTHER USER ===== */
 
   const usersRef = collection(db, "users");
   const q = query(usersRef, where("userId", "==", otherUserId));
   const querySnapshot = await getDocs(q);
-
   if (querySnapshot.empty) return;
-
   const otherDoc = querySnapshot.docs[0];
 
-  /* ===== REALTIME PRESENCE SYSTEM ===== */
+  /* ===== REALTIME PRESENCE ===== */
 
   const rtdb = getDatabase();
-
   const connectedRef = ref(rtdb, ".info/connected");
 
   onValue(connectedRef, (snap) => {
-
     if (snap.val() === true) {
-
       const statusRef = ref(rtdb, "status/" + currentUid);
 
       set(statusRef, {
@@ -96,10 +89,7 @@ onAuthStateChanged(auth, async (user) => {
         lastChanged: Date.now()
       });
     }
-
   });
-
-  /* ===== LISTEN TO OTHER USER PRESENCE ===== */
 
   const otherStatusRef = ref(rtdb, "status/" + otherDoc.id);
 
@@ -123,13 +113,9 @@ onAuthStateChanged(auth, async (user) => {
         hour: "2-digit",
         minute: "2-digit"
       });
-
       statusEl.innerText = "Last seen at " + time;
     }
-
   });
-
-  /* ===== ALSO UPDATE FIRESTORE STATUS (YOUR OLD SYSTEM KEPT) ===== */
 
   await updateDoc(userRef, {
     online: true,
@@ -140,8 +126,6 @@ onAuthStateChanged(auth, async (user) => {
     unloadListenerAdded = true;
 
     window.addEventListener("beforeunload", () => {
-      if (!userRef) return;
-
       updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
@@ -150,29 +134,19 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   document.addEventListener("visibilitychange", () => {
-
-    if (!userRef) return;
-
     if (document.visibilityState === "hidden") {
-
       updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
       }).catch(() => {});
-
     } else {
-
-      updateDoc(userRef, {
-        online: true
-      }).catch(() => {});
+      updateDoc(userRef, { online: true }).catch(() => {});
     }
-
   });
 
   await createChatIfNotExists();
   loadMessages();
   await resetUnread();
-
 });
 
 /* ================= CREATE CHAT ================= */
@@ -244,12 +218,7 @@ function loadMessages() {
     snapshot.forEach((docSnap) => {
 
       const data = docSnap.data();
-      let messageDate = null;
-
-      if (data.timestamp?.toDate) {
-        messageDate = data.timestamp.toDate();
-      }
-
+      let messageDate = data.timestamp?.toDate ? data.timestamp.toDate() : null;
       const isMine = data.sender === currentUserId;
 
       if (messageDate) {
@@ -261,17 +230,9 @@ function loadMessages() {
         const messageDay = messageDate.toDateString();
         let label = "";
 
-        if (messageDay === today.toDateString()) {
-          label = "Today";
-        } else if (messageDay === yesterday.toDateString()) {
-          label = "Yesterday";
-        } else {
-          label = messageDate.toLocaleDateString([], {
-            year: "numeric",
-            month: "short",
-            day: "numeric"
-          });
-        }
+        if (messageDay === today.toDateString()) label = "Today";
+        else if (messageDay === yesterday.toDateString()) label = "Yesterday";
+        else label = messageDate.toLocaleDateString();
 
         if (lastDate !== messageDay) {
           lastDate = messageDay;
@@ -294,37 +255,23 @@ function loadMessages() {
         ? "message my-message"
         : "message other-message";
 
-      let timeString = "";
-      if (data.timestamp?.toDate) {
-        timeString = data.timestamp.toDate().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-      }
+      let timeString = data.timestamp?.toDate
+        ? data.timestamp.toDate().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : "";
 
       let seenHTML = "";
       if (isMine && data.seen && data.seenAt?.toDate) {
-        const seenTime = data.seenAt.toDate().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
-        });
+        const seenTime = data.seenAt.toDate().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         seenHTML = `<div class="seen-time">Seen at ${seenTime}</div>`;
       }
 
       if (data.deletedForEveryone) {
-
-        messageDiv.innerHTML = `
-          <div class="deleted-message">
-            This message was deleted
-          </div>
-        `;
-
+        messageDiv.innerHTML = `<div class="deleted-message">This message was deleted</div>`;
       } else {
 
-        let replyHTML = "";
-        if (data.replyTo) {
-          replyHTML = `<div class="reply-box">${data.replyTo}</div>`;
-        }
+        let replyHTML = data.replyTo
+          ? `<div class="reply-box">${data.replyTo}</div>`
+          : "";
 
         messageDiv.innerHTML = `
           ${replyHTML}
@@ -347,24 +294,24 @@ function loadMessages() {
         }
       }
 
+      if (isMine && !data.deletedForEveryone) {
+        messageDiv.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          confirmDelete(docSnap.id);
+        });
+      }
+
+      messageDiv.addEventListener("dblclick", () => {
+        showReactionMenu(messageDiv, docSnap.id);
+      });
+
       messagesDiv.appendChild(messageDiv);
+
     });
 
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
   });
-}
-
-/* ================= REPLY ================= */
-
-function triggerReply(text) {
-  replyingTo = text;
-  const replyPreview = document.getElementById("replyPreview");
-  if (!replyPreview) return;
-
-  replyPreview.innerText =
-    text.length > 60 ? text.substring(0, 60) + "..." : text;
-
-  replyPreview.style.display = "block";
 }
 
 /* ================= DELETE ================= */
@@ -428,25 +375,4 @@ async function resetUnread() {
   await updateDoc(doc(db, "chats", chatId), {
     [`unread.${currentUserId}`]: 0
   }).catch(() => {});
-}
-
-/* ================= BACK ================= */
-
-window.goBack = function () {
-
-  const params = new URLSearchParams(window.location.search);
-  const from = params.get("from");
-
-  if (from === "private") {
-    window.location.href = "private.html";
-  } 
-  else if (from === "community") {
-    window.location.href = "community.html";
-  } 
-  else {
-    window.location.href = "dashboard.html";
-  }
-};
-
-
-
+        }
