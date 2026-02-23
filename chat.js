@@ -204,6 +204,7 @@ function loadMessages() {
     if (!messagesDiv) return;
 
     messagesDiv.innerHTML = "";
+    let firstUnreadElement = null;
     let lastDate = null;
 
     snapshot.forEach((docSnap) => {
@@ -215,7 +216,10 @@ function loadMessages() {
         messageDate = data.timestamp.toDate();
       }
 
-      const isMine = data.sender === currentUserId;
+      const isMine = data.sender === currentUserId// Detect first unread message
+if (!isMine && data.seen === false && !firstUnreadElement) {
+  firstUnreadElement = messageDiv;
+}
 
       /* ===== DATE DIVIDER ===== */
 
@@ -261,6 +265,9 @@ function loadMessages() {
       }
 
       const messageDiv = document.createElement("div");
+      if (!isMine && data.seen === false && !firstUnreadElement) {
+  firstUnreadElement = messageDiv;
+      }
       messageDiv.className = isMine
         ? "message my-message"
         : "message other-message";
@@ -320,8 +327,14 @@ function loadMessages() {
 
       messagesDiv.appendChild(messageDiv);
     });
-
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+if (firstUnreadElement) {
+  firstUnreadElement.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+} else {
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
     // ===== RESET UNREAD AFTER LOADING =====
 resetUnread();
   });
@@ -340,4 +353,5 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
 
