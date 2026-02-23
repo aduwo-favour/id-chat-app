@@ -1,7 +1,6 @@
 import { auth, db } from "./firebase.js";
 
-import { onAuthStateChanged } from
-"https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 import {
   getDatabase,
@@ -35,16 +34,16 @@ let replyingTo = null;
 let userRef = null;
 let unloadListenerAdded = false;
 
-let chatId = new URLSearchParams(window.location.search).get("chatId");
+const urlParams = new URLSearchParams(window.location.search);
+let chatId = urlParams.get("chatId");
 if (!chatId) window.location.href = "dashboard.html";
 
-let participants = chatId.split("_");
+const participants = chatId.split("_");
 let otherUserId = null;
 
 /* ================= AUTH ================= */
 
 onAuthStateChanged(auth, async (user) => {
-
   if (!user) {
     window.location.href = "index.html";
     return;
@@ -62,23 +61,22 @@ onAuthStateChanged(auth, async (user) => {
   const title = document.getElementById("chatTitle");
   if (title) title.innerText = otherUserId;
 
-  /* ===== GET OTHER USER ===== */
-
+  // Get other user's document
   const usersRef = collection(db, "users");
   const q = query(usersRef, where("userId", "==", otherUserId));
   const querySnapshot = await getDocs(q);
+
   if (querySnapshot.empty) return;
+
   const otherDoc = querySnapshot.docs[0];
 
-  /* ===== REALTIME PRESENCE ===== */
-
+  /* ===== Realtime Presence (RTDB) ===== */
   const rtdb = getDatabase();
   const connectedRef = ref(rtdb, ".info/connected");
 
   onValue(connectedRef, (snap) => {
     if (snap.val() === true) {
       const statusRef = ref(rtdb, "status/" + currentUid);
-
       set(statusRef, {
         online: true,
         lastChanged: Date.now()
@@ -91,10 +89,10 @@ onAuthStateChanged(auth, async (user) => {
     }
   });
 
+  /* ===== Listen to other user's presence ===== */
   const otherStatusRef = ref(rtdb, "status/" + otherDoc.id);
 
   onValue(otherStatusRef, (snap) => {
-
     const statusEl = document.getElementById("onlineStatus");
     if (!statusEl) return;
 
@@ -113,10 +111,11 @@ onAuthStateChanged(auth, async (user) => {
         hour: "2-digit",
         minute: "2-digit"
       });
-      statusEl.innerText = "Last seen at " + time;
+      statusEl.innerText = `Last seen at ${time}`;
     }
   });
 
+  /* ===== Also update Firestore status ===== */
   await updateDoc(userRef, {
     online: true,
     lastSeen: serverTimestamp()
@@ -126,6 +125,7 @@ onAuthStateChanged(auth, async (user) => {
     unloadListenerAdded = true;
 
     window.addEventListener("beforeunload", () => {
+      if (!userRef) return;
       updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
@@ -134,14 +134,12 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") {
-      updateDoc(userRef, {
-        online: false,
-        lastSeen: serverTimestamp()
-      }).catch(() => {});
-    } else {
-      updateDoc(userRef, { online: true }).catch(() => {});
-    }
+    if (!userRef) return;
+
+    updateDoc(userRef, {
+      online: document.visibilityState === "visible",
+      lastSeen: serverTimestamp()
+    }).catch(() => {});
   });
 
   await createChatIfNotExists();
@@ -168,7 +166,6 @@ async function createChatIfNotExists() {
 /* ================= SEND MESSAGE ================= */
 
 window.sendMessage = async function () {
-
   const input = document.getElementById("messageInput");
   if (!input) return;
 
@@ -186,6 +183,7 @@ window.sendMessage = async function () {
     reactions: {}
   });
 
+  // Increment unread for the other person
   await updateDoc(doc(db, "chats", chatId), {
     [`unread.${otherUserId}`]: increment(1),
     lastMessageTime: serverTimestamp()
@@ -201,14 +199,12 @@ window.sendMessage = async function () {
 /* ================= LOAD MESSAGES ================= */
 
 function loadMessages() {
-
   const q = query(
     collection(db, "chats", chatId, "messages"),
     orderBy("timestamp", "asc")
   );
 
   onSnapshot(q, (snapshot) => {
-
     const messagesDiv = document.getElementById("messages");
     if (!messagesDiv) return;
 
@@ -216,13 +212,13 @@ function loadMessages() {
     let lastDate = null;
 
     snapshot.forEach((docSnap) => {
-
       const data = docSnap.data();
-      let messageDate = data.timestamp?.toDate ? data.timestamp.toDate() : null;
       const isMine = data.sender === currentUserId;
 
-      if (messageDate) {
+      let messageDate = data.timestamp?.toDate?.() ?? null;
 
+      // Date divider
+      if (messageDate) {
         const today = new Date();
         const yesterday = new Date();
         yesterday.setDate(today.getDate() - 1);
@@ -230,9 +226,17 @@ function loadMessages() {
         const messageDay = messageDate.toDateString();
         let label = "";
 
-        if (messageDay === today.toDateString()) label = "Today";
-        else if (messageDay === yesterday.toDateString()) label = "Yesterday";
-        else label = messageDate.toLocaleDateString();
+        if (messageDay === today.toDateString()) {
+          label = "Today";
+        } else if (messageDay === yesterday.toDateString()) {
+          label = "Yesterday";
+        } else {
+          label = messageDate.toLocaleDateString([], {
+            year: "numeric",
+            month: "short",
+            day: "numeric"
+          });
+        }
 
         if (lastDate !== messageDay) {
           lastDate = messageDay;
@@ -243,6 +247,7 @@ function loadMessages() {
         }
       }
 
+      // Mark as seen if not mine
       if (!isMine && data.seen === false) {
         updateDoc(docSnap.ref, {
           seen: true,
@@ -251,27 +256,32 @@ function loadMessages() {
       }
 
       const messageDiv = document.createElement("div");
-      messageDiv.className = isMine
-        ? "message my-message"
-        : "message other-message";
+      messageDiv.className = isMine ? "message my-message" : "message other-message";
 
-      let timeString = data.timestamp?.toDate
-        ? data.timestamp.toDate().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      const timeString = messageDate
+        ? messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
         : "";
 
       let seenHTML = "";
       if (isMine && data.seen && data.seenAt?.toDate) {
-        const seenTime = data.seenAt.toDate().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const seenTime = data.seenAt.toDate().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
         seenHTML = `<div class="seen-time">Seen at ${seenTime}</div>`;
       }
 
       if (data.deletedForEveryone) {
-        messageDiv.innerHTML = `<div class="deleted-message">This message was deleted</div>`;
+        messageDiv.innerHTML = `
+          <div class="deleted-message">
+            This message was deleted
+          </div>
+        `;
       } else {
-
-        let replyHTML = data.replyTo
-          ? `<div class="reply-box">${data.replyTo}</div>`
-          : "";
+        let replyHTML = "";
+        if (data.replyTo) {
+          replyHTML = `<div class="reply-box">${data.replyTo}</div>`;
+        }
 
         messageDiv.innerHTML = `
           ${replyHTML}
@@ -280,6 +290,7 @@ function loadMessages() {
           ${seenHTML}
         `;
 
+        // Reactions
         if (data.reactions && Object.keys(data.reactions).length > 0) {
           const reactionContainer = document.createElement("div");
           reactionContainer.className = "reaction-container";
@@ -294,6 +305,7 @@ function loadMessages() {
         }
       }
 
+      // Delete (desktop right-click)
       if (isMine && !data.deletedForEveryone) {
         messageDiv.addEventListener("contextmenu", (e) => {
           e.preventDefault();
@@ -301,17 +313,62 @@ function loadMessages() {
         });
       }
 
+      // Touch: swipe to reply + long press for reaction
+      let startX = 0;
+      let pressTimer = null;
+      let triggeredReply = false;
+
+      messageDiv.addEventListener("touchstart", (e) => {
+        startX = e.touches[0].clientX;
+        triggeredReply = false;
+
+        pressTimer = setTimeout(() => {
+          showReactionMenu(messageDiv, docSnap.id);
+        }, 500);
+      });
+
+      messageDiv.addEventListener("touchmove", (e) => {
+        const diff = e.touches[0].clientX - startX;
+
+        if (diff > 0) {
+          clearTimeout(pressTimer);
+
+          const moveAmount = Math.min(diff, 80);
+          messageDiv.style.transform = `translateX(${moveAmount}px)`;
+
+          if (diff > 70 && !triggeredReply && !data.deletedForEveryone) {
+            triggeredReply = true;
+            triggerReply(data.text || "");
+          }
+        }
+      });
+
+      messageDiv.addEventListener("touchend", () => {
+        clearTimeout(pressTimer);
+        messageDiv.style.transform = "translateX(0)";
+      });
+
+      // Double click = reaction (desktop)
       messageDiv.addEventListener("dblclick", () => {
         showReactionMenu(messageDiv, docSnap.id);
       });
 
       messagesDiv.appendChild(messageDiv);
-
     });
 
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
   });
+}
+
+/* ================= REPLY ================= */
+
+function triggerReply(text) {
+  replyingTo = text;
+  const replyPreview = document.getElementById("replyPreview");
+  if (!replyPreview) return;
+
+  replyPreview.innerText = text.length > 60 ? text.substring(0, 60) + "..." : text;
+  replyPreview.style.display = "block";
 }
 
 /* ================= DELETE ================= */
@@ -339,13 +396,12 @@ async function addReaction(messageId, emoji) {
 }
 
 function showReactionMenu(messageDiv, messageId) {
-
   document.querySelectorAll(".reaction-menu").forEach(el => el.remove());
 
   const menu = document.createElement("div");
   menu.className = "reaction-menu";
 
-  ["❤️","😂","🔥","👍","😮","😢"].forEach(emoji => {
+  ["❤️", "😂", "🔥", "👍", "😮", "😢"].forEach(emoji => {
     const span = document.createElement("span");
     span.innerText = emoji;
     span.onclick = () => {
@@ -359,13 +415,11 @@ function showReactionMenu(messageDiv, messageId) {
 
   const rect = messageDiv.getBoundingClientRect();
   menu.style.position = "absolute";
-  menu.style.top = rect.top - 40 + "px";
-  menu.style.left = rect.left + "px";
+  menu.style.top = `${rect.top - 40}px`;
+  menu.style.left = `${rect.left}px`;
 
   setTimeout(() => {
-    document.addEventListener("click", () => {
-      menu.remove();
-    }, { once: true });
+    document.addEventListener("click", () => menu.remove(), { once: true });
   }, 50);
 }
 
@@ -375,4 +429,19 @@ async function resetUnread() {
   await updateDoc(doc(db, "chats", chatId), {
     [`unread.${currentUserId}`]: 0
   }).catch(() => {});
-        }
+}
+
+/* ================= BACK ================= */
+
+window.goBack = function () {
+  const params = new URLSearchParams(window.location.search);
+  const from = params.get("from");
+
+  if (from === "private") {
+    window.location.href = "private.html";
+  } else if (from === "community") {
+    window.location.href = "community.html";
+  } else {
+    window.location.href = "dashboard.html";
+  }
+};
