@@ -76,6 +76,30 @@ onAuthStateChanged(auth, async (user) => {
     });
   }
 
+
+    /* ===== MOBILE VISIBILITY FIX ===== */
+
+document.addEventListener("visibilitychange", () => {
+
+  if (!userRef) return;
+
+  if (document.visibilityState === "hidden") {
+
+    updateDoc(userRef, {
+      online: false,
+      lastSeen: serverTimestamp()
+    }).catch(() => {});
+
+  } else {
+
+    updateDoc(userRef, {
+      online: true
+    }).catch(() => {});
+
+  }
+
+});
+
   /* ===== LISTEN TO OTHER USER STATUS ===== */
 /* ===== LISTEN TO OTHER USER STATUS ===== */
 
@@ -402,3 +426,5 @@ window.goBack = function () {
 };
 
       
+
+    
