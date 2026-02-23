@@ -1,1 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Community Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
+<div class="chat-wrapper">
+
+  <!-- HEADER -->
+  <div class="chat-header">
+    <button class="back-btn" onclick="goBack()">⬅</button>
+
+    <div class="chat-user-info">
+      <h3>Community Chat</h3>
+    </div>
+  </div>
+
+  <!-- MESSAGES -->
+  <div id="messages"></div>
+
+  <!-- INPUT AREA -->
+  <div class="chat-input">
+    <input 
+      type="text" 
+      id="messageInput" 
+      placeholder="Type a message..." 
+      autocomplete="off"
+    >
+    <button type="button" onclick="sendMessage()">
+      Send
+    </button>
+  </div>
+
+</div>
+
+<script type="module" src="firebase.js"></script>
+<script type="module" src="community.js"></script>
+
+<script>
+  function goBack() {
+    window.location.href = "dashboard.html";
+  }
+</script>
+
+</body>
+</html>
