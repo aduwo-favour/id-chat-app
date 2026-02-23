@@ -224,14 +224,30 @@ function loadMessages() {
             </div>
           `;
         }
+messageDiv.innerHTML = `
+  ${replyHTML}
+  <div class="message-text">${data.text}</div>
+  <div class="message-time">${timeString}</div>
+  ${seenHTML}
+`;
 
-        messageDiv.innerHTML = `
-          ${replyHTML}
-          <div class="message-text">${data.text}</div>
-          <div class="message-time">${timeString}</div>
-          ${seenHTML}
-        `;
-      }
+
+// ===== SHOW REACTIONS =====
+if (data.reactions) {
+
+  const reactionContainer = document.createElement("div");
+  reactionContainer.className = "reaction-container";
+
+  const uniqueReactions = Object.values(data.reactions);
+
+  uniqueReactions.forEach(emoji => {
+    const span = document.createElement("span");
+    span.innerText = emoji;
+    reactionContainer.appendChild(span);
+  });
+
+  messageDiv.appendChild(reactionContainer);
+}
 
       /* ===== DELETE ===== */
 
@@ -365,6 +381,39 @@ async function addReaction(messageId, emoji) {
   }
 }
 
+// ===== ADD THIS BELOW =====
+
+function showReactionMenu(messageDiv, messageId) {
+
+  const menu = document.createElement("div");
+  menu.className = "reaction-menu";
+
+  const emojis = ["❤️","😂","🔥","👍","😮","😢"];
+
+  emojis.forEach(emoji => {
+    const span = document.createElement("span");
+    span.innerText = emoji;
+    span.addEventListener("click", () => {
+      addReaction(messageId, emoji);
+      menu.remove();
+    });
+    menu.appendChild(span);
+  });
+
+  document.body.appendChild(menu);
+
+  const rect = messageDiv.getBoundingClientRect();
+  menu.style.position = "absolute";
+  menu.style.top = rect.top - 40 + "px";
+  menu.style.left = rect.left + "px";
+
+  setTimeout(() => {
+    document.addEventListener("click", () => {
+      menu.remove();
+    }, { once: true });
+  }, 50);
+}
+
 /* ================= RESET UNREAD ================= */
 
 async function resetUnread() {
@@ -378,5 +427,6 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
 
 
