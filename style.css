@@ -327,3 +327,46 @@ body {
 body {
   top: 0px !important;
   }
+/* ===== FORCE FIXED LAYOUT ===== */
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.chat-wrapper {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header stays fixed */
+.chat-header {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: white;
+}
+
+/* Only messages scroll */
+#messages {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Input fixed at bottom */
+.chat-input {
+  flex-shrink: 0;
+  background: white;
+}
+
+/* ===== REMOVE GOOGLE TOP BANNER ===== */
+
+.goog-te-banner-frame.skiptranslate {
+  display: none !important;
+}
+
+body {
+  top: 0px !important;
+}
