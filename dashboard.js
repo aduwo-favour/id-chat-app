@@ -208,6 +208,18 @@ function loadChats() {
         id => id !== currentUserId
       );
 
+      // Update Private badge
+const privateBadge = document.getElementById("privateBadge");
+
+if (privateBadge) {
+  if (totalUnread > 0) {
+    privateBadge.style.display = "inline-block";
+    privateBadge.innerText = totalUnread;
+  } else {
+    privateBadge.style.display = "none";
+  }
+}
+
       if (!otherUser) return;
 
       const unread =
@@ -291,5 +303,6 @@ window.openPrivate = function () {
 };
 
       
+
 
 
