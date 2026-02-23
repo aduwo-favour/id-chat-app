@@ -8,7 +8,7 @@
 
 html, body {
   height: 100%;
-  overflow: hidden; /* Prevent full page scrolling */
+  overflow: hidden;
 }
 
 body {
@@ -130,13 +130,13 @@ body {
 .chat-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh; /* mobile-safe viewport */
   max-width: 700px;
   margin: auto;
   background: #f4f4f4;
 }
 
-/* ===== HEADER (ALWAYS FIXED INSIDE WRAPPER) ===== */
+/* HEADER */
 
 .chat-header {
   flex-shrink: 0;
@@ -178,10 +178,11 @@ body {
   color: #6f4e37;
 }
 
-/* ===== MESSAGES SCROLL AREA ===== */
+/* MESSAGES */
 
 #messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 15px;
   display: flex;
@@ -189,7 +190,7 @@ body {
   scroll-behavior: smooth;
 }
 
-/* ===== MESSAGE BUBBLES ===== */
+/* MESSAGE BUBBLES */
 
 .message {
   position: relative;
@@ -240,7 +241,7 @@ body {
   text-align: right;
 }
 
-/* ===== REPLY ===== */
+/* REPLY */
 
 .reply-preview {
   flex-shrink: 0;
@@ -261,7 +262,7 @@ body {
   opacity: 0.9;
 }
 
-/* ===== INPUT AREA ===== */
+/* INPUT */
 
 .chat-input {
   flex-shrink: 0;
@@ -287,7 +288,7 @@ body {
   cursor: pointer;
 }
 
-/* ===== REACTIONS ===== */
+/* REACTIONS */
 
 .reaction-menu {
   position: absolute;
@@ -312,7 +313,7 @@ body {
   font-size: 14px;
 }
 
-/* ===== MOBILE ===== */
+/* MOBILE */
 
 @media (max-width: 480px) {
   .message {
@@ -320,7 +321,7 @@ body {
   }
 }
 
-/* ===== GOOGLE TRANSLATE FIX ===== */
+/* GOOGLE TRANSLATE FIX */
 
 .goog-te-banner-frame,
 .goog-te-banner-frame.skiptranslate {
@@ -329,81 +330,12 @@ body {
 
 body {
   top: 0 !important;
-}
-/* ===== FINAL OVERRIDE FIX - DO NOT REMOVE ===== */
-
-/* Lock full page */
-html, body {
-  height: 100% !important;
-  overflow: hidden !important;
-}
-
-/* Force wrapper to behave properly */
-.chat-wrapper {
-  display: flex !important;
-  flex-direction: column !important;
-  height: 100vh !important;
-}
-
-/* Prevent header from scrolling */
-.chat-header {
-  flex-shrink: 0 !important;
-  position: relative !important;
-  z-index: 1000 !important;
-}
-
-/* Only messages scroll */
-#messages {
-  flex: 1 1 auto !important;
-  overflow-y: auto !important;
-  min-height: 0 !important; /* THIS FIXES FLEX SCROLL BUG */
-}
-
-/* Lock input at bottom */
-.chat-input {
-  flex-shrink: 0 !important;
-}
-
-/* Kill Google banner */
-.goog-te-banner-frame,
-.goog-te-banner-frame.skiptranslate {
-  display: none !important;
-}
-
-body {
-  top: 0 !important;
-}
-/* ===== GOOGLE TRANSLATE HARD FIX ===== */
-
-/* Remove top translate banner */
-.goog-te-banner-frame.skiptranslate {
-  display: none !important;
-}
-
-/* Stop Google from shifting body */
-body {
-  top: 0px !important;
   position: static !important;
 }
 
-/* Prevent injected translate container from breaking flex */
 #google_translate_element {
   position: absolute;
   right: 10px;
   top: 10px;
   z-index: 1000;
-}
-
-/* VERY IMPORTANT: Allow wrapper to size correctly */
-.chat-wrapper {
-  height: 100vh !important;
-  max-height: 100vh !important;
-  overflow: hidden;
-}
-
-/* Ensure messages area always visible */
-#messages {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
 }
