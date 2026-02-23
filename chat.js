@@ -52,30 +52,41 @@ onAuthStateChanged(auth, async (user) => {
   currentUid = user.uid;
   userRef = doc(db, "users", currentUid);
 
-  const userDoc = await getDoc(userRef);
+  let userDoc;
+  try {
+    userDoc = await getDoc(userRef);
+  } catch (err) {
+    console.error("Failed to load user doc:", err);
+    return;
+  }
+
   if (!userDoc.exists()) {
-    console.error("User document not found");
+    console.error("User document does not exist");
     return;
   }
 
   currentUserId = userDoc.data().userId;
   otherUserId = participants.find(p => p !== currentUserId);
 
-  console.log("Logged in as:", currentUserId, "chatting with:", otherUserId);
+  console.log(`[Auth] Logged in as ${currentUserId} (uid: ${currentUid}), chatting with ${otherUserId}`);
 
   const title = document.getElementById("chatTitle");
   if (title) title.innerText = otherUserId;
 
   const usersRef = collection(db, "users");
   const q = query(usersRef, where("userId", "==", otherUserId));
-  const querySnapshot = await getDocs(q);
-
-  if (querySnapshot.empty) {
-    console.warn("Other user not found in users collection");
-    return;
+  let querySnapshot;
+  try {
+    querySnapshot = await getDocs(q);
+  } catch (err) {
+    console.error("Failed to query other user:", err);
   }
 
-  const otherDoc = querySnapshot.docs[0];
+  if (querySnapshot?.empty) {
+    console.warn("Other user not found in users collection");
+  }
+
+  const otherDoc = querySnapshot?.docs?.[0];
 
   /* ===== Realtime Presence ===== */
   const rtdb = getDatabase();
@@ -87,62 +98,67 @@ onAuthStateChanged(auth, async (user) => {
       set(statusRef, {
         online: true,
         lastChanged: Date.now()
-      });
+      }).catch(err => console.error("Presence set failed:", err));
 
       onDisconnect(statusRef).set({
         online: false,
         lastChanged: Date.now()
-      });
+      }).catch(() => {});
     }
   });
 
-  const otherStatusRef = ref(rtdb, "status/" + otherDoc.id);
+  if (otherDoc) {
+    const otherStatusRef = ref(rtdb, "status/" + otherDoc.id);
+    onValue(otherStatusRef, (snap) => {
+      const statusEl = document.getElementById("onlineStatus");
+      if (!statusEl) return;
 
-  onValue(otherStatusRef, (snap) => {
-    const statusEl = document.getElementById("onlineStatus");
-    if (!statusEl) return;
-
-    if (!snap.exists()) {
-      statusEl.innerText = "Offline";
-      statusEl.style.color = "#888";
-      return;
-    }
-
-    const data = snap.val();
-
-    if (data.online === true) {
-      statusEl.innerText = "Online";
-      statusEl.style.color = "#4caf50";
-    } else {
-      const last = data.lastChanged ? new Date(data.lastChanged) : null;
-      if (!last) {
+      if (!snap.exists()) {
         statusEl.innerText = "Offline";
+        statusEl.style.color = "#888";
         return;
       }
 
-      const diffMs = Date.now() - last.getTime();
-      const diffMin = Math.floor(diffMs / 60000);
+      const data = snap.val();
 
-      let text = "Offline";
-      if (diffMin < 2) text = "just now";
-      else if (diffMin < 60) text = `${diffMin} min ago`;
-      else if (diffMin < 1440) {
-        const h = Math.floor(diffMin / 60);
-        text = `${h} ${h === 1 ? "hour" : "hours"} ago`;
+      if (data.online === true) {
+        statusEl.innerText = "Online";
+        statusEl.style.color = "#4caf50";
       } else {
-        text = last.toLocaleDateString([], { weekday: "short" }) +
-               " at " + last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const last = data.lastChanged ? new Date(data.lastChanged) : null;
+        if (!last) {
+          statusEl.innerText = "Offline";
+          return;
+        }
+
+        const diffMs = Date.now() - last.getTime();
+        const diffMin = Math.floor(diffMs / 60000);
+
+        let text = "Offline";
+        if (diffMin < 2) text = "just now";
+        else if (diffMin < 60) text = `${diffMin} min ago`;
+        else if (diffMin < 1440) {
+          const h = Math.floor(diffMin / 60);
+          text = `${h} ${h === 1 ? "hour" : "hours"} ago`;
+        } else {
+          text = last.toLocaleDateString([], { weekday: "short" }) +
+                 " at " + last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
+
+        statusEl.innerText = "Last seen " + text;
+        statusEl.style.color = "#888";
       }
+    });
+  }
 
-      statusEl.innerText = "Last seen " + text;
-      statusEl.style.color = "#888";
-    }
-  });
-
-  await updateDoc(userRef, {
-    online: true,
-    lastSeen: serverTimestamp()
-  }).catch(err => console.error("Firestore status update failed:", err));
+  try {
+    await updateDoc(userRef, {
+      online: true,
+      lastSeen: serverTimestamp()
+    });
+  } catch (err) {
+    console.warn("Firestore presence mirror failed:", err);
+  }
 
   if (!unloadListenerAdded) {
     unloadListenerAdded = true;
@@ -172,25 +188,24 @@ onAuthStateChanged(auth, async (user) => {
 /* ================= CREATE CHAT / REQUEST ================= */
 
 async function createChatIfNotExists() {
-  console.log("[createChatIfNotExists] Starting for chatId:", chatId);
+  console.log("[createChatIfNotExists] chatId:", chatId);
 
   const chatRef = doc(db, "chats", chatId);
   let chatSnap;
   try {
     chatSnap = await getDoc(chatRef);
   } catch (err) {
-    console.error("[createChatIfNotExists] Failed to get chat doc:", err);
-    return;
+    console.error("getDoc(chat) failed:", err);
   }
 
-  if (chatSnap.exists()) {
+  if (chatSnap?.exists()) {
     if (chatSnap.data().acceptedBy?.includes(currentUserId)) {
-      console.log("[createChatIfNotExists] Chat already accepted");
+      console.log("[create] Chat already accepted");
       return;
     }
-    console.log("[createChatIfNotExists] Chat exists but not accepted yet");
+    console.log("[create] Chat exists but not accepted");
   } else {
-    console.log("[createChatIfNotExists] Creating new chat placeholder");
+    console.log("[create] Creating chat placeholder");
     try {
       await setDoc(chatRef, {
         participants,
@@ -199,14 +214,14 @@ async function createChatIfNotExists() {
         lastMessageTime: serverTimestamp(),
         unread: {}
       });
-      console.log("[createChatIfNotExists] Chat placeholder created");
+      console.log("[create] Chat placeholder created OK");
     } catch (err) {
-      console.error("[createChatIfNotExists] Failed to create chat placeholder:", err);
+      console.error("[create] Failed to create chat doc:", err);
     }
   }
 
   const requestRef = doc(db, "messageRequests", chatId);
-  console.log("[createChatIfNotExists] Setting request doc");
+  console.log("[create] Setting request doc");
   try {
     await setDoc(requestRef, {
       from: currentUserId,
@@ -215,9 +230,9 @@ async function createChatIfNotExists() {
       createdAt: serverTimestamp(),
       lastUpdated: serverTimestamp()
     }, { merge: true });
-    console.log("[createChatIfNotExists] Request doc created/updated");
+    console.log("[create] Request doc OK");
   } catch (err) {
-    console.error("[createChatIfNotExists] Failed to set request doc:", err);
+    console.error("[create] Failed to set request doc:", err);
   }
 }
 
@@ -231,37 +246,29 @@ window.sendMessage = async function () {
   if (!text) return;
 
   if (!auth.currentUser) {
-    console.error("Cannot send: No authenticated user");
-    alert("Still loading account — try again in a few seconds");
+    console.error("No authenticated user at send time");
+    alert("Account still loading — wait a moment and retry");
     return;
   }
 
-  console.log("=== SEND ATTEMPT ===");
-  console.log("From:", currentUserId, "To:", otherUserId);
-  console.log("chatId:", chatId);
-  console.log("Message text:", text);
+  console.log("SEND → from:", currentUserId, "to:", otherUserId, "text:", text);
 
   const chatRef = doc(db, "chats", chatId);
   let chatSnap;
   try {
     chatSnap = await getDoc(chatRef);
   } catch (err) {
-    console.error("Failed to read chat document:", err);
+    console.error("getDoc(chat) failed:", err);
   }
 
-  let isAcceptedChat = false;
-
+  let isAccepted = false;
   if (chatSnap?.exists()) {
-    const chatData = chatSnap.data();
-    isAcceptedChat = chatData.acceptedBy?.includes(currentUserId) &&
-                     chatData.acceptedBy?.includes(otherUserId);
-    console.log("Chat exists → accepted?", isAcceptedChat);
-  } else {
-    console.log("No chat document yet");
+    isAccepted = chatSnap.data().acceptedBy?.includes(currentUserId) &&
+                  chatSnap.data().acceptedBy?.includes(otherUserId);
   }
 
-  if (isAcceptedChat) {
-    console.log("Sending normal message");
+  if (isAccepted) {
+    console.log("Sending NORMAL message");
     try {
       await addDoc(collection(db, "chats", chatId, "messages"), {
         sender: currentUserId,
@@ -277,54 +284,37 @@ window.sendMessage = async function () {
         [`unread.${otherUserId}`]: increment(1),
         lastMessageTime: serverTimestamp()
       });
-      console.log("Normal message sent OK");
+      console.log("Normal message sent");
     } catch (err) {
-      console.error("Normal message send failed:", err);
-      alert("Failed to send message – check console");
+      console.error("Normal send failed:", err);
     }
   } else {
-    console.log("Sending as REQUEST");
-
+    console.log("Sending REQUEST");
     const requestRef = doc(db, "messageRequests", chatId);
 
     try {
-      await updateDoc(requestRef, {
+      await setDoc(requestRef, {
+        from: currentUserId,
+        to: otherUserId,
         firstMessage: {
           text,
           sender: currentUserId,
           timestamp: serverTimestamp()
         },
-        lastUpdated: serverTimestamp(),
-        status: "pending"
-      });
-      console.log("Request UPDATED successfully");
-    } catch (updateErr) {
-      console.warn("Update failed → trying full create:", updateErr);
+        status: "pending",
+        createdAt: serverTimestamp(),
+        lastUpdated: serverTimestamp()
+      }, { merge: true });
 
-      try {
-        await setDoc(requestRef, {
-          from: currentUserId,
-          to: otherUserId,
-          firstMessage: {
-            text,
-            sender: currentUserId,
-            timestamp: serverTimestamp()
-          },
-          status: "pending",
-          createdAt: serverTimestamp(),
-          lastUpdated: serverTimestamp()
-        });
-        console.log("Request DOCUMENT CREATED successfully");
-      } catch (setErr) {
-        console.error("Failed to create request document:", setErr);
-        alert("Could not send request – see console for details");
-      }
+      console.log("Request document written successfully");
+    } catch (err) {
+      console.error("Request write failed:", err);
+      alert("Failed to send request – check console (F12)");
     }
   }
 
   input.value = "";
   replyingTo = null;
-
   const replyPreview = document.getElementById("replyPreview");
   if (replyPreview) replyPreview.style.display = "none";
 };
@@ -332,6 +322,8 @@ window.sendMessage = async function () {
 /* ================= LOAD MESSAGES ================= */
 
 function loadMessages() {
+  console.log("[loadMessages] Starting listener for chat:", chatId);
+
   const messagesRef = collection(db, "chats", chatId, "messages");
   const q = query(messagesRef, orderBy("timestamp", "asc"));
 
@@ -343,8 +335,8 @@ function loadMessages() {
 
     if (snapshot.empty) {
       const chatRef = doc(db, "chats", chatId);
-      const chatSnap = await getDoc(chatRef);
-      if (chatSnap.exists() && !chatSnap.data().acceptedBy?.includes(currentUserId)) {
+      const chatSnap = await getDoc(chatRef).catch(() => null);
+      if (chatSnap?.exists() && !chatSnap.data().acceptedBy?.includes(currentUserId)) {
         messagesDiv.innerHTML = `
           <div class="request-placeholder">
             <p class="request-title">Message Request Pending</p>
@@ -413,14 +405,14 @@ function loadMessages() {
         `;
 
         if (data.reactions && Object.keys(data.reactions).length > 0) {
-          const reactionContainer = document.createElement("div");
-          reactionContainer.className = "reaction-container";
+          const rc = document.createElement("div");
+          rc.className = "reaction-container";
           Object.values(data.reactions).forEach(emoji => {
             const span = document.createElement("span");
             span.innerText = emoji;
-            reactionContainer.appendChild(span);
+            rc.appendChild(span);
           });
-          messageDiv.appendChild(reactionContainer);
+          messageDiv.appendChild(rc);
         }
       }
 
@@ -465,21 +457,20 @@ function loadMessages() {
     });
 
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  }, (err) => {
+    console.error("[loadMessages] onSnapshot error:", err);
   });
 }
 
-/* ================= REPLY ================= */
+/* ================= Other functions (unchanged but included for completeness) ================= */
 
 function triggerReply(text) {
   replyingTo = text;
   const replyPreview = document.getElementById("replyPreview");
   if (!replyPreview) return;
-
   replyPreview.innerText = text.length > 60 ? text.substring(0, 60) + "..." : text;
   replyPreview.style.display = "block";
 }
-
-/* ================= DELETE ================= */
 
 function confirmDelete(messageId) {
   if (confirm("Delete this message for everyone?")) {
@@ -493,8 +484,6 @@ async function deleteForEveryone(messageId) {
     { deletedForEveryone: true, text: "" }
   ).catch(() => {});
 }
-
-/* ================= REACTION ================= */
 
 async function addReaction(messageId, emoji) {
   await updateDoc(
@@ -531,15 +520,11 @@ function showReactionMenu(messageDiv, messageId) {
   }, 50);
 }
 
-/* ================= RESET UNREAD ================= */
-
 async function resetUnread() {
   await updateDoc(doc(db, "chats", chatId), {
     [`unread.${currentUserId}`]: 0
   }).catch(() => {});
 }
-
-/* ================= BACK ================= */
 
 window.goBack = function () {
   const params = new URLSearchParams(window.location.search);
