@@ -330,3 +330,46 @@ body {
 body {
   top: 0 !important;
 }
+/* ===== FINAL OVERRIDE FIX - DO NOT REMOVE ===== */
+
+/* Lock full page */
+html, body {
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Force wrapper to behave properly */
+.chat-wrapper {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100vh !important;
+}
+
+/* Prevent header from scrolling */
+.chat-header {
+  flex-shrink: 0 !important;
+  position: relative !important;
+  z-index: 1000 !important;
+}
+
+/* Only messages scroll */
+#messages {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  min-height: 0 !important; /* THIS FIXES FLEX SCROLL BUG */
+}
+
+/* Lock input at bottom */
+.chat-input {
+  flex-shrink: 0 !important;
+}
+
+/* Kill Google banner */
+.goog-te-banner-frame,
+.goog-te-banner-frame.skiptranslate {
+  display: none !important;
+}
+
+body {
+  top: 0 !important;
+}
