@@ -186,9 +186,10 @@ function loadChats() {
   const chatsRef = collection(db, "chats");
 
   const q = query(
-    chatsRef,
-    where("participants", "array-contains", currentUserId)
-  );
+  chatsRef,
+  where("participants", "array-contains", currentUserId),
+  orderBy("lastMessageTime", "desc")
+);
 
   onSnapshot(q, (snapshot) => {
 
@@ -303,6 +304,7 @@ window.openPrivate = function () {
 };
 
       
+
 
 
 
