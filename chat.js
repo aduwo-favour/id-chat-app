@@ -4,6 +4,13 @@ import { onAuthStateChanged } from
 "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 import {
+  getDatabase,
+  ref,
+  onValue,
+  onDisconnect,
+  set
+} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+import {
   doc,
   getDoc,
   setDoc,
@@ -44,6 +51,32 @@ onAuthStateChanged(auth, async (user) => {
 
   currentUid = user.uid;
   userRef = doc(db, "users", currentUid);
+  // ===== REALTIME PRESENCE SYSTEM =====
+
+const rtdb = getDatabase();
+
+const connectedRef = ref(rtdb, ".info/connected");
+
+onValue(connectedRef, (snap) => {
+
+  if (snap.val() === true) {
+
+    const statusRef = ref(rtdb, "status/" + currentUid);
+
+    // Set online
+    set(statusRef, {
+      online: true,
+      lastChanged: Date.now()
+    });
+
+    // Auto set offline on disconnect
+    onDisconnect(statusRef).set({
+      online: false,
+      lastChanged: Date.now()
+    });
+  }
+
+});
 
   const userDoc = await getDoc(userRef);
   if (!userDoc.exists()) return;
@@ -103,16 +136,37 @@ document.addEventListener("visibilitychange", () => {
   /* ===== LISTEN TO OTHER USER STATUS ===== */
 /* ===== LISTEN TO OTHER USER STATUS ===== */
 
-const usersRef = collection(db, "users");
-const q = query(usersRef, where("userId", "==", otherUserId));
-const querySnapshot = await getDocs(q);
+// ===== LISTEN TO OTHER USER PRESENCE (REALTIME DB) =====
 
-if (!querySnapshot.empty) {
+const rtdb = getDatabase();
+const otherStatusRef = ref(rtdb, "status/" + otherDoc.id);
 
-  const otherDoc = querySnapshot.docs[0];
-  const otherUserRef = doc(db, "users", otherDoc.id);
+onValue(otherStatusRef, (snap) => {
 
-  onSnapshot(otherUserRef, (snap) => {
+  const statusEl = document.getElementById("onlineStatus");
+  if (!statusEl) return;
+
+  if (!snap.exists()) {
+    statusEl.innerText = "Offline";
+    return;
+  }
+
+  const data = snap.val();
+
+  if (data.online === true) {
+    statusEl.innerText = "Online";
+  } else {
+
+    const date = new Date(data.lastChanged);
+    const time = date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    statusEl.innerText = "Last seen at " + time;
+  }
+
+});
 
     const statusEl = document.getElementById("onlineStatus");
     if (!statusEl) return;
@@ -479,6 +533,7 @@ window.goBack = function () {
     window.location.href = "dashboard.html";
   }
 };
+
 
 
 
