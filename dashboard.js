@@ -82,6 +82,29 @@ onAuthStateChanged(auth, async (user) => {
       });
     }
 
+    /* ===== MOBILE VISIBILITY FIX ===== */
+
+document.addEventListener("visibilitychange", () => {
+
+  if (!userRef) return;
+
+  if (document.visibilityState === "hidden") {
+
+    updateDoc(userRef, {
+      online: false,
+      lastSeen: serverTimestamp()
+    }).catch(() => {});
+
+  } else {
+
+    updateDoc(userRef, {
+      online: true
+    }).catch(() => {});
+
+  }
+
+});
+
     /* ===== LOAD CHATS AFTER LOGIN ===== */
 
     loadChats();
@@ -259,3 +282,5 @@ function showNotification(message) {
   }, 3000);
 
   }
+
+      
