@@ -415,4 +415,92 @@ body {
   top: 10px;
   z-index: 1000;
   }
+/* ===== MESSAGE REQUESTS ===== */
+
+.request-item {
+  background: #fffef7;
+  border: 1px solid #f0e8d0;
+  border-radius: 12px;
+  padding: 14px;
+  margin: 12px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.request-header strong {
+  font-size: 15px;
+  color: #6f4e37;
+}
+
+.request-time {
+  font-size: 12px;
+  color: #888;
+}
+
+.request-preview {
+  font-size: 14px;
+  color: #444;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.request-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.accept-btn, .decline-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.accept-btn {
+  background: #6f4e37;
+  color: white;
+}
+
+.decline-btn {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.request-placeholder {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.request-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #6f4e37;
+  margin-bottom: 12px;
+}
+
+.custom-notification {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 30px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  z-index: 9999;
+  font-size: 15px;
+  max-width: 90%;
+  text-align: center;
+}
+
 
