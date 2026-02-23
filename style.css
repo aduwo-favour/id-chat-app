@@ -8,6 +8,7 @@
 
 html, body {
   height: 100%;
+  overflow: hidden; /* Prevent full page scrolling */
 }
 
 body {
@@ -135,7 +136,7 @@ body {
   background: #f4f4f4;
 }
 
-/* ===== HEADER (FIXED) ===== */
+/* ===== HEADER (ALWAYS FIXED INSIDE WRAPPER) ===== */
 
 .chat-header {
   flex-shrink: 0;
@@ -144,6 +145,7 @@ body {
   padding: 12px 15px;
   background: white;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  position: relative;
   z-index: 10;
 }
 
@@ -176,7 +178,7 @@ body {
   color: #6f4e37;
 }
 
-/* ===== MESSAGES (SCROLLABLE AREA) ===== */
+/* ===== MESSAGES SCROLL AREA ===== */
 
 #messages {
   flex: 1;
@@ -259,7 +261,7 @@ body {
   opacity: 0.9;
 }
 
-/* ===== INPUT (FIXED BOTTOM) ===== */
+/* ===== INPUT AREA ===== */
 
 .chat-input {
   flex-shrink: 0;
@@ -320,53 +322,11 @@ body {
 
 /* ===== GOOGLE TRANSLATE FIX ===== */
 
-.goog-te-banner-frame {
-  display: none !important;
-}
-
-body {
-  top: 0px !important;
-  }
-/* ===== FORCE FIXED LAYOUT ===== */
-
-html, body {
-  height: 100%;
-  overflow: hidden;
-}
-
-.chat-wrapper {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Header stays fixed */
-.chat-header {
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  background: white;
-}
-
-/* Only messages scroll */
-#messages {
-  flex: 1;
-  overflow-y: auto;
-}
-
-/* Input fixed at bottom */
-.chat-input {
-  flex-shrink: 0;
-  background: white;
-}
-
-/* ===== REMOVE GOOGLE TOP BANNER ===== */
-
+.goog-te-banner-frame,
 .goog-te-banner-frame.skiptranslate {
   display: none !important;
 }
 
 body {
-  top: 0px !important;
+  top: 0 !important;
 }
