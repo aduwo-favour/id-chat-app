@@ -143,8 +143,8 @@ if (!querySnapshot.empty) {
 }
   
   await createChatIfNotExists();
-  loadMessages();
-  resetUnread();
+loadMessages();
+await resetUnread();
 });
 
 /* ================= CREATE CHAT ================= */
@@ -467,3 +467,4 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
