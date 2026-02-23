@@ -139,7 +139,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   await createChatIfNotExists();
-  await resetUnread();   // FIXED (await added)
   loadMessages();
 });
 
@@ -323,6 +322,8 @@ function loadMessages() {
     });
 
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    // ===== RESET UNREAD AFTER LOADING =====
+resetUnread();
   });
 }
 
@@ -339,3 +340,4 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
+
