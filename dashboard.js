@@ -126,6 +126,11 @@ onAuthStateChanged(auth, async (user) => {
 
     loadChats();
 
+    // Load requests if on private page
+    if (document.getElementById("requestsList")) {
+      loadRequests();
+    }
+
   } catch (error) {
     console.error("Auth / presence setup error:", error);
   }
@@ -315,6 +320,87 @@ function loadChats() {
       : originalTitle;
   });
 }
+
+/* ================= LOAD MESSAGE REQUESTS ================= */
+
+function loadRequests() {
+  if (!currentUserId) return;
+
+  const requestsQuery = query(
+    collection(db, "messageRequests"),
+    where("to", "==", currentUserId),
+    where("status", "==", "pending"),
+    orderBy("lastUpdated", "desc")
+  );
+
+  onSnapshot(requestsQuery, (snap) => {
+    const list = document.getElementById("requestsList");
+    if (!list) return;
+
+    list.innerHTML = "";
+
+    snap.forEach((docSnap) => {
+      const req = docSnap.data();
+      const div = document.createElement("div");
+      div.className = "request-item";
+      div.innerHTML = `
+        <p>From: ${req.from}</p>
+        <p>${req.firstMessage?.text?.substring(0, 100) || "No message"}...</p>
+        <button onclick="acceptRequest('${docSnap.id}')">Accept</button>
+        <button onclick="declineRequest('${docSnap.id}')">Decline</button>
+      `;
+      list.appendChild(div);
+    });
+  });
+}
+
+/* ================= ACCEPT / DECLINE ================= */
+
+window.acceptRequest = async function (reqId) {
+  const reqRef = doc(db, "messageRequests", reqId);
+  const reqSnap = await getDoc(reqRef);
+  const req = reqSnap.data();
+
+  const chatId = [req.from, req.to].sort().join("_");
+  const chatRef = doc(db, "chats", chatId);
+
+  await updateDoc(chatRef, {
+    acceptedBy: [req.from, req.to],
+    lastMessageTime: serverTimestamp()
+  }).catch(async () => {
+    await setDoc(chatRef, {
+      participants: [req.from, req.to],
+      acceptedBy: [req.from, req.to],
+      unread: {},
+      createdAt: serverTimestamp(),
+      lastMessageTime: serverTimestamp()
+    });
+  });
+
+  // Copy first message to real chat
+  if (req.firstMessage) {
+    await addDoc(collection(db, "chats", chatId, "messages"), {
+      sender: req.from,
+      text: req.firstMessage.text,
+      timestamp: req.firstMessage.timestamp || serverTimestamp(),
+      deletedForEveryone: false,
+      replyTo: null,
+      seen: false,
+      seenAt: null,
+      reactions: {}
+    });
+  }
+
+  await updateDoc(reqRef, { status: "accepted" });
+
+  showNotification("Request accepted");
+  window.location.href = `chat.html?chatId=${chatId}&from=private`;
+};
+
+window.declineRequest = async function (reqId) {
+  await updateDoc(doc(db, "messageRequests", reqId), { status: "declined" });
+  showNotification("Request declined");
+};
 
 /* ================= OPEN CHAT ================= */
 
