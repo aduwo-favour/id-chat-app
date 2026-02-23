@@ -305,6 +305,14 @@ body {
   font-size: 18px;
 }
 
+.date-divider {
+  text-align: center;
+  margin: 15px 0;
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
 .reaction-container {
   display: flex;
   gap: 5px;
@@ -338,4 +346,5 @@ body {
   top: 10px;
   z-index: 1000;
 }
+
 
