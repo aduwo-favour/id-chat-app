@@ -76,75 +76,71 @@ onAuthStateChanged(auth, async (user) => {
     });
   }
 
+  /* ===== MOBILE VISIBILITY FIX ===== */
 
-    /* ===== MOBILE VISIBILITY FIX ===== */
+  document.addEventListener("visibilitychange", () => {
 
-document.addEventListener("visibilitychange", () => {
+    if (!userRef) return;
 
-  if (!userRef) return;
+    if (document.visibilityState === "hidden") {
 
-  if (document.visibilityState === "hidden") {
+      updateDoc(userRef, {
+        online: false,
+        lastSeen: serverTimestamp()
+      }).catch(() => {});
 
-    updateDoc(userRef, {
-      online: false,
-      lastSeen: serverTimestamp()
-    }).catch(() => {});
-
-  } else {
-
-    updateDoc(userRef, {
-      online: true
-    }).catch(() => {});
-
-  }
-
-});
-
-  /* ===== LISTEN TO OTHER USER STATUS ===== */
-/* ===== LISTEN TO OTHER USER STATUS ===== */
-
-const usersRef = collection(db, "users");
-const q = query(usersRef, where("userId", "==", otherUserId));
-const querySnapshot = await getDocs(q);
-
-if (!querySnapshot.empty) {
-
-  const otherDoc = querySnapshot.docs[0];
-  const otherUserRef = doc(db, "users", otherDoc.id);
-
-  onSnapshot(otherUserRef, (snap) => {
-
-    const statusEl = document.getElementById("onlineStatus");
-    if (!statusEl) return;
-
-    if (!snap.exists()) {
-      statusEl.innerText = "";
-      return;
-    }
-
-    const data = snap.data();
-
-    if (data.online === true) {
-      statusEl.innerText = "Online";
-    } else if (data.lastSeen?.toDate) {
-
-      const time = data.lastSeen.toDate().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-
-      statusEl.innerText = "Last seen at " + time;
     } else {
-      statusEl.innerText = "Offline";
+
+      updateDoc(userRef, {
+        online: true
+      }).catch(() => {});
     }
 
   });
 
-}
-  
+  /* ===== LISTEN TO OTHER USER STATUS ===== */
+
+  const usersRef = collection(db, "users");
+  const q = query(usersRef, where("userId", "==", otherUserId));
+  const querySnapshot = await getDocs(q);
+
+  if (!querySnapshot.empty) {
+
+    const otherDoc = querySnapshot.docs[0];
+    const otherUserRef = doc(db, "users", otherDoc.id);
+
+    onSnapshot(otherUserRef, (snap) => {
+
+      const statusEl = document.getElementById("onlineStatus");
+      if (!statusEl) return;
+
+      if (!snap.exists()) {
+        statusEl.innerText = "";
+        return;
+      }
+
+      const data = snap.data();
+
+      if (data.online === true) {
+        statusEl.innerText = "Online";
+      } else if (data.lastSeen?.toDate) {
+
+        const time = data.lastSeen.toDate().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+
+        statusEl.innerText = "Last seen at " + time;
+      } else {
+        statusEl.innerText = "Offline";
+      }
+
+    });
+  }
+
   await createChatIfNotExists();
+  await resetUnread();   // FIXED (await added)
   loadMessages();
-  resetUnread();
 });
 
 /* ================= CREATE CHAT ================= */
@@ -216,45 +212,47 @@ function loadMessages() {
       const data = docSnap.data();
       let messageDate = null;
 
-if (data.timestamp?.toDate) {
-  messageDate = data.timestamp.toDate();
-}
+      if (data.timestamp?.toDate) {
+        messageDate = data.timestamp.toDate();
+      }
+
       const isMine = data.sender === currentUserId;
+
       /* ===== DATE DIVIDER ===== */
 
-if (messageDate) {
+      if (messageDate) {
 
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
 
-  const messageDay = messageDate.toDateString();
+        const messageDay = messageDate.toDateString();
 
-  let label = "";
+        let label = "";
 
-  if (messageDay === today.toDateString()) {
-    label = "Today";
-  } else if (messageDay === yesterday.toDateString()) {
-    label = "Yesterday";
-  } else {
-    label = messageDate.toLocaleDateString([], {
-      year: "numeric",
-      month: "short",
-      day: "numeric"
-    });
-  }
+        if (messageDay === today.toDateString()) {
+          label = "Today";
+        } else if (messageDay === yesterday.toDateString()) {
+          label = "Yesterday";
+        } else {
+          label = messageDate.toLocaleDateString([], {
+            year: "numeric",
+            month: "short",
+            day: "numeric"
+          });
+        }
 
-  if (lastDate !== messageDay) {
+        if (lastDate !== messageDay) {
 
-    lastDate = messageDay;
+          lastDate = messageDay;
 
-    const divider = document.createElement("div");
-    divider.className = "date-divider";
-    divider.innerText = label;
+          const divider = document.createElement("div");
+          divider.className = "date-divider";
+          divider.innerText = label;
 
-    messagesDiv.appendChild(divider);
-  }
-}
+          messagesDiv.appendChild(divider);
+        }
+      }
 
       if (!isMine && data.seen === false) {
         updateDoc(docSnap.ref, {
@@ -307,8 +305,6 @@ if (messageDate) {
           ${seenHTML}
         `;
 
-        /* ===== SHOW REACTIONS ===== */
-
         if (data.reactions && Object.keys(data.reactions).length > 0) {
           const reactionContainer = document.createElement("div");
           reactionContainer.className = "reaction-container";
@@ -323,133 +319,11 @@ if (messageDate) {
         }
       }
 
-      /* ===== DELETE (DESKTOP) ===== */
-
-      if (isMine && !data.deletedForEveryone) {
-        messageDiv.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          confirmDelete(docSnap.id);
-        });
-      }
-
-      /* ===== TOUCH HANDLING (SWIPE + REACTION SAFE) ===== */
-
-      let startX = 0;
-      let pressTimer = null;
-      let triggeredReply = false;
-
-      messageDiv.addEventListener("touchstart", (e) => {
-
-        startX = e.touches[0].clientX;
-        triggeredReply = false;
-
-        pressTimer = setTimeout(() => {
-          showReactionMenu(messageDiv, docSnap.id);
-        }, 500);
-      });
-
-      messageDiv.addEventListener("touchmove", (e) => {
-
-        const diff = e.touches[0].clientX - startX;
-
-        if (diff > 0) {
-
-          clearTimeout(pressTimer);
-
-          const moveAmount = Math.min(diff, 80);
-          messageDiv.style.transform = `translateX(${moveAmount}px)`;
-
-          if (diff > 70 && !triggeredReply && !data.deletedForEveryone) {
-            triggeredReply = true;
-            triggerReply(data.text || "");
-          }
-        }
-      });
-
-      messageDiv.addEventListener("touchend", () => {
-        clearTimeout(pressTimer);
-        messageDiv.style.transform = "translateX(0)";
-      });
-
-      /* ===== DESKTOP REACTION ===== */
-
-      messageDiv.addEventListener("dblclick", () => {
-        showReactionMenu(messageDiv, docSnap.id);
-      });
-
       messagesDiv.appendChild(messageDiv);
     });
 
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
   });
-}
-
-/* ================= REPLY ================= */
-
-function triggerReply(text) {
-  replyingTo = text;
-  const replyPreview = document.getElementById("replyPreview");
-  if (!replyPreview) return;
-
-  replyPreview.innerText =
-    text.length > 60 ? text.substring(0, 60) + "..." : text;
-
-  replyPreview.style.display = "block";
-}
-
-/* ================= DELETE ================= */
-
-function confirmDelete(messageId) {
-  if (confirm("Delete this message for everyone?")) {
-    deleteForEveryone(messageId);
-  }
-}
-
-async function deleteForEveryone(messageId) {
-  await updateDoc(
-    doc(db, "chats", chatId, "messages", messageId),
-    { deletedForEveryone: true, text: "" }
-  ).catch(() => {});
-}
-
-/* ================= REACTION ================= */
-
-async function addReaction(messageId, emoji) {
-  await updateDoc(
-    doc(db, "chats", chatId, "messages", messageId),
-    { [`reactions.${currentUserId}`]: emoji }
-  ).catch(() => {});
-}
-
-function showReactionMenu(messageDiv, messageId) {
-
-  document.querySelectorAll(".reaction-menu").forEach(el => el.remove());
-
-  const menu = document.createElement("div");
-  menu.className = "reaction-menu";
-
-  ["❤️","😂","🔥","👍","😮","😢"].forEach(emoji => {
-    const span = document.createElement("span");
-    span.innerText = emoji;
-    span.onclick = () => {
-      addReaction(messageId, emoji);
-      menu.remove();
-    };
-    menu.appendChild(span);
-  });
-
-  document.body.appendChild(menu);
-
-  const rect = messageDiv.getBoundingClientRect();
-  menu.style.position = "absolute";
-  menu.style.top = rect.top - 40 + "px";
-  menu.style.left = rect.left + "px";
-
-  setTimeout(() => {
-    document.addEventListener("click", () => {
-      menu.remove();
-    }, { once: true });
-  }, 50);
 }
 
 /* ================= RESET UNREAD ================= */
@@ -465,8 +339,3 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
-
-      
-
-    
-
