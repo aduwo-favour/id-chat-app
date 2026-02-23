@@ -277,7 +277,7 @@ window.openChat = async function (chatId) {
     console.log("Unread reset skipped");
   }
 
-  window.location.href = "chat.html?chatId=" + chatId;
+  window.location.href = "chat.html?chatId=" + chatId + "&from=dashboard";
 };
 
 
@@ -311,3 +311,4 @@ window.openPrivate = function () {
 
 
              
+
