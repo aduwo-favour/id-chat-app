@@ -373,3 +373,37 @@ html, body {
 body {
   top: 0 !important;
 }
+/* ===== GOOGLE TRANSLATE HARD FIX ===== */
+
+/* Remove top translate banner */
+.goog-te-banner-frame.skiptranslate {
+  display: none !important;
+}
+
+/* Stop Google from shifting body */
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+/* Prevent injected translate container from breaking flex */
+#google_translate_element {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 1000;
+}
+
+/* VERY IMPORTANT: Allow wrapper to size correctly */
+.chat-wrapper {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden;
+}
+
+/* Ensure messages area always visible */
+#messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
