@@ -22,28 +22,21 @@
 
   </div>
 
-  <!-- START CHAT -->
-
-
+  <!-- COMMUNITY -->
   <div class="dashboard-card">
-  <h3>Community</h3>
-  <button onclick="openCommunity()">Open Community Chat</button>
-  </div>
-  
-  <div class="dashboard-card">
-    <input 
-      type="text" 
-      id="friendId" 
-      placeholder="Enter Friend ID"
-      autocomplete="off"
-    >
-    <button onclick="startChat()">Start Chat</button>
+    <h3>Community</h3>
+    <button onclick="openCommunity()">
+      Open Community Chat
+    </button>
   </div>
 
-  <!-- CHAT LIST -->
+  <!-- PRIVATE CHAT -->
   <div class="dashboard-card">
-    <h3 class="chat-section-title">Your Chats</h3>
-    <div id="chatList"></div>
+    <h3>Private Chat</h3>
+    <button onclick="openPrivate()">
+      Open Private Chat
+      <span id="privateUnreadBadge" class="unread-badge" style="display:none;">0</span>
+    </button>
   </div>
 
 </div>
@@ -52,4 +45,3 @@
 
 </body>
 </html>
-
