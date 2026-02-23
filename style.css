@@ -6,9 +6,12 @@
   font-family: Arial, Helvetica, sans-serif;
 }
 
+html, body {
+  height: 100%;
+}
+
 body {
   background: linear-gradient(135deg, #f4f4f4, #e6e6e6);
-  min-height: 100vh;
 }
 
 /* ========================================= */
@@ -92,8 +95,6 @@ body {
   cursor: pointer;
 }
 
-/* Chat list */
-
 .chat-item {
   display: flex;
   justify-content: space-between;
@@ -128,20 +129,22 @@ body {
 .chat-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100vh;
   max-width: 700px;
   margin: auto;
   background: #f4f4f4;
 }
 
-/* Header */
+/* ===== HEADER (FIXED) ===== */
 
 .chat-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   padding: 12px 15px;
   background: white;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  z-index: 10;
 }
 
 .back-btn {
@@ -173,9 +176,7 @@ body {
   color: #6f4e37;
 }
 
-/* ========================================= */
-/* ============== MESSAGES ================= */
-/* ========================================= */
+/* ===== MESSAGES (SCROLLABLE AREA) ===== */
 
 #messages {
   flex: 1;
@@ -185,6 +186,8 @@ body {
   flex-direction: column;
   scroll-behavior: smooth;
 }
+
+/* ===== MESSAGE BUBBLES ===== */
 
 .message {
   position: relative;
@@ -195,7 +198,6 @@ body {
   word-wrap: break-word;
   transition: transform 0.2s ease;
   touch-action: pan-y;
-  will-change: transform;
 }
 
 .my-message {
@@ -223,153 +225,23 @@ body {
   text-align: right;
 }
 
-/* Deleted message */
 .deleted-message {
   font-style: italic;
   opacity: 0.6;
   font-size: 14px;
 }
 
-/* Seen text */
 .seen-time {
   font-size: 11px;
   opacity: 0.6;
   margin-top: 2px;
   text-align: right;
-}
-
-/* ========================================= */
-/* ============== REPLY ==================== */
-/* ========================================= */
-/* ========================================= */
-/* ============== CHAT PAGE ================ */
-/* ========================================= */
-
-.chat-wrapper {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  max-width: 700px;
-  margin: auto;
-  background: #f4f4f4;
-}
-
-/* ===== HEADER ===== */
-
-.chat-header {
-  display: flex;
-  align-items: center;
-  padding: 12px 15px;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.back-btn {
-  background: #6f4e37;
-  color: white;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 6px;
-  margin-right: 10px;
-  cursor: pointer;
-}
-
-.chat-user-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.chat-user-info h3 {
-  font-size: 16px;
-}
-
-.online-status {
-  font-size: 13px;
-  color: green;
-}
-
-.typing-status {
-  font-size: 13px;
-  color: #6f4e37;
-}
-
-/* ===== MESSAGES ===== */
-
-#messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  scroll-behavior: smooth;
-}
-
-/* Message bubble */
-
-.message {
-  position: relative;
-  padding: 10px 14px;
-  margin-bottom: 10px;
-  border-radius: 16px;
-  max-width: 75%;
-  word-wrap: break-word;
-  transition: transform 0.2s ease;
-}
-
-.my-message {
-  background: #6f4e37;
-  color: white;
-  align-self: flex-end;
-  border-bottom-right-radius: 4px;
-}
-
-.other-message {
-  background: #e0e0e0;
-  color: black;
-  align-self: flex-start;
-  border-bottom-left-radius: 4px;
-}
-
-.message-text {
-  margin-bottom: 4px;
-}
-
-.message-time {
-  font-size: 11px;
-  opacity: 0.7;
-  margin-top: 2px;
-  text-align: right;
-}
-
-/* Deleted */
-
-.deleted-message {
-  font-style: italic;
-  opacity: 0.6;
-  font-size: 14px;
-}
-
-/* Seen */
-
-.seen-time {
-  font-size: 11px;
-  opacity: 0.6;
-  margin-top: 2px;
-  text-align: right;
-}
-
-/* ===== IMAGE MESSAGE ===== */
-
-.chat-image {
-  max-width: 220px;
-  border-radius: 12px;
-  margin-bottom: 6px;
-  cursor: pointer;
 }
 
 /* ===== REPLY ===== */
 
 .reply-preview {
+  flex-shrink: 0;
   display: none;
   background: #eeeeee;
   padding: 8px 12px;
@@ -387,14 +259,22 @@ body {
   opacity: 0.9;
 }
 
-/* ===== INPUT ===== */
+/* ===== INPUT (FIXED BOTTOM) ===== */
 
 .chat-input {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   padding: 10px;
   background: white;
   border-top: 1px solid #ddd;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #ddd;
+  font-size: 15px;
 }
 
 .chat-input button {
@@ -403,23 +283,6 @@ body {
   border: none;
   padding: 10px 14px;
   cursor: pointer;
-}
-
-.chat-input button:first-of-type {
-  border-radius: 8px 0 0 8px;
-}
-
-.chat-input input {
-  flex: 1;
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-left: none;
-  border-right: none;
-  font-size: 15px;
-}
-
-.chat-input button:last-of-type {
-  border-radius: 0 8px 8px 0;
 }
 
 /* ===== REACTIONS ===== */
@@ -450,12 +313,17 @@ body {
 /* ===== MOBILE ===== */
 
 @media (max-width: 480px) {
-
   .message {
     max-width: 85%;
   }
-
 }
 
+/* ===== GOOGLE TRANSLATE FIX ===== */
 
+.goog-te-banner-frame {
+  display: none !important;
+}
 
+body {
+  top: 0px !important;
+  }
