@@ -41,7 +41,7 @@ if (!chatId) window.location.href = "dashboard.html";
 const participants = chatId.split("_");
 let otherUserId = null;
 
-/* ================= AUTH ================= */
+/* ================= AUTH & PRESENCE ================= */
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -61,7 +61,7 @@ onAuthStateChanged(auth, async (user) => {
   const title = document.getElementById("chatTitle");
   if (title) title.innerText = otherUserId;
 
-  // Get other user's doc
+  // Get other user's document
   const usersRef = collection(db, "users");
   const q = query(usersRef, where("userId", "==", otherUserId));
   const querySnapshot = await getDocs(q);
@@ -98,6 +98,7 @@ onAuthStateChanged(auth, async (user) => {
 
     if (!snap.exists()) {
       statusEl.innerText = "Offline";
+      statusEl.style.color = "#888";
       return;
     }
 
@@ -118,7 +119,7 @@ onAuthStateChanged(auth, async (user) => {
 
       let text = "Offline";
 
-      if (diffMin < 2) text = "just now";
+      if (diffMin < 2)       text = "just now";
       else if (diffMin < 60) text = `${diffMin} min ago`;
       else if (diffMin < 1440) {
         const h = Math.floor(diffMin / 60);
@@ -159,7 +160,7 @@ onAuthStateChanged(auth, async (user) => {
     });
   }
 
-  await createChatIfNotExists(); // Now also handles request case
+  await createChatIfNotExists();
   loadMessages();
   await resetUnread();
 });
@@ -171,24 +172,23 @@ async function createChatIfNotExists() {
   const chatSnap = await getDoc(chatRef);
 
   if (chatSnap.exists()) {
-    // Chat exists → check if accepted
     if (chatSnap.data().acceptedBy?.includes(currentUserId)) {
-      return; // normal chat
+      return; // already accepted
     }
   }
 
-  // No accepted chat → treat as request (but we create empty chat doc for consistency)
+  // Create placeholder chat doc if missing
   if (!chatSnap.exists()) {
     await setDoc(chatRef, {
       participants,
-      acceptedBy: [],               // empty → not accepted yet
+      acceptedBy: [],
       createdAt: serverTimestamp(),
       lastMessageTime: serverTimestamp(),
       unread: {}
     });
   }
 
-  // Also create/update request doc
+  // Create/update request doc
   const requestRef = doc(db, "messageRequests", chatId);
   await setDoc(requestRef, {
     from: currentUserId,
@@ -199,7 +199,7 @@ async function createChatIfNotExists() {
   }, { merge: true });
 }
 
-/* ================= SEND MESSAGE (with request logic) ================= */
+/* ================= SEND MESSAGE ================= */
 
 window.sendMessage = async function () {
   const input = document.getElementById("messageInput");
@@ -220,7 +220,7 @@ window.sendMessage = async function () {
   }
 
   if (isAcceptedChat) {
-    // Normal send to messages subcollection
+    // Normal message
     await addDoc(collection(db, "chats", chatId, "messages"), {
       sender: currentUserId,
       text,
@@ -237,7 +237,7 @@ window.sendMessage = async function () {
       lastMessageTime: serverTimestamp()
     }).catch(() => {});
   } else {
-    // Send as request (update firstMessage or add preview)
+    // Send as request
     const requestRef = doc(db, "messageRequests", chatId);
 
     await updateDoc(requestRef, {
@@ -248,8 +248,7 @@ window.sendMessage = async function () {
       },
       lastUpdated: serverTimestamp(),
       status: "pending"
-    }).catch(async (err) => {
-      // If not exists yet, create
+    }).catch(async () => {
       await setDoc(requestRef, {
         from: currentUserId,
         to: otherUserId,
@@ -264,7 +263,6 @@ window.sendMessage = async function () {
       });
     });
 
-    // Optional: show hint in UI that it's a request
     alert("Message sent as request – waiting for acceptance");
   }
 
@@ -275,18 +273,34 @@ window.sendMessage = async function () {
   if (replyPreview) replyPreview.style.display = "none";
 };
 
-/* ================= LOAD MESSAGES (only if accepted) ================= */
+/* ================= LOAD MESSAGES ================= */
 
 function loadMessages() {
   const messagesRef = collection(db, "chats", chatId, "messages");
-
   const q = query(messagesRef, orderBy("timestamp", "asc"));
 
-  onSnapshot(q, (snapshot) => {
+  onSnapshot(q, async (snapshot) => {
     const messagesDiv = document.getElementById("messages");
     if (!messagesDiv) return;
 
     messagesDiv.innerHTML = "";
+
+    // Show placeholder if no messages and chat is pending request
+    if (snapshot.empty) {
+      const chatRef = doc(db, "chats", chatId);
+      const chatSnap = await getDoc(chatRef);
+      if (chatSnap.exists() && !chatSnap.data().acceptedBy?.includes(currentUserId)) {
+        messagesDiv.innerHTML = `
+          <div class="request-placeholder">
+            <p class="request-title">Message Request Pending</p>
+            <p>Your message has been sent as a request.</p>
+            <p>The other user needs to accept it before you can chat normally.</p>
+          </div>
+        `;
+        return;
+      }
+    }
+
     let lastDate = null;
 
     snapshot.forEach((docSnap) => {
@@ -295,7 +309,7 @@ function loadMessages() {
 
       let messageDate = data.timestamp?.toDate?.() ?? null;
 
-      // Date divider logic (same as before)
+      // Date divider
       if (messageDate) {
         const today = new Date();
         const yesterday = new Date(today);
@@ -356,7 +370,7 @@ function loadMessages() {
         }
       }
 
-      // Delete / reaction / swipe logic (same as your original)
+      // Desktop delete (right-click)
       if (isMine && !data.deletedForEveryone) {
         messageDiv.addEventListener("contextmenu", (e) => {
           e.preventDefault();
@@ -364,7 +378,7 @@ function loadMessages() {
         });
       }
 
-      // Touch swipe + long press (your original code - kept)
+      // Touch: swipe to reply + long press for reaction
       let startX = 0;
       let pressTimer = null;
       let triggeredReply = false;
