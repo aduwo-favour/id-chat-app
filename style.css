@@ -118,6 +118,7 @@ body {
   border: none;
   padding: 6px 10px;
   border-radius: 6px;
+  cursor: pointer;
 }
 
 .unread-badge {
@@ -284,14 +285,18 @@ body {
   padding: 12px;
   border: 1px solid #ddd;
   font-size: 15px;
+  border-radius: 8px 0 0 8px;
+  outline: none;
 }
 
 .chat-input button {
   background: #6f4e37;
   color: white;
   border: none;
-  padding: 10px 14px;
+  padding: 12px 14px;
   cursor: pointer;
+  border-radius: 0 8px 8px 0;
+  font-weight: bold;
 }
 
 /* REACTIONS */
@@ -327,6 +332,34 @@ body {
   font-size: 14px;
 }
 
+/* CUSTOM NOTIFICATION */
+
+.custom-notification {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 10000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 /* MOBILE */
 
 @media (max-width: 480px) {
@@ -352,8 +385,4 @@ body {
   right: 10px;
   top: 10px;
   z-index: 1000;
-}
-
-
-
-
+  }
