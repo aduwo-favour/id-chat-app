@@ -26,7 +26,6 @@ function makeEmail(userId) {
 /* ================= SIGNUP ================= */
 
 window.signup = async function () {
-
   const userIdInput = document.getElementById("userId");
   const passwordInput = document.getElementById("password");
   const signupBtn = document.querySelector("button[onclick='signup()']");
@@ -56,6 +55,7 @@ window.signup = async function () {
 
     if (!snapshot.empty) {
       alert("User ID already taken. Please choose another.");
+      if (signupBtn) signupBtn.disabled = false;
       return;
     }
 
@@ -107,7 +107,6 @@ window.signup = async function () {
 /* ================= LOGIN ================= */
 
 window.login = async function () {
-
   const userIdInput = document.getElementById("userId");
   const passwordInput = document.getElementById("password");
   const loginBtn = document.querySelector("button[onclick='login()']");
@@ -126,7 +125,6 @@ window.login = async function () {
   if (loginBtn) loginBtn.disabled = true;
 
   try {
-
     const email = makeEmail(userId);
 
     const userCredential = await signInWithEmailAndPassword(
