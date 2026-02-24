@@ -55,16 +55,10 @@ window.signup = async function () {
     alert("Account created successfully!");
     window.location.href = "dashboard.html";
 
-  } catch (error) {
-    console.error(error);
-
-    if (error.code === "auth/weak-password") {
-      alert("Password should be at least 6 characters");
-    } else {
-      alert("Signup failed. Try again.");
-    }
+} catch (error) {
+  console.error("Signup Error:", error);
+  alert(error.code + " - " + error.message);
   }
-};
 
 window.login = async function () {
   const userId = document.getElementById("userId").value.trim();
@@ -96,3 +90,4 @@ window.login = async function () {
     }
   }
 };
+
