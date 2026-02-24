@@ -7,14 +7,19 @@ import {
   onSnapshot,
   doc,
   deleteDoc,
-  updateDoc,
-  setDoc,
+  getDoc,
   getDocs,
-  writeBatch
+  writeBatch,
+  orderBy
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUsername = null;
 let currentUid = null;
+
+// Global back function
+window.goBack = function() {
+  window.location.href = 'dashboard.html';
+};
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -24,24 +29,45 @@ onAuthStateChanged(auth, async (user) => {
 
   currentUid = user.uid;
 
-  const userDoc = await getDoc(doc(db, "users", user.uid));
-  if (userDoc.exists()) {
-    currentUsername = userDoc.data().username;
-    loadRequests();
-    listenForNewRequests(); // Listen for real-time updates
+  try {
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    if (userDoc.exists()) {
+      currentUsername = userDoc.data().username;
+      console.log("Current user:", currentUsername);
+      loadRequests();
+    } else {
+      console.error("User document not found");
+    }
+  } catch (error) {
+    console.error("Auth error:", error);
   }
 });
 
 // Load message requests
 function loadRequests() {
+  if (!currentUsername) {
+    console.log("Waiting for username...");
+    setTimeout(loadRequests, 500);
+    return;
+  }
+
+  console.log("Loading requests for:", currentUsername);
+  
   const requestsQuery = query(
     collection(db, "requests"),
     where("to", "==", currentUsername),
-    where("status", "==", "pending")
+    where("status", "==", "pending"),
+    orderBy("createdAt", "desc")
   );
 
   onSnapshot(requestsQuery, (snapshot) => {
+    console.log("Requests snapshot received, size:", snapshot.size);
     const requestsList = document.getElementById('requestsList');
+    
+    if (!requestsList) {
+      console.error("requestsList element not found");
+      return;
+    }
     
     if (snapshot.empty) {
       requestsList.innerHTML = '<div class="no-requests">No pending requests</div>';
@@ -51,11 +77,13 @@ function loadRequests() {
     let requestsHTML = '';
     snapshot.forEach(doc => {
       const data = doc.data();
+      console.log("Request data:", data);
+      
       requestsHTML += `
         <div class="request-item" data-id="${doc.id}">
-          <div class="request-avatar">${data.from[0].toUpperCase()}</div>
+          <div class="request-avatar">${data.from ? data.from[0].toUpperCase() : '?'}</div>
           <div class="request-details">
-            <div class="request-from">${data.from}</div>
+            <div class="request-from">${data.from || 'Unknown'}</div>
             <div class="request-message">Wants to chat with you</div>
             <div class="request-time">${formatTime(data.createdAt)}</div>
           </div>
@@ -68,58 +96,48 @@ function loadRequests() {
     });
 
     requestsList.innerHTML = requestsHTML;
-  });
-}
-
-// Listen for new requests (for notification badge)
-function listenForNewRequests() {
-  const requestsQuery = query(
-    collection(db, "requests"),
-    where("to", "==", currentUsername),
-    where("status", "==", "pending")
-  );
-
-  onSnapshot(requestsQuery, (snapshot) => {
-    // Update badge in dashboard if exists
-    const badge = document.getElementById('requestsBadge');
-    if (badge) {
-      const count = snapshot.size;
-      if (count > 0) {
-        badge.textContent = count;
-        badge.style.display = 'inline';
-      } else {
-        badge.style.display = 'none';
-      }
-    }
+  }, (error) => {
+    console.error("Snapshot error:", error);
+    document.getElementById('requestsList').innerHTML = '<div class="error-message">Error loading requests</div>';
   });
 }
 
 // Format time
 function formatTime(timestamp) {
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diff = Math.floor((now - date) / 1000 / 60);
+  if (!timestamp) return 'Recently';
   
-  if (diff < 1) return 'Just now';
-  if (diff < 60) return `${diff} minutes ago`;
-  if (diff < 1440) return `${Math.floor(diff / 60)} hours ago`;
-  return date.toLocaleDateString();
+  try {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = Math.floor((now - date) / 1000 / 60);
+    
+    if (diff < 1) return 'Just now';
+    if (diff < 60) return `${diff} minutes ago`;
+    if (diff < 1440) return `${Math.floor(diff / 60)} hours ago`;
+    return date.toLocaleDateString();
+  } catch (e) {
+    return 'Recently';
+  }
 }
 
 // Accept request
 window.acceptRequest = async function(requestId, fromUser) {
+  if (!fromUser || !requestId) {
+    alert('Invalid request');
+    return;
+  }
+
   try {
     const chatId = [currentUsername, fromUser].sort().join('_');
     
     // Check if user is blocked
-    const userRef = collection(db, "users");
-    const q = query(userRef, where("username", "==", fromUser));
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("username", "==", fromUser));
     const snapshot = await getDocs(q);
     
     if (!snapshot.empty) {
       const userData = snapshot.docs[0].data();
-      if (userData.blockedUsers?.includes(currentUsername)) {
+      if (userData.blockedUsers && userData.blockedUsers.includes(currentUsername)) {
         alert('You cannot accept this request - you are blocked by this user');
         return;
       }
@@ -130,30 +148,35 @@ window.acceptRequest = async function(requestId, fromUser) {
       participants: [currentUsername, fromUser],
       createdAt: new Date().toISOString(),
       unread: {},
-      status: "accepted",  // Mark as accepted
+      status: "accepted",
       isBlocked: false
     });
 
     // Delete the request
     await deleteDoc(doc(db, "requests", requestId));
 
-    alert('Request accepted! You can now chat.');
+    alert('Request accepted!');
     window.location.href = `chat.html?chatId=${chatId}&user=${fromUser}`;
 
   } catch (error) {
     console.error("Accept error:", error);
-    alert('Failed to accept request');
+    alert('Failed to accept request: ' + error.message);
   }
 };
 
 // Decline request
 window.declineRequest = async function(requestId) {
   if (confirm('Decline this request?')) {
-    await deleteDoc(doc(db, "requests", requestId));
+    try {
+      await deleteDoc(doc(db, "requests", requestId));
+      alert('Request declined');
+    } catch (error) {
+      console.error("Decline error:", error);
+      alert('Failed to decline request');
+    }
   }
 };
 
-// Go back
-window.goBack = function() {
-  window.location.href = 'dashboard.html';
-};
+// Make functions global
+window.acceptRequest = acceptRequest;
+window.declineRequest = declineRequest;
