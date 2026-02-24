@@ -1,169 +1,147 @@
 import { auth, db } from "./firebase.js";
-
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword 
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-
-import {
-  doc,
-  setDoc,
-  getDocs,
+import { 
+  doc, 
+  setDoc, 
+  serverTimestamp,
   collection,
   query,
   where,
-  serverTimestamp,
-  updateDoc
+  getDocs
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-/* ================= HELPER ================= */
-
-// Generate email from userId (always lowercase)
-function makeEmail(userId) {
-  return userId.trim().toLowerCase() + "@chatapp.com";
-}
-
-/* ================= SIGNUP ================= */
-
-window.signup = async function () {
-  const userIdInput = document.getElementById("userId");
-  const passwordInput = document.getElementById("password");
-  const signupBtn = document.querySelector("button[onclick='signup()']");
-
-  if (!userIdInput || !passwordInput) {
-    alert("Form elements not found");
-    return;
-  }
-
-  const userId = userIdInput.value.trim();
-  const password = passwordInput.value.trim();
-
-  // Basic validation
-  if (!userId) return alert("Please enter a User ID");
-  if (!password) return alert("Please enter a password");
-  if (userId.length < 3) return alert("User ID must be at least 3 characters");
-  if (password.length < 6) return alert("Password must be at least 6 characters");
-  if (userId.includes(" ")) return alert("User ID cannot contain spaces");
-
-  if (signupBtn) signupBtn.disabled = true;
-
-  try {
-    // First check if userId exists
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("userId", "==", userId));
-    const snapshot = await getDocs(q);
-
-    if (!snapshot.empty) {
-      alert("User ID already taken. Please choose another.");
-      if (signupBtn) signupBtn.disabled = false;
-      return;
-    }
-
-    const email = makeEmail(userId);
-
-    // Create Firebase Auth user
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-
-    // Save profile in Firestore
-    await setDoc(doc(db, "users", userCredential.user.uid), {
-      userId: userId,
-      email: email,
-      createdAt: serverTimestamp(),
-      online: true,
-      lastSeen: serverTimestamp()
-    });
-
-    alert("Account created successfully!");
-    window.location.href = "dashboard.html";
-
-  } catch (error) {
-    console.error("Signup Error Details:", error);
-    
-    // Show specific error message
-    let msg = "Signup failed: " + error.message;
-    
-    if (error.code === "auth/email-already-in-use") {
-      msg = "This User ID is already taken.";
-    } else if (error.code === "auth/invalid-email") {
-      msg = "Invalid User ID format.";
-    } else if (error.code === "auth/weak-password") {
-      msg = "Password is too weak. Use at least 6 characters.";
-    } else if (error.code === "auth/operation-not-allowed") {
-      msg = "Email/Password sign-in is not enabled in Firebase Console.";
-    } else if (error.code === "auth/unauthorized-domain") {
-      msg = "This domain is not authorized. Please add " + window.location.hostname + " to Firebase authorized domains.";
-    } else if (error.code === "auth/network-request-failed") {
-      msg = "Network error. Check your internet connection.";
-    } else if (error.code === "auth/internal-error") {
-      msg = "Internal error. Please check Firebase console.";
-    }
-
-    alert(msg);
-
-  } finally {
-    if (signupBtn) signupBtn.disabled = false;
+// Tab switching
+window.switchTab = function(tab) {
+  document.getElementById('loginTab').classList.remove('active');
+  document.getElementById('signupTab').classList.remove('active');
+  document.getElementById('loginForm').classList.remove('active');
+  document.getElementById('signupForm').classList.remove('active');
+  
+  if (tab === 'login') {
+    document.getElementById('loginTab').classList.add('active');
+    document.getElementById('loginForm').classList.add('active');
+  } else {
+    document.getElementById('signupTab').classList.add('active');
+    document.getElementById('signupForm').classList.add('active');
   }
 };
 
-/* ================= LOGIN ================= */
+// Generate email from username
+function makeEmail(username) {
+  return username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@chat.app";
+}
 
-window.login = async function () {
-  const userIdInput = document.getElementById("userId");
-  const passwordInput = document.getElementById("password");
-  const loginBtn = document.querySelector("button[onclick='login()']");
+// Handle Signup
+window.handleSignup = async function() {
+  const username = document.getElementById('signupUserId').value.trim();
+  const password = document.getElementById('signupPassword').value.trim();
+  const btn = document.getElementById('signupBtn');
 
-  if (!userIdInput || !passwordInput) {
-    alert("Form elements not found");
+  if (!username || !password) {
+    alert('Please fill all fields');
     return;
   }
 
-  const userId = userIdInput.value.trim();
-  const password = passwordInput.value.trim();
+  if (username.length < 3) {
+    alert('Username must be at least 3 characters');
+    return;
+  }
 
-  if (!userId) return alert("Please enter User ID");
-  if (!password) return alert("Please enter password");
+  if (password.length < 6) {
+    alert('Password must be at least 6 characters');
+    return;
+  }
 
-  if (loginBtn) loginBtn.disabled = true;
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
 
   try {
-    const email = makeEmail(userId);
+    // Check if username exists
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("username", "==", username));
+    const snapshot = await getDocs(q);
 
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-
-    // Update user online status in Firestore
-    await updateDoc(doc(db, "users", userCredential.user.uid), {
-      online: true,
-      lastSeen: serverTimestamp()
-    }).catch(() => {});
-
-    window.location.href = "dashboard.html";
-
-  } catch (error) {
-    console.error("Login Error Details:", error);
-
-    let msg = "Login failed: " + error.message;
-
-    if (error.code === "auth/user-not-found" || error.code === "auth/invalid-credential") {
-      msg = "User ID or password is incorrect.";
-    } else if (error.code === "auth/wrong-password") {
-      msg = "Incorrect password.";
-    } else if (error.code === "auth/too-many-requests") {
-      msg = "Too many failed attempts. Try again later.";
-    } else if (error.code === "auth/unauthorized-domain") {
-      msg = "This domain is not authorized. Please add " + window.location.hostname + " to Firebase authorized domains.";
+    if (!snapshot.empty) {
+      alert('Username already taken');
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
+      return;
     }
 
-    alert(msg);
+    const email = makeEmail(username);
 
+    // Create auth user
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    
+    // Create user profile
+    await setDoc(doc(db, "users", userCredential.user.uid), {
+      username: username,
+      email: email,
+      createdAt: serverTimestamp(),
+      online: true,
+      lastSeen: serverTimestamp(),
+      blockedUsers: [],
+      friends: []
+    });
+
+    alert('Account created successfully!');
+    window.location.href = 'dashboard.html';
+
+  } catch (error) {
+    console.error('Signup error:', error);
+    
+    if (error.code === 'auth/email-already-in-use') {
+      alert('Username already taken');
+    } else if (error.code === 'auth/weak-password') {
+      alert('Password too weak');
+    } else {
+      alert('Signup failed: ' + error.message);
+    }
   } finally {
-    if (loginBtn) loginBtn.disabled = false;
+    btn.disabled = false;
+    btn.textContent = 'Create Account';
+  }
+};
+
+// Handle Login
+window.handleLogin = async function() {
+  const username = document.getElementById('loginUserId').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+  const btn = document.getElementById('loginBtn');
+
+  if (!username || !password) {
+    alert('Please fill all fields');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Logging in...';
+
+  try {
+    const email = makeEmail(username);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    
+    // Update online status
+    await setDoc(doc(db, "users", userCredential.user.uid), {
+      online: true,
+      lastSeen: serverTimestamp()
+    }, { merge: true });
+
+    window.location.href = 'dashboard.html';
+
+  } catch (error) {
+    console.error('Login error:', error);
+    
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+      alert('Invalid username or password');
+    } else {
+      alert('Login failed: ' + error.message);
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Login';
   }
 };
