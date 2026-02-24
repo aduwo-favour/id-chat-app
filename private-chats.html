@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Private Chats</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="chats-container">
+  <div class="chats-header">
+    <button onclick="goBack()" class="back-btn">← Back</button>
+    <h3>Private Chats</h3>
+    <button onclick="startNewChat()" class="new-chat-btn">➕ New</button>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="searchUser" placeholder="Search users by username...">
+    <button onclick="searchUsers()">Search</button>
+  </div>
+
+  <div id="searchResults" class="search-results"></div>
+
+  <div id="chatsList" class="chats-list">
+    <!-- Chats will load here -->
+    <div class="loading">Loading chats...</div>
+  </div>
+</div>
+
+<script type="module" src="firebase.js"></script>
+<script type="module" src="private-chats.js"></script>
+</body>
+</html>
