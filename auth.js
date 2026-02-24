@@ -48,7 +48,7 @@ window.signup = async function () {
   if (signupBtn) signupBtn.disabled = true;
 
   try {
-    // Check if userId already exists in Firestore
+    // First check if userId exists
     const usersRef = collection(db, "users");
     const q = query(usersRef, where("userId", "==", userId));
     const snapshot = await getDocs(q);
@@ -81,10 +81,11 @@ window.signup = async function () {
     window.location.href = "dashboard.html";
 
   } catch (error) {
-    console.error("Signup Error:", error);
-
-    let msg = "Signup failed. Please try again.";
-
+    console.error("Signup Error Details:", error);
+    
+    // Show specific error message
+    let msg = "Signup failed: " + error.message;
+    
     if (error.code === "auth/email-already-in-use") {
       msg = "This User ID is already taken.";
     } else if (error.code === "auth/invalid-email") {
@@ -92,9 +93,13 @@ window.signup = async function () {
     } else if (error.code === "auth/weak-password") {
       msg = "Password is too weak. Use at least 6 characters.";
     } else if (error.code === "auth/operation-not-allowed") {
-      msg = "Email/Password sign-in is not enabled in Firebase.";
+      msg = "Email/Password sign-in is not enabled in Firebase Console.";
     } else if (error.code === "auth/unauthorized-domain") {
-      msg = "This domain is not authorized in Firebase.";
+      msg = "This domain is not authorized. Please add " + window.location.hostname + " to Firebase authorized domains.";
+    } else if (error.code === "auth/network-request-failed") {
+      msg = "Network error. Check your internet connection.";
+    } else if (error.code === "auth/internal-error") {
+      msg = "Internal error. Please check Firebase console.";
     }
 
     alert(msg);
@@ -142,19 +147,18 @@ window.login = async function () {
     window.location.href = "dashboard.html";
 
   } catch (error) {
-    console.error("Login Error:", error);
+    console.error("Login Error Details:", error);
 
-    let msg = "Login failed. Please try again.";
+    let msg = "Login failed: " + error.message;
 
-    if (
-      error.code === "auth/user-not-found" ||
-      error.code === "auth/invalid-credential"
-    ) {
+    if (error.code === "auth/user-not-found" || error.code === "auth/invalid-credential") {
       msg = "User ID or password is incorrect.";
     } else if (error.code === "auth/wrong-password") {
       msg = "Incorrect password.";
     } else if (error.code === "auth/too-many-requests") {
       msg = "Too many failed attempts. Try again later.";
+    } else if (error.code === "auth/unauthorized-domain") {
+      msg = "This domain is not authorized. Please add " + window.location.hostname + " to Firebase authorized domains.";
     }
 
     alert(msg);
