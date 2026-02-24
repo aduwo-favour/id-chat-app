@@ -40,8 +40,15 @@ const urlParams = new URLSearchParams(window.location.search);
 let chatId = urlParams.get("chatId");
 if (!chatId) window.location.href = "dashboard.html";
 
-const participants = chatId.split("_");
-let otherUserId = null;
+// Ensure chatId is always sorted (A_B where A < B alphabetically)
+const sortedParticipants = chatId.split("_").sort();
+const sortedChatId = sortedParticipants.join("_");
+
+// Use sorted version everywhere
+chatId = sortedChatId;
+
+const participants = sortedParticipants;
+let otherUserId = participants.find(p => p !== currentUserId);
 
 /* ================= AUTH & PRESENCE ================= */
 
@@ -157,7 +164,6 @@ async function createChatIfNotExists() {
     });
   }
 
-  // Always ensure request doc exists for pending chats
   const requestRef = doc(db, "messageRequests", chatId);
   await setDoc(requestRef, {
     from: currentUserId,
@@ -189,7 +195,6 @@ window.sendMessage = async function () {
   }
 
   if (isAccepted) {
-    // Normal chat send
     await addDoc(collection(db, "chats", chatId, "messages"), {
       sender: currentUserId,
       text,
@@ -206,7 +211,6 @@ window.sendMessage = async function () {
       lastMessageTime: serverTimestamp()
     }).catch(() => {});
   } else {
-    // Send as request
     const requestRef = doc(db, "messageRequests", chatId);
 
     await setDoc(requestRef, {
@@ -456,33 +460,31 @@ window.goBack = function () {
   }
 };
 
-/* ================= DELETE ENTIRE CHAT FOR BOTH USERS ================= */
+/* ================= DELETE ENTIRE CHAT FOR BOTH ================= */
 
 window.deleteChat = async function () {
-  if (!confirm("Delete this chat for both users? This cannot be undone.")) return;
+  if (!confirm("Delete this chat for both users?")) return;
 
   try {
     const batch = writeBatch(db);
 
-    // Delete all messages
+    // Delete messages
     const messagesQ = query(collection(db, "chats", chatId, "messages"));
     const messagesSnap = await getDocs(messagesQ);
-    messagesSnap.forEach((docSnap) => {
-      batch.delete(docSnap.ref);
-    });
+    messagesSnap.forEach((m) => batch.delete(m.ref));
 
-    // Delete chat doc
+    // Delete chat
     batch.delete(doc(db, "chats", chatId));
 
-    // Delete request doc
+    // Delete request
     batch.delete(doc(db, "messageRequests", chatId));
 
     await batch.commit();
 
-    alert("Chat deleted completely for both sides");
+    alert("Chat deleted for both sides");
     window.goBack();
   } catch (err) {
-    console.error("Delete chat failed:", err);
-    alert("Failed to delete chat – check console (F12) for details");
+    console.error("Delete failed:", err);
+    alert("Failed to delete chat");
   }
 };
