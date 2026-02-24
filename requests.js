@@ -38,7 +38,7 @@ onAuthStateChanged(auth, async (user) => {
       currentUsername = userDoc.data().username;
       console.log("Current user:", currentUsername);
       
-      // Show that we're loading
+      // Show loading
       const requestsList = document.getElementById('requestsList');
       if (requestsList) {
         requestsList.innerHTML = '<div class="loading">Loading requests...</div>';
@@ -52,7 +52,7 @@ onAuthStateChanged(auth, async (user) => {
     }
   } catch (error) {
     console.error("Auth error:", error);
-    document.getElementById('requestsList').innerHTML = '<div class="error-message">Error loading user</div>';
+    document.getElementById('requestsList').innerHTML = '<div class="error-message">Auth error: ' + error.message + '</div>';
   }
 });
 
@@ -67,6 +67,19 @@ function loadRequests() {
   console.log("Setting up requests listener for:", currentUsername);
   
   try {
+    // First, let's just try to get all requests to see what's there
+    const allRequestsQuery = query(collection(db, "requests"));
+    
+    getDocs(allRequestsQuery).then((snapshot) => {
+      console.log("ALL REQUESTS IN DATABASE:", snapshot.size);
+      snapshot.forEach(doc => {
+        console.log("Request in DB:", doc.id, doc.data());
+      });
+    }).catch(err => {
+      console.error("Error fetching all requests:", err);
+    });
+    
+    // Now set up the specific query for pending requests to this user
     const requestsQuery = query(
       collection(db, "requests"),
       where("to", "==", currentUsername),
@@ -114,7 +127,7 @@ function loadRequests() {
       requestsList.innerHTML = requestsHTML;
     }, (error) => {
       console.error("Snapshot error:", error);
-      document.getElementById('requestsList').innerHTML = '<div class="error-message">Error loading requests</div>';
+      document.getElementById('requestsList').innerHTML = '<div class="error-message">Error: ' + error.message + '</div>';
     });
 
     // Return unsubscribe function in case we need it later
@@ -122,7 +135,7 @@ function loadRequests() {
     
   } catch (error) {
     console.error("Error setting up requests listener:", error);
-    document.getElementById('requestsList').innerHTML = '<div class="error-message">Failed to load requests</div>';
+    document.getElementById('requestsList').innerHTML = '<div class="error-message">Failed: ' + error.message + '</div>';
   }
 }
 
