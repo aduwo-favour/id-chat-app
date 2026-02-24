@@ -48,7 +48,6 @@ onAuthStateChanged(auth, async (user) => {
     userRef = doc(db, "users", currentUid);
 
     const userDoc = await getDoc(userRef);
-
     if (!userDoc.exists()) {
       alert("User profile not found.");
       await signOut(auth);
@@ -57,7 +56,6 @@ onAuthStateChanged(auth, async (user) => {
     }
 
     const data = userDoc.data();
-
     if (!data.userId) {
       alert("User ID missing.");
       return;
@@ -66,18 +64,14 @@ onAuthStateChanged(auth, async (user) => {
     currentUserId = data.userId;
 
     const welcome = document.getElementById("welcome");
-    if (welcome) {
-      welcome.innerText = "Logged in as: " + currentUserId;
-    }
+    if (welcome) welcome.innerText = "Logged in as: " + currentUserId;
 
-    /* ===== PRESENCE SYSTEM (Realtime DB + Firestore mirror) ===== */
-
+    // Presence setup
     const connectedRef = ref(rtdb, ".info/connected");
 
     onValue(connectedRef, (snap) => {
       if (snap.val() === true) {
         const statusRef = ref(rtdb, "status/" + currentUid);
-
         set(statusRef, {
           online: true,
           lastChanged: rtdbServerTimestamp()
@@ -115,14 +109,19 @@ onAuthStateChanged(auth, async (user) => {
       });
     }
 
+    // Load data
     loadChats();
 
     if (document.getElementById("requestsList")) {
       loadRequests();
     }
 
+    if (document.getElementById("sentRequestsList")) {
+      loadSentRequests();
+    }
+
   } catch (error) {
-    console.error("Auth error:", error);
+    console.error("Auth / presence setup error:", error);
   }
 });
 
@@ -134,11 +133,9 @@ window.logout = async function () {
       await updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
-      }).catch(() => {});
+      });
     }
-  } catch (e) {
-    console.log("Offline update skipped");
-  }
+  } catch {}
 
   await signOut(auth);
   window.location.href = "index.html";
@@ -152,31 +149,20 @@ window.startChat = async function () {
 
   const friendId = friendIdInput.value.trim();
 
-  if (!friendId) {
-    showNotification("Enter Friend ID");
-    return;
-  }
-
-  if (friendId === currentUserId) {
-    showNotification("You cannot chat with yourself");
-    return;
-  }
+  if (!friendId) return showNotification("Enter Friend ID");
+  if (friendId === currentUserId) return showNotification("You cannot chat with yourself");
 
   try {
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("userId", "==", friendId));
+    const q = query(collection(db, "users"), where("userId", "==", friendId));
     const snapshot = await getDocs(q);
 
-    if (snapshot.empty) {
-      showNotification("User not found");
-      return;
-    }
+    if (snapshot.empty) return showNotification("User not found");
 
     const chatId = [currentUserId, friendId].sort().join("_");
-    window.location.href = "chat.html?chatId=" + chatId + "&from=dashboard";
-
+    window.location.href = `chat.html?chatId=${chatId}&from=private`;
   } catch (err) {
     console.error("Start chat error:", err);
+    showNotification("Error starting chat");
   }
 };
 
@@ -185,16 +171,13 @@ window.startChat = async function () {
 function loadChats() {
   if (!currentUserId) return;
 
-  const chatsRef = collection(db, "chats");
-
   const q = query(
-  chatsRef,
-  where("participants", "array-contains", currentUserId),
-  orderBy("lastMessageTime", "desc")
-);
+    collection(db, "chats"),
+    where("participants", "array-contains", currentUserId),
+    orderBy("lastMessageTime", "desc")
+  );
 
-  onSnapshot(q, (snapshot) => {
-
+  onSnapshot(q, async (snapshot) => {
     const chatList = document.getElementById("chatList");
     if (!chatList) return;
 
@@ -202,123 +185,98 @@ function loadChats() {
 
     let totalUnread = 0;
 
-    snapshot.forEach((docSnap) => {
-
+    for (const docSnap of snapshot.docs) {
       const data = docSnap.data() || {};
-      if (!data.participants) return;
+      if (!data.participants) continue;
 
-      const otherUser = data.participants.find(
-        id => id !== currentUserId
-      );
+      const otherUser = data.participants.find(id => id !== currentUserId);
+      if (!otherUser) continue;
 
-      if (!otherUser) return;
-
-      const unread =
-        data.unread && data.unread[currentUserId]
-          ? data.unread[currentUserId]
-          : 0;
-
+      const unread = data.unread?.[currentUserId] ?? 0;
       totalUnread += unread;
 
-      const badge = unread > 0
-        ? `<span class="unread-badge">${unread}</span>`
-        : "";
+      const badge = unread > 0 ? `<span class="unread-badge">${unread}</span>` : "";
 
       const div = document.createElement("div");
       div.className = "chat-item";
-
       div.innerHTML = `
         <div class="chat-info">
           <span>Chat with ${otherUser}</span>
-          <span class="chat-status">...</span>
+          <span class="chat-status">Loading...</span>
           ${badge}
         </div>
         <button onclick="openChat('${docSnap.id}')">Open</button>
       `;
-
       chatList.appendChild(div);
 
-      // Listen to presence
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("userId", "==", otherUser));
-      getDocs(q).then(querySnapshot => {
+      // Load presence
+      try {
+        const usersQ = query(collection(db, "users"), where("userId", "==", otherUser));
+        const userSnap = await getDocs(usersQ);
 
-        if (querySnapshot.empty) return;
+        if (!userSnap.empty) {
+          const otherUid = userSnap.docs[0].id;
+          const statusRef = ref(rtdb, "status/" + otherUid);
 
-        const otherDoc = querySnapshot.docs[0];
+          onValue(statusRef, (snap) => {
+            const statusEl = div.querySelector(".chat-status");
+            if (!statusEl) return;
 
-        const otherStatusRef = ref(rtdb, "status/" + otherDoc.id);
+            if (!snap.exists()) {
+              statusEl.innerText = "Offline";
+              statusEl.style.color = "#888";
+              return;
+            }
 
-        onValue(otherStatusRef, (snap) => {
+            const val = snap.val();
 
-          const statusEl = div.querySelector(".chat-status");
-          if (!statusEl) return;
+            if (val.online === true) {
+              statusEl.innerText = "Online";
+              statusEl.style.color = "#4caf50";
+            } else {
+              const last = val.lastChanged ? new Date(val.lastChanged) : null;
+              if (!last) {
+                statusEl.innerText = "Offline";
+                statusEl.style.color = "#888";
+                return;
+              }
 
-          if (!snap.exists()) {
-            statusEl.innerText = "Offline";
-            statusEl.style.color = "gray";
-            return;
-          }
+              const diffMs = Date.now() - last.getTime();
+              const diffMin = Math.floor(diffMs / 60000);
 
-          const data = snap.val();
+              let text = "Offline";
+              if (diffMin < 2) text = "just now";
+              else if (diffMin < 60) text = `${diffMin} min ago`;
+              else if (diffMin < 1440) {
+                const h = Math.floor(diffMin / 60);
+                text = `${h} ${h === 1 ? "hour" : "hours"} ago`;
+              } else {
+                text = last.toLocaleDateString([], { weekday: "short" }) +
+                       " at " + last.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+              }
 
-          if (data.online === true) {
-            statusEl.innerText = "Online";
-            statusEl.style.color = "green";
-          } else {
-            const date = new Date(data.lastChanged);
-            const time = date.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit"
-            });
-
-            statusEl.innerText = "Last seen at " + time;
-            statusEl.style.color = "gray";
-          }
-
-        });
-      });
-
-    });
-
-    const privateBadge = document.getElementById("privateBadge");
-    if (privateBadge) {
-      if (totalUnread > 0) {
-        privateBadge.style.display = "inline-block";
-        privateBadge.innerText = totalUnread;
-      } else {
-        privateBadge.style.display = "none";
+              statusEl.innerText = "Last seen " + text;
+              statusEl.style.color = "#888";
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("Presence load failed for", otherUser, err);
+        div.querySelector(".chat-status").innerText = "Offline";
       }
     }
 
-    if (totalUnread > 0) {
-      document.title = `(${totalUnread}) New Messages`;
-    } else {
-      document.title = originalTitle;
+    const privateBadge = document.getElementById("privateBadge");
+    if (privateBadge) {
+      privateBadge.innerText = totalUnread || "";
+      privateBadge.style.display = totalUnread > 0 ? "inline-block" : "none";
     }
 
+    document.title = totalUnread > 0 ? `(${totalUnread}) New Messages` : originalTitle;
   });
-
 }
 
-
-/* ================= OPEN CHAT ================= */
-
-window.openChat = async function (chatId) {
-  try {
-    const chatRef = doc(db, "chats", chatId);
-    await updateDoc(chatRef, {
-      [`unread.${currentUserId}`]: 0
-    }).catch(() => {});
-  } catch (err) {
-    console.log("Unread reset skipped");
-  }
-
-  window.location.href = "chat.html?chatId=" + chatId + "&from=dashboard";
-};
-
-
-/* ================= LOAD REQUESTS ================= */
+/* ================= LOAD INCOMING REQUESTS ================= */
 
 function loadRequests() {
   if (!currentUserId) return;
@@ -330,99 +288,156 @@ function loadRequests() {
     orderBy("lastUpdated", "desc")
   );
 
-  onSnapshot(q, (snapshot) => {
-    const requestsList = document.getElementById("requestsList");
-    if (!requestsList) return;
+  onSnapshot(q, (snap) => {
+    const list = document.getElementById("requestsList");
+    if (!list) return;
 
-    requestsList.innerHTML = "";
+    list.innerHTML = "";
 
-    let count = snapshot.size;
-
+    const count = snap.size;
     const badge = document.getElementById("requestsBadge");
     if (badge) {
-      if (count > 0) {
-        badge.innerText = count;
-        badge.style.display = "inline-block";
-      } else {
-        badge.style.display = "none";
-      }
+      badge.innerText = count;
+      badge.style.display = count > 0 ? "inline-block" : "none";
     }
 
-    snapshot.forEach((docSnap) => {
+    if (count === 0) {
+      list.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">No incoming requests</p>';
+      return;
+    }
 
-      const data = docSnap.data();
-
+    snap.forEach((docSnap) => {
+      const req = docSnap.data();
       const div = document.createElement("div");
       div.className = "request-item";
-
       div.innerHTML = `
-        <div class="request-info">
-          <span>Request from ${data.from}</span>
-        </div>
-        <p>${data.firstMessage.text.substring(0, 100)}...</p>
+        <p>From: ${req.from}</p>
+        <p>${req.firstMessage?.text?.substring(0, 80) || "No message"}...</p>
         <button onclick="acceptRequest('${docSnap.id}')">Accept</button>
         <button onclick="declineRequest('${docSnap.id}')">Decline</button>
       `;
-
-      requestsList.appendChild(div);
-
+      list.appendChild(div);
     });
   });
 }
 
-/* ================= ACCEPT REQUEST ================= */
+/* ================= LOAD SENT REQUESTS ================= */
 
-window.acceptRequest = async function (requestId) {
-  const requestRef = doc(db, "messageRequests", requestId);
-  const snap = await getDoc(requestRef);
+function loadSentRequests() {
+  if (!currentUserId) return;
 
-  if (!snap.exists()) return;
+  const q = query(
+    collection(db, "messageRequests"),
+    where("from", "==", currentUserId),
+    where("status", "==", "pending"),
+    orderBy("lastUpdated", "desc")
+  );
 
-  const data = snap.data();
+  onSnapshot(q, (snap) => {
+    const list = document.getElementById("sentRequestsList");
+    if (!list) return;
 
-  const chatId = [data.from, data.to].sort().join("_");
+    list.innerHTML = "";
 
-  const chatRef = doc(db, "chats", chatId);
+    if (snap.empty) {
+      list.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">No pending sent requests</p>';
+      return;
+    }
 
-  await updateDoc(chatRef, {
-    acceptedBy: [data.from, data.to]
+    snap.forEach((docSnap) => {
+      const req = docSnap.data();
+      const div = document.createElement("div");
+      div.className = "request-item";
+      div.innerHTML = `
+        <p>Sent to: ${req.to}</p>
+        <p>${req.firstMessage?.text?.substring(0, 80) || "No message"}...</p>
+        <p style="font-size:12px; color:#888;">Waiting for acceptance</p>
+      `;
+      list.appendChild(div);
+    });
   });
+}
 
-  await updateDoc(requestRef, {
-    status: "accepted"
-  });
+/* ================= ACCEPT / DECLINE ================= */
 
-  window.location.href = "chat.html?chatId=" + chatId + "&from=dashboard";
+window.acceptRequest = async function (reqId) {
+  try {
+    const reqRef = doc(db, "messageRequests", reqId);
+    const reqSnap = await getDoc(reqRef);
+    if (!reqSnap.exists()) return;
+
+    const req = reqSnap.data();
+    const chatId = [req.from, req.to].sort().join("_");
+    const chatRef = doc(db, "chats", chatId);
+
+    await updateDoc(chatRef, {
+      acceptedBy: [req.from, req.to],
+      lastMessageTime: serverTimestamp()
+    }).catch(async () => {
+      await setDoc(chatRef, {
+        participants: [req.from, req.to],
+        acceptedBy: [req.from, req.to],
+        unread: {},
+        createdAt: serverTimestamp(),
+        lastMessageTime: serverTimestamp()
+      });
+    });
+
+    if (req.firstMessage) {
+      await addDoc(collection(db, "chats", chatId, "messages"), {
+        sender: req.from,
+        text: req.firstMessage.text,
+        timestamp: req.firstMessage.timestamp || serverTimestamp(),
+        deletedForEveryone: false,
+        replyTo: null,
+        seen: false,
+        seenAt: null,
+        reactions: {}
+      });
+    }
+
+    await updateDoc(reqRef, { status: "accepted" });
+
+    showNotification("Request accepted");
+    window.location.href = `chat.html?chatId=${chatId}&from=private`;
+  } catch (err) {
+    console.error("Accept failed:", err);
+    showNotification("Error accepting request");
+  }
 };
 
-/* ================= DECLINE REQUEST ================= */
-
-window.declineRequest = async function (requestId) {
-  const requestRef = doc(db, "messageRequests", requestId);
-
-  await updateDoc(requestRef, {
-    status: "declined"
-  });
+window.declineRequest = async function (reqId) {
+  try {
+    await updateDoc(doc(db, "messageRequests", reqId), { status: "declined" });
+    showNotification("Request declined");
+  } catch (err) {
+    console.error("Decline failed:", err);
+  }
 };
 
-/* ================= SIMPLE POPUP ================= */
+/* ================= OPEN CHAT ================= */
+
+window.openChat = async function (chatId) {
+  try {
+    await updateDoc(doc(db, "chats", chatId), {
+      [`unread.${currentUserId}`]: 0
+    });
+  } catch {}
+
+  window.location.href = `chat.html?chatId=${chatId}&from=private`;
+};
+
+/* ================= NOTIFICATION ================= */
 
 function showNotification(message) {
-  const notification = document.createElement("div");
-  notification.className = "custom-notification";
-  notification.innerText = message;
+  const n = document.createElement("div");
+  n.className = "custom-notification";
+  n.innerText = message;
+  document.body.appendChild(n);
+  setTimeout(() => n.remove(), 3500);
+}
 
-  document.body.appendChild(notification);
+/* ================= NAVIGATION ================= */
 
-  setTimeout(() => {
-    notification.remove();
-  }, 3000);
-
-  }
-window.openCommunity = function () {
-  window.location.href = "community.html";
-};
-
-window.openPrivate = function () {
-  window.location.href = "private.html";
-};
+window.openCommunity = () => window.location.href = "community.html";
+window.openPrivate = () => window.location.href = "private.html";
