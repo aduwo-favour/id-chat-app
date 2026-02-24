@@ -26,14 +26,12 @@ let unloadListenerAdded = false;
 /* ================= AUTH CHECK ================= */
 
 onAuthStateChanged(auth, async (user) => {
-
   if (!user) {
     window.location.href = "index.html";
     return;
   }
 
   try {
-
     currentUid = user.uid;
     userRef = doc(db, "users", currentUid);
 
@@ -74,36 +72,30 @@ onAuthStateChanged(auth, async (user) => {
 
       window.addEventListener("beforeunload", () => {
         if (!userRef) return;
-
-        updateDoc(userRef, {
+        navigator.sendBeacon?.(JSON.stringify({
           online: false,
-          lastSeen: serverTimestamp()
-        }).catch(() => {});
+          lastSeen: new Date().toISOString()
+        }));
       });
     }
 
     /* ===== MOBILE VISIBILITY FIX ===== */
 
-document.addEventListener("visibilitychange", () => {
+    document.addEventListener("visibilitychange", () => {
+      if (!userRef) return;
 
-  if (!userRef) return;
-
-  if (document.visibilityState === "hidden") {
-
-    updateDoc(userRef, {
-      online: false,
-      lastSeen: serverTimestamp()
-    }).catch(() => {});
-
-  } else {
-
-    updateDoc(userRef, {
-      online: true
-    }).catch(() => {});
-
-  }
-
-});
+      if (document.visibilityState === "hidden") {
+        updateDoc(userRef, {
+          online: false,
+          lastSeen: serverTimestamp()
+        }).catch(() => {});
+      } else {
+        updateDoc(userRef, {
+          online: true,
+          lastSeen: serverTimestamp()
+        }).catch(() => {});
+      }
+    });
 
     /* ===== LOAD CHATS AFTER LOGIN ===== */
 
@@ -112,23 +104,18 @@ document.addEventListener("visibilitychange", () => {
   } catch (error) {
     console.error("Auth error:", error);
   }
-
 });
-
 
 /* ================= LOGOUT ================= */
 
 window.logout = async function () {
-
   try {
-
     if (userRef) {
       await updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
       }).catch(() => {});
     }
-
   } catch (e) {
     console.log("Offline update skipped");
   }
@@ -137,11 +124,9 @@ window.logout = async function () {
   window.location.href = "index.html";
 };
 
-
 /* ================= START CHAT ================= */
 
 window.startChat = async function () {
-
   const friendIdInput = document.getElementById("friendId");
   if (!friendIdInput) return;
 
@@ -158,7 +143,6 @@ window.startChat = async function () {
   }
 
   try {
-
     const usersRef = collection(db, "users");
     const q = query(usersRef, where("userId", "==", friendId));
     const snapshot = await getDocs(q);
@@ -176,11 +160,9 @@ window.startChat = async function () {
   }
 };
 
-
 /* ================= LOAD CHATS ================= */
 
 function loadChats() {
-
   if (!currentUserId) return;
 
   const chatsRef = collection(db, "chats");
@@ -191,7 +173,6 @@ function loadChats() {
   );
 
   onSnapshot(q, (snapshot) => {
-
     const chatList = document.getElementById("chatList");
     if (!chatList) return;
 
@@ -200,7 +181,6 @@ function loadChats() {
     let totalUnread = 0;
 
     snapshot.forEach((docSnap) => {
-
       const data = docSnap.data() || {};
       if (!data.participants) return;
 
@@ -210,10 +190,9 @@ function loadChats() {
 
       if (!otherUser) return;
 
-      const unread =
-        data.unread && data.unread[currentUserId]
-          ? data.unread[currentUserId]
-          : 0;
+      const unread = (data.unread && data.unread[currentUserId]) 
+        ? data.unread[currentUserId] 
+        : 0;
 
       totalUnread += unread;
 
@@ -233,7 +212,6 @@ function loadChats() {
       `;
 
       chatList.appendChild(div);
-
     });
 
     if (totalUnread > 0) {
@@ -241,18 +219,13 @@ function loadChats() {
     } else {
       document.title = originalTitle;
     }
-
   });
-
 }
-
 
 /* ================= OPEN CHAT ================= */
 
 window.openChat = async function (chatId) {
-
   try {
-
     const chatRef = doc(db, "chats", chatId);
 
     await updateDoc(chatRef, {
@@ -266,11 +239,9 @@ window.openChat = async function (chatId) {
   window.location.href = "chat.html?chatId=" + chatId;
 };
 
-
 /* ================= SIMPLE POPUP ================= */
 
 function showNotification(message) {
-
   const notification = document.createElement("div");
   notification.className = "custom-notification";
   notification.innerText = message;
@@ -280,7 +251,4 @@ function showNotification(message) {
   setTimeout(() => {
     notification.remove();
   }, 3000);
-
-  }
-
-      
+        }
