@@ -198,6 +198,19 @@ window.sendMessage = async function () {
                  data.acceptedBy?.includes(otherUserId);
   }
 
+  // 🔥 SAFETY FIX: if acceptedBy missing but chat exists, auto-accept
+if (chatSnap.exists() && !isAccepted) {
+  const data = chatSnap.data();
+
+  if (!data.acceptedBy || data.acceptedBy.length < 2) {
+    await updateDoc(chatRef, {
+      acceptedBy: participants
+    }).catch(() => {});
+
+    isAccepted = true;
+  }
+}
+
   if (isAccepted) {
     await addDoc(collection(db, "chats", chatId, "messages"), {
       sender: currentUserId,
@@ -492,4 +505,5 @@ window.deleteChat = async function () {
     alert("Failed to delete chat");
   }
 };
+
         
