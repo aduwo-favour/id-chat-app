@@ -1,28 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Login</title>
+  <title>Chat App - Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="auth-box">
-  <h2>Chat App</h2>
+<div class="auth-container">
+  <div class="auth-box">
+    <h2>Welcome to ChatApp</h2>
+    
+    <div class="tab-container">
+      <button class="tab-btn active" onclick="switchTab('login')" id="loginTab">Login</button>
+      <button class="tab-btn" onclick="switchTab('signup')" id="signupTab">Sign Up</button>
+    </div>
 
-  <input type="text" id="userId" placeholder="User ID">
-  <input type="password" id="password" placeholder="Password">
+    <!-- Login Form -->
+    <div id="loginForm" class="auth-form active">
+      <input type="text" id="loginUserId" placeholder="Username" autocomplete="off">
+      <input type="password" id="loginPassword" placeholder="Password">
+      <button onclick="handleLogin()" id="loginBtn">Login</button>
+    </div>
 
-  <button onclick="signup()">Sign Up</button>
-  <button onclick="login()">Login</button>
+    <!-- Signup Form -->
+    <div id="signupForm" class="auth-form">
+      <input type="text" id="signupUserId" placeholder="Choose Username" autocomplete="off">
+      <input type="password" id="signupPassword" placeholder="Password (min 6 characters)">
+      <button onclick="handleSignup()" id="signupBtn">Create Account</button>
+    </div>
 
-  <p class="auth-warning">
-    Do not put any of your personal information here.
-  </p>
+    <p class="auth-warning">⚠️ Use a fake username and password only</p>
+  </div>
 </div>
 
 <script type="module" src="firebase.js"></script>
 <script type="module" src="auth.js"></script>
-
 </body>
 </html>
