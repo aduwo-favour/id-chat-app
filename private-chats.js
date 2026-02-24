@@ -9,7 +9,8 @@ import {
   doc,
   getDoc,
   addDoc,
-  deleteDoc
+  deleteDoc,
+  writeBatch  // ← ADD THIS MISSING IMPORT
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUsername = null;
@@ -221,7 +222,8 @@ window.sendRequest = async function(toUser) {
     );
     const declinedSnapshot = await getDocs(declinedQuery);
     
-    const batch = writeBatch(db);
+    // Use batch for multiple operations
+    const batch = writeBatch(db);  // Now this will work
     
     // Delete any existing declined requests
     declinedSnapshot.forEach(doc => {
