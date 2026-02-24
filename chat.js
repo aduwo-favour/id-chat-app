@@ -571,3 +571,5 @@ window.toggleChatOptions = function() {
 window.goBack = function() {
   window.location.href = 'private-chats.html';
 };
+
+      
