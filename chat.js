@@ -371,3 +371,8 @@ function showNotification(message) {
   document.body.appendChild(notification);
   setTimeout(() => notification.remove(), 3000);
       }
+// Make sure goBack is global
+window.goBack = function() {
+  window.location.href = 'private-chats.html';
+};
+
