@@ -48,7 +48,7 @@ const sortedChatId = sortedParticipants.join("_");
 chatId = sortedChatId;
 
 const participants = sortedParticipants;
-let otherUserId = participants.find(p => p !== currentUserId);
+let otherUserId = null;
 
 /* ================= AUTH & PRESENCE ================= */
 
