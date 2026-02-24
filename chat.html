@@ -3,8 +3,6 @@
 <head>
   <title>Chat Room By Jeff</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <!-- Styles -->
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,16 +15,16 @@
     <button class="back-btn" onclick="goBack()">⬅</button>
 
     <div class="chat-user-info">
-      <h3 id="chatTitle"></h3>
-      <div id="onlineStatus" class="online-status"></div>
+      <h3 id="chatTitle">Loading...</h3>
+      <div id="onlineStatus" class="online-status">...</div>
       <div id="typingStatus" class="typing-status"></div>
-
-      <!-- Google Translate -->
-      <div id="google_translate_element"></div>
     </div>
 
+    <!-- Translate positioned better -->
+    <div id="google_translate_element" class="translate-widget"></div>
+
     <!-- Delete Chat Button -->
-    <button class="delete-btn" onclick="deleteChat()">Delete Chat</button>
+    <button class="delete-chat-btn" onclick="deleteChat()">Delete Chat</button>
 
   </div>
 
@@ -38,42 +36,31 @@
 
   <!-- ===== INPUT AREA ===== -->
   <div class="chat-input">
-
-    <!-- Text input -->
     <input 
       type="text" 
       id="messageInput" 
       placeholder="Type a message..." 
       autocomplete="off"
     >
-
-    <!-- Send button -->
-    <button type="button" onclick="sendMessage()">
-      Send
-    </button>
-
+    <button type="button" onclick="sendMessage()">Send</button>
   </div>
 
 </div>
 
-<!-- ===== FIREBASE + CHAT SCRIPTS ===== -->
 <script type="module" src="firebase.js"></script>
 <script type="module" src="chat.js"></script>
 
-<!-- ===== GOOGLE TRANSLATE SCRIPT ===== -->
+<!-- Google Translate -->
 <script type="text/javascript">
   function googleTranslateElementInit() {
-    new google.translate.TranslateElement(
-      { pageLanguage: 'en' },
-      'google_translate_element'
-    );
+    new google.translate.TranslateElement({
+      pageLanguage: 'en',
+      layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+      autoDisplay: false
+    }, 'google_translate_element');
   }
 </script>
-
-<script 
-  type="text/javascript" 
-  src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit">
-</script>
+<script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
 </body>
 </html>
