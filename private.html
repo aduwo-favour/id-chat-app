@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Private Chats</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
 
@@ -31,30 +32,36 @@
       id="friendId" 
       placeholder="Enter Friend ID"
       autocomplete="off"
-    >
+    />
     <button onclick="startChat()">Start Chat</button>
   </div>
 
-  <!-- CHAT LIST -->
+  <!-- YOUR CHATS -->
   <div class="dashboard-card">
     <h3>Your Chats</h3>
     <div id="chatList"></div>
   </div>
 
-  <!-- MESSAGE REQUESTS -->
+  <!-- MESSAGE REQUESTS (incoming) -->
   <div class="dashboard-card">
     <h3>Message Requests <span id="requestsCount" style="font-size:0.9em; color:#888;"></span></h3>
-    <div id="requestsList" style="min-height: 100px;"></div>
+    <div id="requestsList" style="min-height: 100px;">
+      <p style="text-align:center; color:#888; padding:20px;">Loading requests...</p>
+    </div>
   </div>
 
-  <!-- SENT REQUESTS (for sender to see their pending requests) -->
-<div class="dashboard-card">
-  <h3>Sent Requests</h3>
-  <div id="sentRequestsList"></div>
-</div>
+  <!-- SENT REQUESTS (outgoing – so sender can see pending ones) -->
+  <div class="dashboard-card">
+    <h3>Sent Requests</h3>
+    <div id="sentRequestsList" style="min-height: 100px;">
+      <p style="text-align:center; color:#888; padding:20px;">Loading sent requests...</p>
+    </div>
+  </div>
 
 </div>
 
+<!-- Firebase & App Scripts -->
+<script type="module" src="firebase.js"></script>
 <script type="module" src="dashboard.js"></script>
 
 <script>
