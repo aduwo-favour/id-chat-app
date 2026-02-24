@@ -157,7 +157,7 @@ async function createChatIfNotExists() {
     });
   }
 
-  // Ensure request placeholder
+  // Always ensure request doc exists for pending chats
   const requestRef = doc(db, "messageRequests", chatId);
   await setDoc(requestRef, {
     from: currentUserId,
@@ -189,7 +189,7 @@ window.sendMessage = async function () {
   }
 
   if (isAccepted) {
-    // Normal send
+    // Normal chat send
     await addDoc(collection(db, "chats", chatId, "messages"), {
       sender: currentUserId,
       text,
