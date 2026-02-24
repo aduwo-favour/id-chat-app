@@ -6,11 +6,7 @@ import {
 import { 
   doc, 
   setDoc, 
-  serverTimestamp,
-  collection,
-  query,
-  where,
-  getDocs
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 // Tab switching
@@ -31,7 +27,7 @@ window.switchTab = function(tab) {
 
 // Generate email from username
 function makeEmail(username) {
-  return username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@chat.app";
+  return username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@temp.com";
 }
 
 // Handle Signup
@@ -59,33 +55,23 @@ window.handleSignup = async function() {
   btn.textContent = 'Creating...';
 
   try {
-    // Check if username exists
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("username", "==", username));
-    const snapshot = await getDocs(q);
-
-    if (!snapshot.empty) {
-      alert('Username already taken');
-      btn.disabled = false;
-      btn.textContent = 'Create Account';
-      return;
-    }
-
     const email = makeEmail(username);
+    console.log("Creating user with email:", email);
 
     // Create auth user
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    console.log("Auth user created:", userCredential.user.uid);
     
-    // Create user profile
+    // Create user profile in Firestore
     await setDoc(doc(db, "users", userCredential.user.uid), {
       username: username,
       email: email,
-      createdAt: serverTimestamp(),
+      createdAt: new Date().toISOString(),
       online: true,
-      lastSeen: serverTimestamp(),
-      blockedUsers: [],
-      friends: []
+      lastSeen: new Date().toISOString()
     });
+    
+    console.log("Firestore document created");
 
     alert('Account created successfully!');
     window.location.href = 'dashboard.html';
@@ -94,9 +80,9 @@ window.handleSignup = async function() {
     console.error('Signup error:', error);
     
     if (error.code === 'auth/email-already-in-use') {
-      alert('Username already taken');
+      alert('Username already taken. Please choose another.');
     } else if (error.code === 'auth/weak-password') {
-      alert('Password too weak');
+      alert('Password too weak. Use at least 6 characters.');
     } else {
       alert('Signup failed: ' + error.message);
     }
@@ -122,20 +108,17 @@ window.handleLogin = async function() {
 
   try {
     const email = makeEmail(username);
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    console.log("Logging in with email:", email);
     
-    // Update online status
-    await setDoc(doc(db, "users", userCredential.user.uid), {
-      online: true,
-      lastSeen: serverTimestamp()
-    }, { merge: true });
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    console.log("Login successful:", userCredential.user.uid);
 
     window.location.href = 'dashboard.html';
 
   } catch (error) {
     console.error('Login error:', error);
     
-    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-login-credentials') {
       alert('Invalid username or password');
     } else {
       alert('Login failed: ' + error.message);
