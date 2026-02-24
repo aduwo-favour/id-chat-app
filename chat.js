@@ -1,37 +1,22 @@
 import { auth, db } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
-  doc, 
-  getDoc, 
   collection, 
-  addDoc, 
   query, 
-  orderBy, 
+  where, 
+  getDocs, 
   onSnapshot,
+  doc,
+  getDoc,
   updateDoc,
   serverTimestamp,
-  increment,
-  where,
-  getDocs,
+  addDoc,
   setDoc,
   deleteDoc
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUsername = null;
 let currentUid = null;
-let otherUsername = null;
-let chatId = null;
-let replyingTo = null;
-let isBlocked = false;
-
-// Get URL params
-const urlParams = new URLSearchParams(window.location.search);
-chatId = urlParams.get('chatId');
-otherUsername = urlParams.get('user');
-
-if (!chatId || !otherUsername) {
-  window.location.href = 'private-chats.html';
-}
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -44,71 +29,76 @@ onAuthStateChanged(auth, async (user) => {
   const userDoc = await getDoc(doc(db, "users", user.uid));
   if (userDoc.exists()) {
     currentUsername = userDoc.data().username;
-    
-    document.getElementById('chatUserName').textContent = otherUsername;
-    
-    // Check if chat is blocked
-    await checkBlockStatus();
-    
-    // Listen for messages
-    listenForMessages();
-    
-    // Listen for user status
-    listenForUserStatus();
-    
-    // Update online status
-    await updateDoc(doc(db, "users", user.uid), {
-      online: true,
-      lastSeen: serverTimestamp()
-    });
-
-    // Reset unread count
-    await resetUnreadCount();
+    loadChats();
   }
 });
 
-// Check if chat is blocked
-async function checkBlockStatus() {
-  const chatRef = doc(db, "chats", chatId);
-  const chatSnap = await getDoc(chatRef);
+// Load only accepted chats
+function loadChats() {
+  const chatsQuery = query(
+    collection(db, "chats"),
+    where("participants", "array-contains", currentUsername),
+    where("status", "==", "accepted")  // Only show accepted chats
+  );
 
-  if (chatSnap.exists()) {
-    const data = chatSnap.data();
-    if (data.isBlocked) {
-      isBlocked = true;
-      document.getElementById('messageInput').disabled = true;
-      document.getElementById('sendBtn').disabled = true;
-      showNotification('This chat has been blocked');
+  onSnapshot(chatsQuery, async (snapshot) => {
+    const chatsList = document.getElementById('chatsList');
+    
+    if (snapshot.empty) {
+      chatsList.innerHTML = '<div class="no-chats">No chats yet. Search for users to start chatting!</div>';
+      return;
     }
-  }
+
+    let chatsHTML = '';
+    const chatPromises = [];
+
+    snapshot.forEach(doc => {
+      const chatData = doc.data();
+      const otherUser = chatData.participants.find(p => p !== currentUsername);
+      
+      const promise = getUserStatus(otherUser).then(status => {
+        const unread = chatData.unread?.[currentUsername] || 0;
+        const unreadBadge = unread > 0 ? `<span class="unread-count">${unread}</span>` : '';
+        const statusClass = status.online ? 'online' : 'offline';
+        const statusText = status.online ? 'Online' : status.lastSeen;
+
+        return `
+          <div class="chat-item" onclick="openChat('${doc.id}', '${otherUser}')">
+            <div class="chat-avatar">${otherUser[0].toUpperCase()}</div>
+            <div class="chat-details">
+              <div class="chat-name">${otherUser}</div>
+              <div class="chat-status ${statusClass}">${statusText}</div>
+            </div>
+            ${unreadBadge}
+          </div>
+        `;
+      });
+
+      chatPromises.push(promise);
+    });
+
+    const chatItems = await Promise.all(chatPromises);
+    chatsList.innerHTML = chatItems.join('');
+  });
 }
 
-// Listen for user online status
-function listenForUserStatus() {
+// Get user online status
+async function getUserStatus(username) {
   const usersRef = collection(db, "users");
-  const q = query(usersRef, where("username", "==", otherUsername));
+  const q = query(usersRef, where("username", "==", username));
+  const snapshot = await getDocs(q);
 
-  onSnapshot(q, (snapshot) => {
-    if (!snapshot.empty) {
-      const data = snapshot.docs[0].data();
-      const statusEl = document.getElementById('userStatus');
-      const lastSeenEl = document.getElementById('lastSeen');
-
-      if (data.online) {
-        statusEl.textContent = 'Online';
-        statusEl.className = 'user-status online';
-        lastSeenEl.textContent = '';
-      } else {
-        statusEl.textContent = 'Offline';
-        statusEl.className = 'user-status offline';
-        
-        if (data.lastSeen?.toDate) {
-          const lastSeen = data.lastSeen.toDate();
-          lastSeenEl.textContent = `Last seen: ${formatLastSeen(lastSeen)}`;
-        }
-      }
-    }
-  });
+  if (!snapshot.empty) {
+    const data = snapshot.docs[0].data();
+    const lastSeen = data.lastSeen ? new Date(data.lastSeen) : null;
+    const timeAgo = lastSeen ? formatLastSeen(lastSeen) : 'Offline';
+    
+    return {
+      online: data.online || false,
+      lastSeen: timeAgo
+    };
+  }
+  return { online: false, lastSeen: 'Offline' };
 }
 
 // Format last seen
@@ -117,255 +107,101 @@ function formatLastSeen(date) {
   const diff = Math.floor((now - date) / 1000 / 60);
 
   if (diff < 1) return 'Just now';
-  if (diff < 60) return `${diff} minutes ago`;
-  if (diff < 1440) return `${Math.floor(diff / 60)} hours ago`;
+  if (diff < 60) return `${diff}m ago`;
+  if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
   return date.toLocaleDateString();
 }
 
-// Listen for messages
-function listenForMessages() {
-  const messagesRef = collection(db, "chats", chatId, "messages");
-  const q = query(messagesRef, orderBy("timestamp", "asc"));
+// Search users
+window.searchUsers = async function() {
+  const searchTerm = document.getElementById('searchUser').value.trim();
+  if (!searchTerm || searchTerm === currentUsername) return;
 
-  onSnapshot(q, (snapshot) => {
-    const container = document.getElementById('messagesContainer');
-    let lastDate = null;
+  const resultsDiv = document.getElementById('searchResults');
+  
+  const usersRef = collection(db, "users");
+  const q = query(usersRef, where("username", ">=", searchTerm), where("username", "<=", searchTerm + '\uf8ff'));
+  const snapshot = await getDocs(q);
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      
-      // Mark as seen if not mine
-      if (data.sender !== currentUsername && !data.seen) {
-        updateDoc(doc.ref, {
-          seen: true,
-          seenAt: serverTimestamp()
-        });
-      }
-
-      const messageDate = data.timestamp?.toDate();
-      const isMine = data.sender === currentUsername;
-
-      // Date divider
-      if (messageDate) {
-        const dateStr = messageDate.toDateString();
-        if (lastDate !== dateStr) {
-          lastDate = dateStr;
-          const divider = createDateDivider(messageDate);
-          container.appendChild(divider);
-        }
-      }
-
-      // Create message element
-      const messageEl = createMessageElement(data, doc.id, isMine);
-      container.appendChild(messageEl);
-    });
-
-    // Scroll to bottom
-    container.scrollTop = container.scrollHeight;
-  });
-}
-
-// Create message element
-function createMessageElement(data, messageId, isMine) {
-  const div = document.createElement('div');
-  div.className = `message ${isMine ? 'my-message' : 'other-message'}`;
-
-  let timeString = '';
-  if (data.timestamp?.toDate) {
-    timeString = data.timestamp.toDate().toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-
-  // Reply preview
-  let replyHTML = '';
-  if (data.replyTo) {
-    replyHTML = `<div class="reply-preview-inline">↪️ ${data.replyTo}</div>`;
-  }
-
-  // Deleted message
-  if (data.deletedForEveryone) {
-    div.innerHTML = '<div class="deleted-message">This message was deleted</div>';
-  } else {
-    div.innerHTML = `
-      ${replyHTML}
-      <div class="message-text">${data.text}</div>
-      <div class="message-footer">
-        <span class="message-time">${timeString}</span>
-        ${isMine && data.seen ? '<span class="seen-indicator">✓✓ Seen</span>' : ''}
-      </div>
-    `;
-  }
-
-  // Double click to reply
-  div.ondblclick = () => {
-    if (!data.deletedForEveryone) {
-      replyToMessage(data.text);
-    }
-  };
-
-  // Right click to delete (own messages only)
-  if (isMine && !data.deletedForEveryone) {
-    div.oncontextmenu = (e) => {
-      e.preventDefault();
-      if (confirm('Delete this message for everyone?')) {
-        deleteMessage(messageId);
-      }
-    };
-  }
-
-  return div;
-}
-
-// Create date divider
-function createDateDivider(date) {
-  const div = document.createElement('div');
-  div.className = 'date-divider';
-
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-
-  if (date.toDateString() === today.toDateString()) {
-    div.textContent = 'Today';
-  } else if (date.toDateString() === yesterday.toDateString()) {
-    div.textContent = 'Yesterday';
-  } else {
-    div.textContent = date.toLocaleDateString([], {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  }
-
-  return div;
-}
-
-// Send message
-window.sendMessage = async function() {
-  if (isBlocked) {
-    alert('This chat is blocked');
+  if (snapshot.empty) {
+    resultsDiv.innerHTML = '<div class="no-results">No users found</div>';
     return;
   }
 
-  const input = document.getElementById('messageInput');
-  const text = input.value.trim();
+  let resultsHTML = '<div class="search-header">Search Results:</div>';
+  
+  for (const doc of snapshot.docs) {
+    const userData = doc.data();
+    if (userData.username !== currentUsername) {
+      // Check if already have pending request
+      const hasRequest = await checkExistingRequest(userData.username);
+      const requestStatus = hasRequest ? ' (Request Pending)' : '';
+      
+      resultsHTML += `
+        <div class="search-result-item">
+          <span>${userData.username}${requestStatus}</span>
+          ${!hasRequest ? `<button onclick="sendRequest('${userData.username}')" class="start-chat-btn">Send Request</button>` : '<span class="pending-badge">Pending</span>'}
+        </div>
+      `;
+    }
+  }
 
-  if (!text) return;
-
-  const messagesRef = collection(db, "chats", chatId, "messages");
-
-  await addDoc(messagesRef, {
-    sender: currentUsername,
-    text: text,
-    timestamp: serverTimestamp(),
-    deletedForEveryone: false,
-    replyTo: replyingTo,
-    seen: false,
-    seenAt: null
-  });
-
-  // Update unread count for other user
-  await updateDoc(doc(db, "chats", chatId), {
-    [`unread.${otherUsername}`]: increment(1)
-  });
-
-  input.value = '';
-  replyingTo = null;
-  document.getElementById('replyPreview').classList.add('hidden');
+  resultsDiv.innerHTML = resultsHTML;
 };
 
-// Reply to message
-window.replyToMessage = function(text) {
-  replyingTo = text;
-  const preview = document.getElementById('replyPreview');
-  document.getElementById('replyText').textContent = 
-    text.length > 50 ? text.substring(0, 50) + '...' : text;
-  preview.classList.remove('hidden');
-};
-
-// Cancel reply
-window.cancelReply = function() {
-  replyingTo = null;
-  document.getElementById('replyPreview').classList.add('hidden');
-};
-
-// Delete message
-async function deleteMessage(messageId) {
-  await updateDoc(doc(db, "chats", chatId, "messages", messageId), {
-    deletedForEveryone: true,
-    text: ''
-  });
+// Check if request already exists
+async function checkExistingRequest(toUser) {
+  const requestsRef = collection(db, "requests");
+  const q = query(
+    requestsRef, 
+    where("from", "==", currentUsername),
+    where("to", "==", toUser),
+    where("status", "==", "pending")
+  );
+  const snapshot = await getDocs(q);
+  return !snapshot.empty;
 }
 
-// Reset unread count
-async function resetUnreadCount() {
-  await updateDoc(doc(db, "chats", chatId), {
-    [`unread.${currentUsername}`]: 0
-  });
-}
+// Send message request
+window.sendRequest = async function(toUser) {
+  try {
+    // Check if user blocks you
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("username", "==", toUser));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) return;
+    
+    const userData = snapshot.docs[0].data();
+    if (userData.blockedUsers?.includes(currentUsername)) {
+      alert('You cannot send a request to this user');
+      return;
+    }
 
-// Unfriend user
-window.unfriendUser = async function() {
-  if (!confirm('Are you sure? This will block all messages and remove this chat.')) return;
+    // Create request
+    await addDoc(collection(db, "requests"), {
+      from: currentUsername,
+      to: toUser,
+      status: "pending",
+      createdAt: new Date().toISOString()
+    });
 
-  const chatRef = doc(db, "chats", chatId);
-  
-  // Mark chat as blocked
-  await updateDoc(chatRef, {
-    isBlocked: true,
-    blockedBy: currentUsername
-  });
+    alert('Request sent successfully!');
+    document.getElementById('searchResults').innerHTML = '';
+    document.getElementById('searchUser').value = '';
 
-  // Add to blocked list
-  const userRef = doc(db, "users", currentUid);
-  await updateDoc(userRef, {
-    blockedUsers: arrayUnion(otherUsername)
-  });
-
-  isBlocked = true;
-  document.getElementById('messageInput').disabled = true;
-  document.getElementById('sendBtn').disabled = true;
-  
-  showNotification('User unfriended and blocked');
-  setTimeout(() => {
-    window.location.href = 'private-chats.html';
-  }, 2000);
+  } catch (error) {
+    console.error("Send request error:", error);
+    alert('Failed to send request');
+  }
 };
 
-// Block user (just block messages)
-window.blockUser = async function() {
-  if (!confirm('Block messages from this user?')) return;
-
-  const userRef = doc(db, "users", currentUid);
-  await updateDoc(userRef, {
-    blockedUsers: arrayUnion(otherUsername)
-  });
-
-  isBlocked = true;
-  document.getElementById('messageInput').disabled = true;
-  document.getElementById('sendBtn').disabled = true;
-  
-  showNotification('User blocked');
-};
-
-// Show chat options
-window.showChatOptions = function() {
-  const options = document.getElementById('chatOptions');
-  options.classList.toggle('hidden');
+// Open existing chat
+window.openChat = function(chatId, username) {
+  window.location.href = `chat.html?chatId=${chatId}&user=${username}`;
 };
 
 // Go back
 window.goBack = function() {
-  window.location.href = 'private-chats.html';
+  window.location.href = 'dashboard.html';
 };
-
-// Show notification
-function showNotification(message) {
-  const notification = document.createElement('div');
-  notification.className = 'notification';
-  notification.textContent = message;
-  document.body.appendChild(notification);
-  setTimeout(() => notification.remove(), 3000);
-}
