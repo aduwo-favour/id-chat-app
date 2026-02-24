@@ -59,11 +59,8 @@ onAuthStateChanged(auth, async (user) => {
   currentUserId = userDoc.data().userId;
   otherUserId = participants.find(p => p !== currentUserId);
 
-  // Set chat title reliably
-  const titleEl = document.getElementById("chatTitle");
-  if (titleEl) {
-    titleEl.innerText = otherUserId || "Chat";
-  }
+  const title = document.getElementById("chatTitle");
+  if (title) title.innerText = otherUserId || "Chat";
 
   const usersRef = collection(db, "users");
   const q = query(usersRef, where("userId", "==", otherUserId));
@@ -73,15 +70,21 @@ onAuthStateChanged(auth, async (user) => {
 
   const otherDoc = querySnapshot.docs[0];
 
-  /* ===== Realtime Presence ===== */
   const rtdb = getDatabase();
   const connectedRef = ref(rtdb, ".info/connected");
 
   onValue(connectedRef, (snap) => {
     if (snap.val() === true) {
       const statusRef = ref(rtdb, "status/" + currentUid);
-      set(statusRef, { online: true, lastChanged: Date.now() });
-      onDisconnect(statusRef).set({ online: false, lastChanged: Date.now() });
+      set(statusRef, {
+        online: true,
+        lastChanged: Date.now()
+      });
+
+      onDisconnect(statusRef).set({
+        online: false,
+        lastChanged: Date.now()
+      });
     }
   });
 
@@ -115,18 +118,18 @@ onAuthStateChanged(auth, async (user) => {
   if (!unloadListenerAdded) {
     unloadListenerAdded = true;
 
-    document.addEventListener("visibilitychange", () => {
-      if (!userRef) return;
-      updateDoc(userRef, {
-        online: document.visibilityState === "visible",
-        lastSeen: serverTimestamp()
-      }).catch(() => {});
-    });
-
     window.addEventListener("beforeunload", () => {
       if (!userRef) return;
       updateDoc(userRef, {
         online: false,
+        lastSeen: serverTimestamp()
+      }).catch(() => {});
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (!userRef) return;
+      updateDoc(userRef, {
+        online: document.visibilityState === "visible",
         lastSeen: serverTimestamp()
       }).catch(() => {});
     });
@@ -152,6 +155,16 @@ async function createChatIfNotExists() {
       lastMessageTime: serverTimestamp()
     });
   }
+
+  // Ensure request placeholder exists
+  const requestRef = doc(db, "messageRequests", chatId);
+  await setDoc(requestRef, {
+    from: currentUserId,
+    to: otherUserId,
+    status: "pending",
+    createdAt: serverTimestamp(),
+    lastUpdated: serverTimestamp()
+  }, { merge: true });
 }
 
 /* ================= SEND MESSAGE ================= */
@@ -163,21 +176,52 @@ window.sendMessage = async function () {
   const text = input.value.trim();
   if (!text) return;
 
-  await addDoc(collection(db, "chats", chatId, "messages"), {
-    sender: currentUserId,
-    text,
-    timestamp: serverTimestamp(),
-    deletedForEveryone: false,
-    replyTo: replyingTo,
-    seen: false,
-    seenAt: null,
-    reactions: {}
-  });
+  const chatRef = doc(db, "chats", chatId);
+  const chatSnap = await getDoc(chatRef);
 
-  await updateDoc(doc(db, "chats", chatId), {
-    [`unread.${otherUserId}`]: increment(1),
-    lastMessageTime: serverTimestamp()
-  }).catch(() => {});
+  let isAccepted = false;
+
+  if (chatSnap.exists()) {
+    const data = chatSnap.data();
+    isAccepted = data.acceptedBy?.includes(currentUserId) &&
+                 data.acceptedBy?.includes(otherUserId);
+  }
+
+  if (isAccepted) {
+    // Normal message
+    await addDoc(collection(db, "chats", chatId, "messages"), {
+      sender: currentUserId,
+      text,
+      timestamp: serverTimestamp(),
+      deletedForEveryone: false,
+      replyTo: replyingTo,
+      seen: false,
+      seenAt: null,
+      reactions: {}
+    });
+
+    await updateDoc(chatRef, {
+      [`unread.${otherUserId}`]: increment(1),
+      lastMessageTime: serverTimestamp()
+    }).catch(() => {});
+  } else {
+    // Message request
+    const requestRef = doc(db, "messageRequests", chatId);
+
+    await setDoc(requestRef, {
+      from: currentUserId,
+      to: otherUserId,
+      firstMessage: {
+        text,
+        sender: currentUserId,
+        timestamp: serverTimestamp()
+      },
+      status: "pending",
+      lastUpdated: serverTimestamp()
+    }, { merge: true });
+
+    alert("Message sent as request – waiting for acceptance");
+  }
 
   input.value = "";
   replyingTo = null;
@@ -410,22 +454,22 @@ window.goBack = function () {
   }
 };
 
-/* ================= DELETE ENTIRE CHAT ================= */
+/* ================= DELETE CHAT ================= */
 
 window.deleteChat = async function () {
-  if (!confirm("Delete this entire chat? This cannot be undone.")) return;
+  if (!confirm("Delete this entire chat?")) return;
 
   try {
     // Delete chat document
     await deleteDoc(doc(db, "chats", chatId));
 
-    // Optional: delete request if exists
+    // Delete request if exists
     await deleteDoc(doc(db, "messageRequests", chatId)).catch(() => {});
 
     alert("Chat deleted");
     window.goBack();
   } catch (err) {
-    console.error("Delete chat failed:", err);
-    alert("Failed to delete chat – check console");
+    console.error("Delete failed:", err);
+    alert("Failed to delete chat");
   }
 };
