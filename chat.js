@@ -101,7 +101,7 @@ function updateBlockButton() {
   }
 }
 
-// Listen for user online status
+// Listen for user online status - FIXED VERSION
 function listenForUserStatus() {
   const usersRef = collection(db, "users");
   const q = query(usersRef, where("username", "==", otherUsername));
@@ -112,7 +112,8 @@ function listenForUserStatus() {
       const statusEl = document.getElementById('userStatus');
       const lastSeenEl = document.getElementById('lastSeen');
 
-      if (data.online) {
+      // Check if online property exists and is true
+      if (data.online === true) {
         statusEl.textContent = 'Online';
         statusEl.className = 'user-status online';
         lastSeenEl.textContent = '';
@@ -120,9 +121,12 @@ function listenForUserStatus() {
         statusEl.textContent = 'Offline';
         statusEl.className = 'user-status offline';
         
+        // Show last seen if available
         if (data.lastSeen) {
           const lastSeen = new Date(data.lastSeen);
           lastSeenEl.textContent = `Last seen: ${formatLastSeen(lastSeen)}`;
+        } else {
+          lastSeenEl.textContent = '';
         }
       }
     }
@@ -132,12 +136,26 @@ function listenForUserStatus() {
 // Format last seen
 function formatLastSeen(date) {
   const now = new Date();
-  const diff = Math.floor((now - date) / 1000 / 60);
+  const diffSeconds = Math.floor((now - date) / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
 
-  if (diff < 1) return 'Just now';
-  if (diff < 60) return `${diff} minutes ago`;
-  if (diff < 1440) return `${Math.floor(diff / 60)} hours ago`;
-  return date.toLocaleDateString();
+  if (diffSeconds < 60) {
+    return 'Just now';
+  } else if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  } else if (diffDays < 7) {
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  } else {
+    return date.toLocaleDateString([], {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }
 }
 
 // Listen for messages
@@ -233,13 +251,11 @@ function createMessageElement(data, messageId, isMine) {
   // SWIPE TO REPLY (Touch events)
   let touchStartX = 0;
   let touchStartY = 0;
-  let touchStartTime = 0;
   let swiped = false;
 
   div.addEventListener('touchstart', (e) => {
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
-    touchStartTime = Date.now();
     swiped = false;
   }, { passive: true });
 
@@ -546,12 +562,6 @@ window.blockUser = async function() {
   }
 };
 
-// Show chat options
-window.showChatOptions = function() {
-  const options = document.getElementById('chatOptions');
-  options.classList.toggle('hidden');
-};
-
 // Show notification
 function showNotification(message) {
   const notification = document.createElement('div');
@@ -572,4 +582,5 @@ window.goBack = function() {
   window.location.href = 'private-chats.html';
 };
 
-      
+// Remove old showChatOptions function if it exists
+// window.showChatOptions is removed - using toggleChatOptions instead
