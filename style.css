@@ -1212,4 +1212,55 @@ body {
 }
 
 
+/* Back button fix */
+.back-btn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  padding: 8px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.back-btn:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+/* Requests container */
+.requests-container {
+  max-width: 600px;
+  margin: 0 auto;
+  background: white;
+  min-height: 100vh;
+  box-shadow: 0 0 50px rgba(0,0,0,0.1);
+}
+
+.requests-header {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  background: #667eea;
+  color: white;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.requests-header h3 {
+  margin: 0;
+}
+
+.requests-list {
+  padding: 20px;
+}
+
+.loading {
+  text-align: center;
+  color: #718096;
+  padding: 40px;
+}
 
