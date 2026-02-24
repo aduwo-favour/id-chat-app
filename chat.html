@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat Room By Jeff</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="chat-wrapper">
+
+  <!-- ===== HEADER ===== -->
+  <div class="chat-header">
+
+    <button class="back-btn" onclick="goBack()">⬅</button>
+
+    <div class="chat-user-info">
+      <h3 id="chatTitle"></h3>
+      <div id="onlineStatus" class="online-status"></div>
+      <div id="typingStatus" class="typing-status"></div>
+
+      <!-- Google Translate -->
+      <div id="google_translate_element"></div>
+    </div>
+
+  </div>
+
+  <!-- ===== MESSAGES ===== -->
+  <div id="messages"></div>
+
+  <!-- ===== REPLY PREVIEW ===== -->
+  <div id="replyPreview" class="reply-preview"></div>
+
+  <!-- ===== INPUT AREA ===== -->
+  <div class="chat-input">
+
+    <!-- Text input -->
+    <input 
+      type="text" 
+      id="messageInput" 
+      placeholder="Type a message..." 
+      autocomplete="off"
+    >
+
+    <!-- Send button -->
+    <button type="button" onclick="sendMessage()">
+      Send
+    </button>
+
+  </div>
+
+</div>
+
+<!-- ===== FIREBASE + CHAT SCRIPTS ===== -->
+<script type="module" src="firebase.js"></script>
+<script type="module" src="chat.js"></script>
+
+<!-- ===== GOOGLE TRANSLATE SCRIPT ===== -->
+<script type="text/javascript">
+  function googleTranslateElementInit() {
+    new google.translate.TranslateElement(
+      { pageLanguage: 'en' },
+      'google_translate_element'
+    );
+  }
+</script>
+
+<script 
+  type="text/javascript" 
+  src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit">
+</script>
+
+</body>
+</html>
+
+
+
+
