@@ -14,8 +14,9 @@ import {
   getDocs,
   deleteDoc,
   arrayUnion,
-  writeBatch,   // ← ADD THIS
-  setDoc        // ← ADD THIS if not already there
+  arrayRemove,
+  writeBatch,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUsername = null;
@@ -24,6 +25,7 @@ let otherUsername = null;
 let chatId = null;
 let replyingTo = null;
 let isBlocked = false;
+let blockedByMe = false;
 
 // Get URL params
 const urlParams = new URLSearchParams(window.location.search);
@@ -77,9 +79,24 @@ async function checkBlockStatus() {
     const data = chatSnap.data();
     if (data.isBlocked) {
       isBlocked = true;
+      blockedByMe = data.blockedBy === currentUsername;
       document.getElementById('messageInput').disabled = true;
       document.getElementById('sendBtn').disabled = true;
-      showNotification('This chat has been blocked');
+      
+      // Update options button text based on block status
+      updateBlockButton();
+    }
+  }
+}
+
+// Update block button text
+function updateBlockButton() {
+  const blockBtn = document.querySelector('[onclick="blockUser()"]');
+  if (blockBtn) {
+    if (blockedByMe) {
+      blockBtn.textContent = 'Unblock User';
+    } else {
+      blockBtn.textContent = 'Block Messages';
     }
   }
 }
@@ -130,7 +147,7 @@ function listenForMessages() {
 
   onSnapshot(q, (snapshot) => {
     const container = document.getElementById('messagesContainer');
-    container.innerHTML = ''; // Clear first
+    container.innerHTML = '';
     let lastDate = null;
 
     snapshot.forEach((doc) => {
@@ -171,6 +188,7 @@ function listenForMessages() {
 function createMessageElement(data, messageId, isMine) {
   const div = document.createElement('div');
   div.className = `message ${isMine ? 'my-message' : 'other-message'}`;
+  div.setAttribute('data-message-id', messageId);
 
   let timeString = '';
   if (data.timestamp) {
@@ -186,6 +204,17 @@ function createMessageElement(data, messageId, isMine) {
     replyHTML = `<div class="reply-preview-inline">↪️ ${data.replyTo}</div>`;
   }
 
+  // Reactions
+  let reactionsHTML = '';
+  if (data.reactions && Object.keys(data.reactions).length > 0) {
+    const uniqueReactions = [...new Set(Object.values(data.reactions))];
+    reactionsHTML = `
+      <div class="message-reactions">
+        ${uniqueReactions.map(emoji => `<span class="reaction-badge">${emoji}</span>`).join('')}
+      </div>
+    `;
+  }
+
   // Deleted message
   if (data.deletedForEveryone) {
     div.innerHTML = '<div class="deleted-message">This message was deleted</div>';
@@ -193,21 +222,148 @@ function createMessageElement(data, messageId, isMine) {
     div.innerHTML = `
       ${replyHTML}
       <div class="message-text">${data.text}</div>
+      ${reactionsHTML}
       <div class="message-footer">
         <span class="message-time">${timeString}</span>
-        ${isMine && data.seen ? '<span class="seen-indicator">✓✓ Seen</span>' : ''}
+        ${isMine && data.seen ? '<span class="seen-indicator">✓✓</span>' : ''}
       </div>
     `;
   }
 
-  // Double click to reply
-  div.ondblclick = () => {
-    if (!data.deletedForEveryone) {
+  // SWIPE TO REPLY (Touch events)
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+  let swiped = false;
+
+  div.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchStartTime = Date.now();
+    swiped = false;
+  }, { passive: true });
+
+  div.addEventListener('touchmove', (e) => {
+    if (!touchStartX) return;
+    
+    const touchEndX = e.touches[0].clientX;
+    const touchEndY = e.touches[0].clientY;
+    const diffX = touchEndX - touchStartX;
+    const diffY = Math.abs(touchEndY - touchStartY);
+    
+    // Horizontal swipe (right) and not vertical scrolling
+    if (diffX > 50 && diffY < 30 && !swiped && !data.deletedForEveryone) {
+      swiped = true;
+      e.preventDefault();
+      
+      // Visual feedback
+      div.style.transform = 'translateX(10px)';
+      div.style.transition = 'transform 0.2s';
+      
+      setTimeout(() => {
+        div.style.transform = '';
+      }, 200);
+      
+      // Trigger reply
       replyToMessage(data.text);
     }
-  };
+  }, { passive: false });
+
+  div.addEventListener('touchend', () => {
+    touchStartX = 0;
+  });
+
+  // DOUBLE CLICK FOR REACTIONS (Desktop)
+  div.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    if (!data.deletedForEveryone) {
+      showReactionMenu(e, messageId, div);
+    }
+  });
+
+  // LONG PRESS FOR REACTIONS (Mobile)
+  let pressTimer;
+  div.addEventListener('touchstart', (e) => {
+    pressTimer = setTimeout(() => {
+      if (!data.deletedForEveryone) {
+        showReactionMenu(e, messageId, div);
+      }
+    }, 500);
+  }, { passive: true });
+
+  div.addEventListener('touchend', () => {
+    clearTimeout(pressTimer);
+  });
+
+  div.addEventListener('touchcancel', () => {
+    clearTimeout(pressTimer);
+  });
+
+  // RIGHT CLICK FOR DELETE (Desktop)
+  if (isMine && !data.deletedForEveryone) {
+    div.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (confirm('Delete this message for everyone?')) {
+        deleteMessage(messageId);
+      }
+    });
+  }
 
   return div;
+}
+
+// Show reaction menu
+function showReactionMenu(event, messageId, messageElement) {
+  // Remove any existing reaction menus
+  document.querySelectorAll('.reaction-menu').forEach(el => el.remove());
+
+  const menu = document.createElement('div');
+  menu.className = 'reaction-menu';
+  
+  const reactions = ['❤️', '😂', '🔥', '👍', '😮', '😢', '🎉', '🤔'];
+  
+  reactions.forEach(emoji => {
+    const btn = document.createElement('button');
+    btn.className = 'reaction-btn';
+    btn.textContent = emoji;
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      await addReaction(messageId, emoji);
+      menu.remove();
+    };
+    menu.appendChild(btn);
+  });
+
+  document.body.appendChild(menu);
+
+  // Position the menu
+  const rect = messageElement.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.top = `${rect.top - 50}px`;
+  menu.style.left = `${rect.left}px`;
+  menu.style.zIndex = '10000';
+
+  // Close menu when clicking outside
+  setTimeout(() => {
+    document.addEventListener('click', function closeMenu(e) {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+      }
+    });
+  }, 100);
+}
+
+// Add reaction to message
+async function addReaction(messageId, emoji) {
+  try {
+    const messageRef = doc(db, "chats", chatId, "messages", messageId);
+    await updateDoc(messageRef, {
+      [`reactions.${currentUsername}`]: emoji
+    });
+  } catch (error) {
+    console.error("Error adding reaction:", error);
+  }
 }
 
 // Create date divider
@@ -255,7 +411,8 @@ window.sendMessage = async function() {
     deletedForEveryone: false,
     replyTo: replyingTo,
     seen: false,
-    seenAt: null
+    seenAt: null,
+    reactions: {}
   });
 
   // Update unread count for other user
@@ -275,6 +432,9 @@ window.replyToMessage = function(text) {
   document.getElementById('replyText').textContent = 
     text.length > 50 ? text.substring(0, 50) + '...' : text;
   preview.classList.remove('hidden');
+  
+  // Focus on input
+  document.getElementById('messageInput').focus();
 };
 
 // Cancel reply
@@ -283,6 +443,14 @@ window.cancelReply = function() {
   document.getElementById('replyPreview').classList.add('hidden');
 };
 
+// Delete message
+async function deleteMessage(messageId) {
+  await updateDoc(doc(db, "chats", chatId, "messages", messageId), {
+    deletedForEveryone: true,
+    text: ''
+  });
+}
+
 // Reset unread count
 async function resetUnreadCount() {
   await updateDoc(doc(db, "chats", chatId), {
@@ -290,29 +458,26 @@ async function resetUnreadCount() {
   });
 }
 
-// UNFRIEND FUNCTION - Clears chat for both users
+// UNFRIEND FUNCTION
 window.unfriendUser = async function() {
   if (!confirm('Are you sure? This will delete this chat for both users. They will need to send a new request to chat again.')) return;
 
   try {
     const batch = writeBatch(db);
     
-    // Delete all messages in the chat
+    // Delete all messages
     const messagesRef = collection(db, "chats", chatId, "messages");
     const messagesSnap = await getDocs(messagesRef);
     messagesSnap.forEach(doc => {
       batch.delete(doc.ref);
     });
 
-    // Delete the chat document
+    // Delete the chat
     batch.delete(doc(db, "chats", chatId));
 
-    // Commit the batch
     await batch.commit();
 
     showNotification('Chat deleted successfully');
-    
-    // Redirect to private chats
     setTimeout(() => {
       window.location.href = 'private-chats.html';
     }, 1500);
@@ -323,32 +488,61 @@ window.unfriendUser = async function() {
   }
 };
 
-// BLOCK FUNCTION - Just blocks messages
+// BLOCK/UNBLOCK FUNCTION
 window.blockUser = async function() {
-  if (!confirm('Block messages from this user? They will not be able to send you requests.')) return;
-
   try {
-    // Add to blocked list
-    const userRef = doc(db, "users", currentUid);
-    await updateDoc(userRef, {
-      blockedUsers: arrayUnion(otherUsername)
-    });
+    if (blockedByMe) {
+      // UNBLOCK
+      if (!confirm('Unblock this user?')) return;
+      
+      // Remove from blocked list
+      const userRef = doc(db, "users", currentUid);
+      await updateDoc(userRef, {
+        blockedUsers: arrayRemove(otherUsername)
+      });
 
-    // Update chat status
-    await updateDoc(doc(db, "chats", chatId), {
-      isBlocked: true,
-      blockedBy: currentUsername
-    });
+      // Update chat status
+      await updateDoc(doc(db, "chats", chatId), {
+        isBlocked: false,
+        blockedBy: null
+      });
 
-    isBlocked = true;
-    document.getElementById('messageInput').disabled = true;
-    document.getElementById('sendBtn').disabled = true;
+      isBlocked = false;
+      blockedByMe = false;
+      document.getElementById('messageInput').disabled = false;
+      document.getElementById('sendBtn').disabled = false;
+      
+      showNotification('User unblocked');
+      
+    } else {
+      // BLOCK
+      if (!confirm('Block messages from this user?')) return;
+      
+      // Add to blocked list
+      const userRef = doc(db, "users", currentUid);
+      await updateDoc(userRef, {
+        blockedUsers: arrayUnion(otherUsername)
+      });
+
+      // Update chat status
+      await updateDoc(doc(db, "chats", chatId), {
+        isBlocked: true,
+        blockedBy: currentUsername
+      });
+
+      isBlocked = true;
+      blockedByMe = true;
+      document.getElementById('messageInput').disabled = true;
+      document.getElementById('sendBtn').disabled = true;
+      
+      showNotification('User blocked');
+    }
     
-    showNotification('User blocked');
-
+    updateBlockButton();
+    
   } catch (error) {
-    console.error("Block error:", error);
-    alert('Failed to block user');
+    console.error("Block/unblock error:", error);
+    alert('Failed: ' + error.message);
   }
 };
 
@@ -371,10 +565,3 @@ function showNotification(message) {
   document.body.appendChild(notification);
   setTimeout(() => notification.remove(), 3000);
       }
-// Make sure goBack is global
-window.goBack = function() {
-  window.location.href = 'private-chats.html';
-};
-
-
-
