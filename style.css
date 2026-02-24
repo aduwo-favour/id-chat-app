@@ -313,3 +313,63 @@ html, body {
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
+/* Fix header layout & translate widget */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 15px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  position: relative;
+  gap: 10px;
+}
+
+.chat-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.translate-widget {
+  margin-left: auto;
+  margin-right: 10px;
+}
+
+#google_translate_element {
+  font-size: 12px !important;
+}
+
+.goog-te-gadget {
+  font-size: 0 !important;
+}
+
+.goog-te-gadget span {
+  display: none !important;
+}
+
+.delete-chat-btn {
+  background: #ff3b30;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.delete-chat-btn:hover {
+  background: #d32f2f;
+}
+
+/* Ensure title doesn't disappear */
+#chatTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
