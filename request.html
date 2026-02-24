@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Message Requests</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="requests-container">
+  <div class="requests-header">
+    <button onclick="goBack()" class="back-btn">← Back</button>
+    <h3>Message Requests</h3>
+  </div>
+
+  <div id="requestsList" class="requests-list">
+    <!-- Requests will load here -->
+    <div class="loading">Loading requests...</div>
+  </div>
+</div>
+
+<script type="module" src="firebase.js"></script>
+<script type="module" src="requests.js"></script>
+</body>
+</html>
