@@ -25,8 +25,7 @@ import {
   where,
   getDocs,
   deleteDoc,
-  runTransaction,
-  arrayRemove
+  writeBatch
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 /* ================= GLOBALS ================= */
@@ -44,10 +43,9 @@ if (!chatId) window.location.href = "dashboard.html";
 const participants = chatId.split("_");
 let otherUserId = null;
 
-/* ================= AUTH ================= */
+/* ================= AUTH & PRESENCE ================= */
 
 onAuthStateChanged(auth, async (user) => {
-
   if (!user) {
     window.location.href = "index.html";
     return;
@@ -63,7 +61,7 @@ onAuthStateChanged(auth, async (user) => {
   otherUserId = participants.find(p => p !== currentUserId);
 
   const title = document.getElementById("chatTitle");
-  if (title) title.innerText = otherUserId;
+  if (title) title.innerText = otherUserId || "Chat";
 
   const usersRef = collection(db, "users");
   const q = query(usersRef, where("userId", "==", otherUserId));
@@ -74,15 +72,11 @@ onAuthStateChanged(auth, async (user) => {
   const otherDoc = querySnapshot.docs[0];
 
   const rtdb = getDatabase();
-
   const connectedRef = ref(rtdb, ".info/connected");
 
   onValue(connectedRef, (snap) => {
-
     if (snap.val() === true) {
-
       const statusRef = ref(rtdb, "status/" + currentUid);
-
       set(statusRef, {
         online: true,
         lastChanged: Date.now()
@@ -93,13 +87,11 @@ onAuthStateChanged(auth, async (user) => {
         lastChanged: Date.now()
       });
     }
-
   });
 
   const otherStatusRef = ref(rtdb, "status/" + otherDoc.id);
 
   onValue(otherStatusRef, (snap) => {
-
     const statusEl = document.getElementById("onlineStatus");
     if (!statusEl) return;
 
@@ -114,14 +106,9 @@ onAuthStateChanged(auth, async (user) => {
       statusEl.innerText = "Online";
     } else {
       const date = new Date(data.lastChanged);
-      const time = date.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-
+      const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       statusEl.innerText = "Last seen at " + time;
     }
-
   });
 
   await updateDoc(userRef, {
@@ -134,40 +121,24 @@ onAuthStateChanged(auth, async (user) => {
 
     window.addEventListener("beforeunload", () => {
       if (!userRef) return;
-
       updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
       }).catch(() => {});
     });
 
-  }
-
-  document.addEventListener("visibilitychange", () => {
-
-    if (!userRef) return;
-
-    if (document.visibilityState === "hidden") {
-
+    document.addEventListener("visibilitychange", () => {
+      if (!userRef) return;
       updateDoc(userRef, {
-        online: false,
+        online: document.visibilityState === "visible",
         lastSeen: serverTimestamp()
       }).catch(() => {});
-
-    } else {
-
-      updateDoc(userRef, {
-        online: true
-      }).catch(() => {});
-
-    }
-
-  });
+    });
+  }
 
   await createChatIfNotExists();
   loadMessages();
   await resetUnread();
-
 });
 
 /* ================= CREATE CHAT ================= */
@@ -179,11 +150,22 @@ async function createChatIfNotExists() {
   if (!snap.exists()) {
     await setDoc(chatRef, {
       participants,
+      acceptedBy: [],
       unread: {},
       createdAt: serverTimestamp(),
       lastMessageTime: serverTimestamp()
     });
   }
+
+  // Ensure request placeholder
+  const requestRef = doc(db, "messageRequests", chatId);
+  await setDoc(requestRef, {
+    from: currentUserId,
+    to: otherUserId,
+    status: "pending",
+    createdAt: serverTimestamp(),
+    lastUpdated: serverTimestamp()
+  }, { merge: true });
 }
 
 /* ================= SEND MESSAGE ================= */
@@ -202,11 +184,12 @@ window.sendMessage = async function () {
 
   if (chatSnap.exists()) {
     const data = chatSnap.data();
-    isAccepted = data.acceptedBy && data.acceptedBy.includes(currentUserId) && data.acceptedBy.includes(otherUserId);
+    isAccepted = data.acceptedBy?.includes(currentUserId) &&
+                 data.acceptedBy?.includes(otherUserId);
   }
 
   if (isAccepted) {
-    // Normal message
+    // Normal send
     await addDoc(collection(db, "chats", chatId, "messages"), {
       sender: currentUserId,
       text,
@@ -266,7 +249,7 @@ function loadMessages() {
 
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
-      let messageDate = data.timestamp?.toDate() ?? null;
+      let messageDate = data.timestamp?.toDate?.() ?? null;
 
       const isMine = data.sender === currentUserId;
 
@@ -473,33 +456,33 @@ window.goBack = function () {
   }
 };
 
-/* ================= DELETE ENTIRE CHAT ================= */
+/* ================= DELETE ENTIRE CHAT FOR BOTH USERS ================= */
 
 window.deleteChat = async function () {
   if (!confirm("Delete this chat for both users? This cannot be undone.")) return;
 
   try {
-    // Delete all messages in batch
+    const batch = writeBatch(db);
+
+    // Delete all messages
     const messagesQ = query(collection(db, "chats", chatId, "messages"));
     const messagesSnap = await getDocs(messagesQ);
-    const batch = db.batch();
-
-    messagesSnap.docs.forEach((docSnap) => {
+    messagesSnap.forEach((docSnap) => {
       batch.delete(docSnap.ref);
     });
 
-    await batch.commit();
-
     // Delete chat doc
-    await deleteDoc(doc(db, "chats", chatId));
+    batch.delete(doc(db, "chats", chatId));
 
     // Delete request doc
-    await deleteDoc(doc(db, "messageRequests", chatId)).catch(() => {});
+    batch.delete(doc(db, "messageRequests", chatId));
 
-    alert("Chat deleted completely");
+    await batch.commit();
+
+    alert("Chat deleted completely for both sides");
     window.goBack();
   } catch (err) {
     console.error("Delete chat failed:", err);
-    alert("Failed to delete chat – see console for details");
+    alert("Failed to delete chat – check console (F12) for details");
   }
 };
