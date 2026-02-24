@@ -8,40 +8,39 @@
 <body>
 
 <div class="dashboard-container">
+  <div class="dashboard-header">
+    <h2>ChatApp</h2>
+    <div class="user-info">
+      <span id="welcomeUser">Loading...</span>
+      <button onclick="logout()" class="logout-btn">Logout</button>
+    </div>
+  </div>
 
-  <!-- HEADER -->
-  <div class="dashboard-card dashboard-header">
-    
-    <div class="header-left">
-      <h3 id="welcome">Loading...</h3>
+  <div class="dashboard-content">
+    <div class="dashboard-card" onclick="navigateTo('private-chats.html')">
+      <div class="card-icon">💬</div>
+      <h3>Private Chats</h3>
+      <p>Chat with your friends</p>
+      <span class="badge" id="privateChatsBadge"></span>
     </div>
 
-    <div class="header-right">
-      <button class="logout-btn" onclick="logout()">Logout</button>
+    <div class="dashboard-card" onclick="navigateTo('community.html')">
+      <div class="card-icon">🌍</div>
+      <h3>Community Chat</h3>
+      <p>Join public discussions</p>
+      <small class="coming-soon">Coming Soon</small>
     </div>
 
+    <div class="dashboard-card" onclick="navigateTo('requests.html')">
+      <div class="card-icon">📨</div>
+      <h3>Message Requests</h3>
+      <p>Pending chat requests</p>
+      <span class="badge" id="requestsBadge"></span>
+    </div>
   </div>
-
-  <!-- START CHAT -->
-  <div class="dashboard-card">
-    <input 
-      type="text" 
-      id="friendId" 
-      placeholder="Enter Friend ID"
-      autocomplete="off"
-    >
-    <button onclick="startChat()">Start Chat</button>
-  </div>
-
-  <!-- CHAT LIST -->
-  <div class="dashboard-card">
-    <h3 class="chat-section-title">Your Chats</h3>
-    <div id="chatList"></div>
-  </div>
-
 </div>
 
+<script type="module" src="firebase.js"></script>
 <script type="module" src="dashboard.js"></script>
-
 </body>
 </html>
