@@ -552,11 +552,6 @@ window.showChatOptions = function() {
   options.classList.toggle('hidden');
 };
 
-// Go back
-window.goBack = function() {
-  window.location.href = 'private-chats.html';
-};
-
 // Show notification
 function showNotification(message) {
   const notification = document.createElement('div');
@@ -564,4 +559,15 @@ function showNotification(message) {
   notification.textContent = message;
   document.body.appendChild(notification);
   setTimeout(() => notification.remove(), 3000);
-      }
+}
+
+// Toggle chat options
+window.toggleChatOptions = function() {
+  const options = document.getElementById('chatOptions');
+  options.classList.toggle('hidden');
+};
+
+// Go back
+window.goBack = function() {
+  window.location.href = 'private-chats.html';
+};
