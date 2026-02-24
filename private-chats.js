@@ -10,7 +10,8 @@ import {
   getDoc,
   addDoc,
   deleteDoc,
-  writeBatch  // ← ADD THIS MISSING IMPORT
+  writeBatch,
+  setDoc  // ← ADD THIS
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUsername = null;
@@ -37,12 +38,15 @@ onAuthStateChanged(auth, async (user) => {
   const userDoc = await getDoc(doc(db, "users", user.uid));
   if (userDoc.exists()) {
     currentUsername = userDoc.data().username;
+    console.log("Current user:", currentUsername);
     loadChats();
   }
 });
 
 // Load only accepted chats
 function loadChats() {
+  if (!currentUsername) return;
+  
   const chatsQuery = query(
     collection(db, "chats"),
     where("participants", "array-contains", currentUsername),
@@ -125,7 +129,10 @@ function formatLastSeen(date) {
 // Search users
 window.searchUsers = async function() {
   const searchTerm = document.getElementById('searchUser').value.trim();
-  if (!searchTerm || searchTerm === currentUsername) return;
+  if (!searchTerm || searchTerm === currentUsername) {
+    document.getElementById('searchResults').innerHTML = '';
+    return;
+  }
 
   const resultsDiv = document.getElementById('searchResults');
   resultsDiv.innerHTML = '<div class="loading">Searching...</div>';
@@ -166,20 +173,25 @@ window.searchUsers = async function() {
 
 // Check request status
 async function checkRequestStatus(toUser) {
-  // Check if request was sent by me
-  const sentQuery = query(
-    collection(db, "requests"),
-    where("from", "==", currentUsername),
-    where("to", "==", toUser)
-  );
-  const sentSnapshot = await getDocs(sentQuery);
-  
-  if (!sentSnapshot.empty) {
-    const data = sentSnapshot.docs[0].data();
-    return data.status === "pending" ? "pending" : "declined";
+  try {
+    // Check if request was sent by me
+    const sentQuery = query(
+      collection(db, "requests"),
+      where("from", "==", currentUsername),
+      where("to", "==", toUser)
+    );
+    const sentSnapshot = await getDocs(sentQuery);
+    
+    if (!sentSnapshot.empty) {
+      const data = sentSnapshot.docs[0].data();
+      return data.status === "pending" ? "pending" : "declined";
+    }
+    
+    return "none";
+  } catch (error) {
+    console.error("Check request status error:", error);
+    return "none";
   }
-  
-  return "none";
 }
 
 // Get appropriate button based on request status
@@ -194,8 +206,10 @@ function getRequestButton(username, status) {
   }
 }
 
-// Send message request
+// Send message request - FIXED VERSION
 window.sendRequest = async function(toUser) {
+  console.log("Sending request to:", toUser);
+  
   try {
     // Check if user blocks you
     const usersRef = collection(db, "users");
@@ -213,6 +227,20 @@ window.sendRequest = async function(toUser) {
       return;
     }
 
+    // Check if there's already a pending request
+    const pendingQuery = query(
+      collection(db, "requests"),
+      where("from", "==", currentUsername),
+      where("to", "==", toUser),
+      where("status", "==", "pending")
+    );
+    const pendingSnapshot = await getDocs(pendingQuery);
+    
+    if (!pendingSnapshot.empty) {
+      alert('You already have a pending request to this user');
+      return;
+    }
+
     // Check if there was a previous declined request - delete it first
     const declinedQuery = query(
       collection(db, "requests"),
@@ -222,8 +250,12 @@ window.sendRequest = async function(toUser) {
     );
     const declinedSnapshot = await getDocs(declinedQuery);
     
+    // Create a new request document reference properly
+    const requestsCollection = collection(db, "requests");
+    const newRequestRef = doc(requestsCollection); // Fixed: proper way to create doc reference
+    
     // Use batch for multiple operations
-    const batch = writeBatch(db);  // Now this will work
+    const batch = writeBatch(db);
     
     // Delete any existing declined requests
     declinedSnapshot.forEach(doc => {
@@ -231,7 +263,6 @@ window.sendRequest = async function(toUser) {
     });
     
     // Create new request
-    const newRequestRef = doc(collection(db, "requests"));
     batch.set(newRequestRef, {
       from: currentUsername,
       to: toUser,
@@ -258,3 +289,8 @@ window.openChat = function(chatId, username) {
   if (!chatId || !username) return;
   window.location.href = `chat.html?chatId=${chatId}&user=${username}`;
 };
+
+// Make functions globally available
+window.searchUsers = searchUsers;
+window.sendRequest = sendRequest;
+window.openChat = openChat;
