@@ -1,33 +1,72 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Private Chats</title>
+  <title>Chat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="chats-container">
-  <div class="chats-header">
-    <button onclick="goBack()" class="back-btn">← Back</button>
-    <h3>Private Chats</h3>
-    <button onclick="startNewChat()" class="new-chat-btn">➕ New</button>
+<div class="chat-wrapper">
+  <!-- Fixed Header - Never Moves -->
+  <div class="chat-header-fixed">
+    <div class="chat-header-left">
+      <button onclick="goBack()" class="back-btn">←</button>
+      <div class="chat-user-info">
+        <h3 id="chatUserName">Loading...</h3>
+        <div class="user-status" id="userStatus">Offline</div>
+        <div class="last-seen" id="lastSeen"></div>
+      </div>
+    </div>
+
+    <div class="chat-header-right">
+      <div id="google_translate_element"></div>
+      <button onclick="showChatOptions()" class="options-btn">⚙️</button>
+    </div>
   </div>
 
-  <div class="search-box">
-    <input type="text" id="searchUser" placeholder="Search users by username...">
-    <button onclick="searchUsers()">Search</button>
+  <!-- Chat Options Dropdown -->
+  <div id="chatOptions" class="chat-options-dropdown hidden">
+    <button onclick="unfriendUser()" class="option-btn danger">Unfriend & Block</button>
+    <button onclick="blockUser()" class="option-btn danger">Block Messages</button>
   </div>
 
-  <div id="searchResults" class="search-results"></div>
+  <!-- Messages Area - Scrollable Only -->
+  <div id="messagesContainer" class="messages-container">
+    <!-- Messages will load here -->
+  </div>
 
-  <div id="chatsList" class="chats-list">
-    <!-- Chats will load here -->
-    <div class="loading">Loading chats...</div>
+  <!-- Reply Preview -->
+  <div id="replyPreview" class="reply-preview hidden">
+    <span>Replying to: </span>
+    <span id="replyText"></span>
+    <button onclick="cancelReply()" class="cancel-reply">✕</button>
+  </div>
+
+  <!-- Input Area - Fixed at Bottom -->
+  <div class="chat-input-fixed">
+    <input 
+      type="text" 
+      id="messageInput" 
+      placeholder="Type a message..."
+      autocomplete="off"
+    >
+    <button onclick="sendMessage()" id="sendBtn">Send</button>
   </div>
 </div>
 
+<!-- Google Translate -->
+<script type="text/javascript">
+  function googleTranslateElementInit() {
+    new google.translate.TranslateElement(
+      { pageLanguage: 'en' },
+      'google_translate_element'
+    );
+  }
+</script>
+<script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
 <script type="module" src="firebase.js"></script>
-<script type="module" src="private-chats.js"></script>
+<script type="module" src="chat.js"></script>
 </body>
 </html>
