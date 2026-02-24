@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Chat</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,14 +21,14 @@
 
     <div class="chat-header-right">
       <div id="google_translate_element"></div>
-      <button onclick="showChatOptions()" class="options-btn">⚙️</button>
+      <button onclick="toggleChatOptions()" class="options-btn" id="optionsBtn">⚙️</button>
     </div>
   </div>
 
   <!-- Chat Options Dropdown -->
   <div id="chatOptions" class="chat-options-dropdown hidden">
-    <button onclick="unfriendUser()" class="option-btn danger">Unfriend & Block</button>
-    <button onclick="blockUser()" class="option-btn danger">Block Messages</button>
+    <button onclick="unfriendUser()" class="option-btn danger" id="unfriendBtn">Unfriend</button>
+    <button onclick="blockUser()" class="option-btn danger" id="blockBtn">Block Messages</button>
   </div>
 
   <!-- Messages Area - Scrollable Only -->
@@ -55,11 +55,29 @@
   </div>
 </div>
 
+<!-- Click outside to close dropdown -->
+<script>
+  document.addEventListener('click', function(event) {
+    const options = document.getElementById('chatOptions');
+    const optionsBtn = document.getElementById('optionsBtn');
+    
+    if (options && optionsBtn) {
+      if (!options.contains(event.target) && !optionsBtn.contains(event.target)) {
+        options.classList.add('hidden');
+      }
+    }
+  });
+</script>
+
 <!-- Google Translate -->
 <script type="text/javascript">
   function googleTranslateElementInit() {
     new google.translate.TranslateElement(
-      { pageLanguage: 'en' },
+      { 
+        pageLanguage: 'en',
+        includedLanguages: 'en,es,fr,de,it,pt,ru,ja,ko,zh-CN,ar',
+        layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+      },
       'google_translate_element'
     );
   }
