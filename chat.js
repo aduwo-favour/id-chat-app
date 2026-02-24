@@ -9,14 +9,16 @@ import {
   orderBy, 
   onSnapshot,
   updateDoc,
-  serverTimestamp,
   increment,
   where,
   getDocs,
   deleteDoc,
   arrayUnion,
-  writeBatch
+  writeBatch,   // ← ADD THIS
+  setDoc        // ← ADD THIS if not already there
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+// ... rest of your chat.js code stays the same
 
 let currentUsername = null;
 let currentUid = null;
@@ -375,4 +377,5 @@ function showNotification(message) {
 window.goBack = function() {
   window.location.href = 'private-chats.html';
 };
+
 
