@@ -1007,5 +1007,91 @@ body {
   font-size: 48px;
   margin-bottom: 20px;
 }
+/* Request time */
+.request-time {
+  font-size: 11px;
+  color: #999;
+  margin-top: 3px;
+}
+
+/* Pending badge */
+.pending-badge {
+  background: #fbbf24;
+  color: #333;
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Unfriend/Block buttons in chat options */
+.option-btn {
+  display: block;
+  width: 100%;
+  padding: 12px 20px;
+  border: none;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+
+.option-btn:last-child {
+  border-bottom: none;
+}
+
+.option-btn:hover {
+  background: #f5f5f5;
+}
+
+.option-btn.danger {
+  color: #e53e3e;
+}
+
+.option-btn.danger:hover {
+  background: #fff5f5;
+}
+
+/* Chat options dropdown */
+.chat-options-dropdown {
+  position: absolute;
+  top: 60px;
+  right: 15px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+  z-index: 1001;
+  overflow: hidden;
+  min-width: 180px;
+}
+
+.chat-options-dropdown.hidden {
+  display: none;
+}
+
+/* Notification */
+.notification {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  z-index: 10000;
+  animation: slideUp 0.3s;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
 
 
