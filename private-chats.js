@@ -8,15 +8,22 @@ import {
   onSnapshot,
   doc,
   getDoc,
-  updateDoc,
-  serverTimestamp,
   addDoc,
-  setDoc,
   deleteDoc
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUsername = null;
 let currentUid = null;
+
+// Global back function
+window.goBack = function() {
+  window.location.href = 'dashboard.html';
+};
+
+// Global start new chat
+window.startNewChat = function() {
+  document.getElementById('searchUser').focus();
+};
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -38,7 +45,7 @@ function loadChats() {
   const chatsQuery = query(
     collection(db, "chats"),
     where("participants", "array-contains", currentUsername),
-    where("status", "==", "accepted")  // Only show accepted chats
+    where("status", "==", "accepted")
   );
 
   onSnapshot(chatsQuery, async (snapshot) => {
@@ -64,9 +71,9 @@ function loadChats() {
 
         return `
           <div class="chat-item" onclick="openChat('${doc.id}', '${otherUser}')">
-            <div class="chat-avatar">${otherUser[0].toUpperCase()}</div>
+            <div class="chat-avatar">${otherUser ? otherUser[0].toUpperCase() : '?'}</div>
             <div class="chat-details">
-              <div class="chat-name">${otherUser}</div>
+              <div class="chat-name">${otherUser || 'Unknown'}</div>
               <div class="chat-status ${statusClass}">${statusText}</div>
             </div>
             ${unreadBadge}
@@ -84,6 +91,8 @@ function loadChats() {
 
 // Get user online status
 async function getUserStatus(username) {
+  if (!username) return { online: false, lastSeen: 'Offline' };
+  
   const usersRef = collection(db, "users");
   const q = query(usersRef, where("username", "==", username));
   const snapshot = await getDocs(q);
@@ -118,48 +127,70 @@ window.searchUsers = async function() {
   if (!searchTerm || searchTerm === currentUsername) return;
 
   const resultsDiv = document.getElementById('searchResults');
+  resultsDiv.innerHTML = '<div class="loading">Searching...</div>';
   
-  const usersRef = collection(db, "users");
-  const q = query(usersRef, where("username", ">=", searchTerm), where("username", "<=", searchTerm + '\uf8ff'));
-  const snapshot = await getDocs(q);
+  try {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("username", ">=", searchTerm), where("username", "<=", searchTerm + '\uf8ff'));
+    const snapshot = await getDocs(q);
 
-  if (snapshot.empty) {
-    resultsDiv.innerHTML = '<div class="no-results">No users found</div>';
-    return;
-  }
-
-  let resultsHTML = '<div class="search-header">Search Results:</div>';
-  
-  for (const doc of snapshot.docs) {
-    const userData = doc.data();
-    if (userData.username !== currentUsername) {
-      // Check if already have pending request
-      const hasRequest = await checkExistingRequest(userData.username);
-      const requestStatus = hasRequest ? ' (Request Pending)' : '';
-      
-      resultsHTML += `
-        <div class="search-result-item">
-          <span>${userData.username}${requestStatus}</span>
-          ${!hasRequest ? `<button onclick="sendRequest('${userData.username}')" class="start-chat-btn">Send Request</button>` : '<span class="pending-badge">Pending</span>'}
-        </div>
-      `;
+    if (snapshot.empty) {
+      resultsDiv.innerHTML = '<div class="no-results">No users found</div>';
+      return;
     }
-  }
 
-  resultsDiv.innerHTML = resultsHTML;
+    let resultsHTML = '<div class="search-header">Search Results:</div>';
+    
+    for (const doc of snapshot.docs) {
+      const userData = doc.data();
+      if (userData.username !== currentUsername) {
+        // Check if already have pending request
+        const requestStatus = await checkRequestStatus(userData.username);
+        
+        resultsHTML += `
+          <div class="search-result-item">
+            <span>${userData.username}</span>
+            ${getRequestButton(userData.username, requestStatus)}
+          </div>
+        `;
+      }
+    }
+
+    resultsDiv.innerHTML = resultsHTML;
+  } catch (error) {
+    console.error("Search error:", error);
+    resultsDiv.innerHTML = '<div class="error-message">Search failed</div>';
+  }
 };
 
-// Check if request already exists
-async function checkExistingRequest(toUser) {
-  const requestsRef = collection(db, "requests");
-  const q = query(
-    requestsRef, 
+// Check request status
+async function checkRequestStatus(toUser) {
+  // Check if request was sent by me
+  const sentQuery = query(
+    collection(db, "requests"),
     where("from", "==", currentUsername),
-    where("to", "==", toUser),
-    where("status", "==", "pending")
+    where("to", "==", toUser)
   );
-  const snapshot = await getDocs(q);
-  return !snapshot.empty;
+  const sentSnapshot = await getDocs(sentQuery);
+  
+  if (!sentSnapshot.empty) {
+    const data = sentSnapshot.docs[0].data();
+    return data.status === "pending" ? "pending" : "declined";
+  }
+  
+  return "none";
+}
+
+// Get appropriate button based on request status
+function getRequestButton(username, status) {
+  switch(status) {
+    case "pending":
+      return '<span class="pending-badge">Request Pending</span>';
+    case "declined":
+      return '<span class="declined-badge">Declined</span>';
+    default:
+      return `<button onclick="sendRequest('${username}')" class="start-chat-btn">Send Request</button>`;
+  }
 }
 
 // Send message request
@@ -170,38 +201,58 @@ window.sendRequest = async function(toUser) {
     const q = query(usersRef, where("username", "==", toUser));
     const snapshot = await getDocs(q);
     
-    if (snapshot.empty) return;
+    if (snapshot.empty) {
+      alert('User not found');
+      return;
+    }
     
     const userData = snapshot.docs[0].data();
-    if (userData.blockedUsers?.includes(currentUsername)) {
+    if (userData.blockedUsers && userData.blockedUsers.includes(currentUsername)) {
       alert('You cannot send a request to this user');
       return;
     }
 
-    // Create request
-    await addDoc(collection(db, "requests"), {
+    // Check if there was a previous declined request - delete it first
+    const declinedQuery = query(
+      collection(db, "requests"),
+      where("from", "==", currentUsername),
+      where("to", "==", toUser),
+      where("status", "==", "declined")
+    );
+    const declinedSnapshot = await getDocs(declinedQuery);
+    
+    const batch = writeBatch(db);
+    
+    // Delete any existing declined requests
+    declinedSnapshot.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    
+    // Create new request
+    const newRequestRef = doc(collection(db, "requests"));
+    batch.set(newRequestRef, {
       from: currentUsername,
       to: toUser,
       status: "pending",
       createdAt: new Date().toISOString()
     });
+    
+    await batch.commit();
 
     alert('Request sent successfully!');
+    
+    // Clear search
     document.getElementById('searchResults').innerHTML = '';
     document.getElementById('searchUser').value = '';
 
   } catch (error) {
     console.error("Send request error:", error);
-    alert('Failed to send request');
+    alert('Failed to send request: ' + error.message);
   }
 };
 
 // Open existing chat
 window.openChat = function(chatId, username) {
+  if (!chatId || !username) return;
   window.location.href = `chat.html?chatId=${chatId}&user=${username}`;
-};
-
-// Go back
-window.goBack = function() {
-  window.location.href = 'dashboard.html';
 };
