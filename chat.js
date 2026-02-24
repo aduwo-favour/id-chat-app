@@ -176,6 +176,7 @@ if (!requestSnap.exists()) {
     lastUpdated: serverTimestamp()
   });
 }
+}
 
 /* ================= SEND MESSAGE ================= */
 
@@ -491,3 +492,4 @@ window.deleteChat = async function () {
     alert("Failed to delete chat");
   }
 };
+        
