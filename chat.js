@@ -36,7 +36,6 @@ let otherUserId = null;
 /* ================= AUTH ================= */
 
 onAuthStateChanged(auth, async (user) => {
-
   if (!user) {
     window.location.href = "index.html";
     return;
@@ -52,7 +51,7 @@ onAuthStateChanged(auth, async (user) => {
   otherUserId = participants.find(p => p !== currentUserId);
 
   const title = document.getElementById("chatTitle");
-  if (title) title.innerText = otherUserId;
+  if (title) title.innerText = otherUserId || "Chat";
 
   /* ===== SET ONLINE ===== */
 
@@ -68,79 +67,67 @@ onAuthStateChanged(auth, async (user) => {
 
     window.addEventListener("beforeunload", () => {
       if (!userRef) return;
+      navigator.sendBeacon?.(JSON.stringify({
+        online: false,
+        lastSeen: new Date().toISOString()
+      }));
+    });
+  }
 
+  /* ===== MOBILE VISIBILITY FIX ===== */
+
+  document.addEventListener("visibilitychange", () => {
+    if (!userRef) return;
+
+    if (document.visibilityState === "hidden") {
       updateDoc(userRef, {
         online: false,
         lastSeen: serverTimestamp()
       }).catch(() => {});
-    });
-  }
-
-
-    /* ===== MOBILE VISIBILITY FIX ===== */
-
-document.addEventListener("visibilitychange", () => {
-
-  if (!userRef) return;
-
-  if (document.visibilityState === "hidden") {
-
-    updateDoc(userRef, {
-      online: false,
-      lastSeen: serverTimestamp()
-    }).catch(() => {});
-
-  } else {
-
-    updateDoc(userRef, {
-      online: true
-    }).catch(() => {});
-
-  }
-
-});
-
-  /* ===== LISTEN TO OTHER USER STATUS ===== */
-/* ===== LISTEN TO OTHER USER STATUS ===== */
-
-const usersRef = collection(db, "users");
-const q = query(usersRef, where("userId", "==", otherUserId));
-const querySnapshot = await getDocs(q);
-
-if (!querySnapshot.empty) {
-
-  const otherDoc = querySnapshot.docs[0];
-  const otherUserRef = doc(db, "users", otherDoc.id);
-
-  onSnapshot(otherUserRef, (snap) => {
-
-    const statusEl = document.getElementById("onlineStatus");
-    if (!statusEl) return;
-
-    if (!snap.exists()) {
-      statusEl.innerText = "";
-      return;
-    }
-
-    const data = snap.data();
-
-    if (data.online === true) {
-      statusEl.innerText = "Online";
-    } else if (data.lastSeen?.toDate) {
-
-      const time = data.lastSeen.toDate().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-
-      statusEl.innerText = "Last seen at " + time;
     } else {
-      statusEl.innerText = "Offline";
+      updateDoc(userRef, {
+        online: true,
+        lastSeen: serverTimestamp()
+      }).catch(() => {});
     }
-
   });
 
-}
+  /* ===== LISTEN TO OTHER USER STATUS ===== */
+
+  if (otherUserId) {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("userId", "==", otherUserId));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const otherDoc = querySnapshot.docs[0];
+      const otherUserRef = doc(db, "users", otherDoc.id);
+
+      onSnapshot(otherUserRef, (snap) => {
+        const statusEl = document.getElementById("onlineStatus");
+        if (!statusEl) return;
+
+        if (!snap.exists()) {
+          statusEl.innerText = "";
+          return;
+        }
+
+        const data = snap.data();
+
+        if (data.online === true) {
+          statusEl.innerText = "Online";
+        } else if (data.lastSeen?.toDate) {
+          const time = data.lastSeen.toDate().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+          });
+          statusEl.innerText = "Last seen at " + time;
+        } else {
+          statusEl.innerText = "Offline";
+        }
+      });
+    }
+  }
   
   await createChatIfNotExists();
   loadMessages();
@@ -155,7 +142,7 @@ async function createChatIfNotExists() {
 
   if (!snap.exists()) {
     await setDoc(chatRef, {
-      participants,
+      participants: [currentUserId, otherUserId],
       unread: {},
       createdAt: serverTimestamp()
     });
@@ -165,7 +152,6 @@ async function createChatIfNotExists() {
 /* ================= SEND MESSAGE ================= */
 
 window.sendMessage = async function () {
-
   const input = document.getElementById("messageInput");
   if (!input) return;
 
@@ -191,20 +177,21 @@ window.sendMessage = async function () {
   replyingTo = null;
 
   const replyPreview = document.getElementById("replyPreview");
-  if (replyPreview) replyPreview.style.display = "none";
+  if (replyPreview) {
+    replyPreview.style.display = "none";
+    replyPreview.innerText = "";
+  }
 };
 
 /* ================= LOAD MESSAGES ================= */
 
 function loadMessages() {
-
   const q = query(
     collection(db, "chats", chatId, "messages"),
     orderBy("timestamp", "asc")
   );
 
   onSnapshot(q, (snapshot) => {
-
     const messagesDiv = document.getElementById("messages");
     if (!messagesDiv) return;
 
@@ -212,49 +199,48 @@ function loadMessages() {
     let lastDate = null;
 
     snapshot.forEach((docSnap) => {
-
       const data = docSnap.data();
       let messageDate = null;
 
-if (data.timestamp?.toDate) {
-  messageDate = data.timestamp.toDate();
-}
+      if (data.timestamp?.toDate) {
+        messageDate = data.timestamp.toDate();
+      }
+      
       const isMine = data.sender === currentUserId;
+      
       /* ===== DATE DIVIDER ===== */
 
-if (messageDate) {
+      if (messageDate) {
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
 
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
+        const messageDay = messageDate.toDateString();
 
-  const messageDay = messageDate.toDateString();
+        let label = "";
 
-  let label = "";
+        if (messageDay === today.toDateString()) {
+          label = "Today";
+        } else if (messageDay === yesterday.toDateString()) {
+          label = "Yesterday";
+        } else {
+          label = messageDate.toLocaleDateString([], {
+            year: "numeric",
+            month: "short",
+            day: "numeric"
+          });
+        }
 
-  if (messageDay === today.toDateString()) {
-    label = "Today";
-  } else if (messageDay === yesterday.toDateString()) {
-    label = "Yesterday";
-  } else {
-    label = messageDate.toLocaleDateString([], {
-      year: "numeric",
-      month: "short",
-      day: "numeric"
-    });
-  }
+        if (lastDate !== messageDay) {
+          lastDate = messageDay;
 
-  if (lastDate !== messageDay) {
+          const divider = document.createElement("div");
+          divider.className = "date-divider";
+          divider.innerText = label;
 
-    lastDate = messageDay;
-
-    const divider = document.createElement("div");
-    divider.className = "date-divider";
-    divider.innerText = label;
-
-    messagesDiv.appendChild(divider);
-  }
-}
+          messagesDiv.appendChild(divider);
+        }
+      }
 
       if (!isMine && data.seen === false) {
         updateDoc(docSnap.ref, {
@@ -286,15 +272,12 @@ if (messageDate) {
       }
 
       if (data.deletedForEveryone) {
-
         messageDiv.innerHTML = `
           <div class="deleted-message">
             This message was deleted
           </div>
         `;
-
       } else {
-
         let replyHTML = "";
         if (data.replyTo) {
           replyHTML = `<div class="reply-box">${data.replyTo}</div>`;
@@ -338,22 +321,19 @@ if (messageDate) {
       let pressTimer = null;
       let triggeredReply = false;
 
-      messageDiv.addEventListener("touchstart", (e) => {
-
+      const handleTouchStart = (e) => {
         startX = e.touches[0].clientX;
         triggeredReply = false;
 
         pressTimer = setTimeout(() => {
           showReactionMenu(messageDiv, docSnap.id);
         }, 500);
-      });
+      };
 
-      messageDiv.addEventListener("touchmove", (e) => {
-
+      const handleTouchMove = (e) => {
         const diff = e.touches[0].clientX - startX;
 
         if (diff > 0) {
-
           clearTimeout(pressTimer);
 
           const moveAmount = Math.min(diff, 80);
@@ -364,12 +344,16 @@ if (messageDate) {
             triggerReply(data.text || "");
           }
         }
-      });
+      };
 
-      messageDiv.addEventListener("touchend", () => {
+      const handleTouchEnd = () => {
         clearTimeout(pressTimer);
         messageDiv.style.transform = "translateX(0)";
-      });
+      };
+
+      messageDiv.addEventListener("touchstart", handleTouchStart);
+      messageDiv.addEventListener("touchmove", handleTouchMove);
+      messageDiv.addEventListener("touchend", handleTouchEnd);
 
       /* ===== DESKTOP REACTION ===== */
 
@@ -422,7 +406,6 @@ async function addReaction(messageId, emoji) {
 }
 
 function showReactionMenu(messageDiv, messageId) {
-
   document.querySelectorAll(".reaction-menu").forEach(el => el.remove());
 
   const menu = document.createElement("div");
@@ -442,13 +425,15 @@ function showReactionMenu(messageDiv, messageId) {
 
   const rect = messageDiv.getBoundingClientRect();
   menu.style.position = "absolute";
-  menu.style.top = rect.top - 40 + "px";
-  menu.style.left = rect.left + "px";
+  menu.style.top = window.scrollY + rect.top - 40 + "px";
+  menu.style.left = window.scrollX + rect.left + "px";
 
   setTimeout(() => {
-    document.addEventListener("click", () => {
+    const closeMenu = () => {
       menu.remove();
-    }, { once: true });
+      document.removeEventListener("click", closeMenu);
+    };
+    document.addEventListener("click", closeMenu, { once: true });
   }, 50);
 }
 
@@ -465,8 +450,3 @@ async function resetUnread() {
 window.goBack = function () {
   window.location.href = "dashboard.html";
 };
-
-      
-
-    
-
