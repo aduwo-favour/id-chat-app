@@ -9,8 +9,7 @@ import {
   deleteDoc,
   getDoc,
   getDocs,
-  setDoc,
-  orderBy
+  setDoc
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 // Make goBack globally available
@@ -56,7 +55,7 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Load message requests
+// Load message requests - SIMPLIFIED VERSION (no index needed)
 function loadRequests() {
   if (!currentUsername) {
     console.log("Waiting for username...");
@@ -67,29 +66,15 @@ function loadRequests() {
   console.log("Setting up requests listener for:", currentUsername);
   
   try {
-    // First, let's just try to get all requests to see what's there
-    const allRequestsQuery = query(collection(db, "requests"));
-    
-    getDocs(allRequestsQuery).then((snapshot) => {
-      console.log("ALL REQUESTS IN DATABASE:", snapshot.size);
-      snapshot.forEach(doc => {
-        console.log("Request in DB:", doc.id, doc.data());
-      });
-    }).catch(err => {
-      console.error("Error fetching all requests:", err);
-    });
-    
-    // Now set up the specific query for pending requests to this user
+    // SIMPLE QUERY - only filter by 'to' field (no status filter, no orderBy)
     const requestsQuery = query(
       collection(db, "requests"),
-      where("to", "==", currentUsername),
-      where("status", "==", "pending"),
-      orderBy("createdAt", "desc")
+      where("to", "==", currentUsername)
     );
 
     // Use onSnapshot for real-time updates
     const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
-      console.log("Requests snapshot received. Size:", snapshot.size);
+      console.log("Requests snapshot received. Total size:", snapshot.size);
       
       const requestsList = document.getElementById('requestsList');
       
@@ -98,27 +83,45 @@ function loadRequests() {
         return;
       }
       
-      if (snapshot.empty) {
+      // Filter for pending requests in JavaScript (not in the query)
+      const pendingRequests = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.status === "pending") {
+          pendingRequests.push({
+            id: doc.id,
+            ...data
+          });
+        }
+      });
+      
+      // Sort by createdAt in JavaScript (newest first)
+      pendingRequests.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+        return dateB - dateA;
+      });
+      
+      console.log("Pending requests after filtering:", pendingRequests.length);
+      
+      if (pendingRequests.length === 0) {
         requestsList.innerHTML = '<div class="no-requests">No pending requests</div>';
         return;
       }
 
       let requestsHTML = '';
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        console.log("Request data:", data);
-        
+      pendingRequests.forEach(request => {
         requestsHTML += `
-          <div class="request-item" data-id="${doc.id}">
-            <div class="request-avatar">${data.from ? data.from[0].toUpperCase() : '?'}</div>
+          <div class="request-item" data-id="${request.id}">
+            <div class="request-avatar">${request.from ? request.from[0].toUpperCase() : '?'}</div>
             <div class="request-details">
-              <div class="request-from">${data.from || 'Unknown User'}</div>
+              <div class="request-from">${request.from || 'Unknown User'}</div>
               <div class="request-message">Wants to chat with you</div>
-              <div class="request-time">${formatTime(data.createdAt)}</div>
+              <div class="request-time">${formatTime(request.createdAt)}</div>
             </div>
             <div class="request-actions">
-              <button onclick="acceptRequest('${doc.id}', '${data.from}')" class="accept-btn">✓ Accept</button>
-              <button onclick="declineRequest('${doc.id}')" class="decline-btn">✕ Decline</button>
+              <button onclick="acceptRequest('${request.id}', '${request.from}')" class="accept-btn">✓ Accept</button>
+              <button onclick="declineRequest('${request.id}')" class="decline-btn">✕ Decline</button>
             </div>
           </div>
         `;
