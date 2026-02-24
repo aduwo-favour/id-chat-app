@@ -9,19 +9,22 @@ import {
   deleteDoc,
   getDoc,
   getDocs,
-  writeBatch,
+  setDoc,
   orderBy
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-let currentUsername = null;
-let currentUid = null;
-
-// Global back function
+// Make goBack globally available
 window.goBack = function() {
   window.location.href = 'dashboard.html';
 };
 
+let currentUsername = null;
+let currentUid = null;
+
+// Check authentication
 onAuthStateChanged(auth, async (user) => {
+  console.log("Auth state changed:", user ? "Logged in" : "Not logged in");
+  
   if (!user) {
     window.location.href = 'index.html';
     return;
@@ -34,12 +37,22 @@ onAuthStateChanged(auth, async (user) => {
     if (userDoc.exists()) {
       currentUsername = userDoc.data().username;
       console.log("Current user:", currentUsername);
+      
+      // Show that we're loading
+      const requestsList = document.getElementById('requestsList');
+      if (requestsList) {
+        requestsList.innerHTML = '<div class="loading">Loading requests...</div>';
+      }
+      
+      // Load requests
       loadRequests();
     } else {
       console.error("User document not found");
+      document.getElementById('requestsList').innerHTML = '<div class="error-message">User not found</div>';
     }
   } catch (error) {
     console.error("Auth error:", error);
+    document.getElementById('requestsList').innerHTML = '<div class="error-message">Error loading user</div>';
   }
 });
 
@@ -47,59 +60,70 @@ onAuthStateChanged(auth, async (user) => {
 function loadRequests() {
   if (!currentUsername) {
     console.log("Waiting for username...");
-    setTimeout(loadRequests, 500);
+    setTimeout(loadRequests, 1000);
     return;
   }
 
-  console.log("Loading requests for:", currentUsername);
+  console.log("Setting up requests listener for:", currentUsername);
   
-  const requestsQuery = query(
-    collection(db, "requests"),
-    where("to", "==", currentUsername),
-    where("status", "==", "pending"),
-    orderBy("createdAt", "desc")
-  );
+  try {
+    const requestsQuery = query(
+      collection(db, "requests"),
+      where("to", "==", currentUsername),
+      where("status", "==", "pending"),
+      orderBy("createdAt", "desc")
+    );
 
-  onSnapshot(requestsQuery, (snapshot) => {
-    console.log("Requests snapshot received, size:", snapshot.size);
-    const requestsList = document.getElementById('requestsList');
-    
-    if (!requestsList) {
-      console.error("requestsList element not found");
-      return;
-    }
-    
-    if (snapshot.empty) {
-      requestsList.innerHTML = '<div class="no-requests">No pending requests</div>';
-      return;
-    }
-
-    let requestsHTML = '';
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      console.log("Request data:", data);
+    // Use onSnapshot for real-time updates
+    const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
+      console.log("Requests snapshot received. Size:", snapshot.size);
       
-      requestsHTML += `
-        <div class="request-item" data-id="${doc.id}">
-          <div class="request-avatar">${data.from ? data.from[0].toUpperCase() : '?'}</div>
-          <div class="request-details">
-            <div class="request-from">${data.from || 'Unknown'}</div>
-            <div class="request-message">Wants to chat with you</div>
-            <div class="request-time">${formatTime(data.createdAt)}</div>
+      const requestsList = document.getElementById('requestsList');
+      
+      if (!requestsList) {
+        console.error("requestsList element not found!");
+        return;
+      }
+      
+      if (snapshot.empty) {
+        requestsList.innerHTML = '<div class="no-requests">No pending requests</div>';
+        return;
+      }
+
+      let requestsHTML = '';
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        console.log("Request data:", data);
+        
+        requestsHTML += `
+          <div class="request-item" data-id="${doc.id}">
+            <div class="request-avatar">${data.from ? data.from[0].toUpperCase() : '?'}</div>
+            <div class="request-details">
+              <div class="request-from">${data.from || 'Unknown User'}</div>
+              <div class="request-message">Wants to chat with you</div>
+              <div class="request-time">${formatTime(data.createdAt)}</div>
+            </div>
+            <div class="request-actions">
+              <button onclick="acceptRequest('${doc.id}', '${data.from}')" class="accept-btn">✓ Accept</button>
+              <button onclick="declineRequest('${doc.id}')" class="decline-btn">✕ Decline</button>
+            </div>
           </div>
-          <div class="request-actions">
-            <button onclick="acceptRequest('${doc.id}', '${data.from}')" class="accept-btn">✓ Accept</button>
-            <button onclick="declineRequest('${doc.id}')" class="decline-btn">✕ Decline</button>
-          </div>
-        </div>
-      `;
+        `;
+      });
+
+      requestsList.innerHTML = requestsHTML;
+    }, (error) => {
+      console.error("Snapshot error:", error);
+      document.getElementById('requestsList').innerHTML = '<div class="error-message">Error loading requests</div>';
     });
 
-    requestsList.innerHTML = requestsHTML;
-  }, (error) => {
-    console.error("Snapshot error:", error);
-    document.getElementById('requestsList').innerHTML = '<div class="error-message">Error loading requests</div>';
-  });
+    // Return unsubscribe function in case we need it later
+    return unsubscribe;
+    
+  } catch (error) {
+    console.error("Error setting up requests listener:", error);
+    document.getElementById('requestsList').innerHTML = '<div class="error-message">Failed to load requests</div>';
+  }
 }
 
 // Format time
@@ -122,7 +146,9 @@ function formatTime(timestamp) {
 
 // Accept request
 window.acceptRequest = async function(requestId, fromUser) {
-  if (!fromUser || !requestId) {
+  console.log("Accepting request:", requestId, "from:", fromUser);
+  
+  if (!requestId || !fromUser) {
     alert('Invalid request');
     return;
   }
@@ -166,6 +192,8 @@ window.acceptRequest = async function(requestId, fromUser) {
 
 // Decline request
 window.declineRequest = async function(requestId) {
+  console.log("Declining request:", requestId);
+  
   if (confirm('Decline this request?')) {
     try {
       await deleteDoc(doc(db, "requests", requestId));
@@ -177,6 +205,6 @@ window.declineRequest = async function(requestId) {
   }
 };
 
-// Make functions global
+// Make functions globally available
 window.acceptRequest = acceptRequest;
 window.declineRequest = declineRequest;
