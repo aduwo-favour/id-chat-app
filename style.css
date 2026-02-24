@@ -1264,3 +1264,143 @@ body {
   padding: 40px;
 }
 
+/* Message Reactions */
+.message-reactions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.reaction-badge {
+  background: rgba(255,255,255,0.2);
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.my-message .reaction-badge {
+  background: rgba(255,255,255,0.3);
+}
+
+.other-message .reaction-badge {
+  background: #e0e0e0;
+}
+
+/* Reaction Menu */
+.reaction-menu {
+  position: fixed;
+  background: white;
+  border-radius: 30px;
+  padding: 8px 12px;
+  box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+  display: flex;
+  gap: 8px;
+  z-index: 10000;
+  animation: slideUp 0.2s;
+  border: 1px solid #eee;
+}
+
+.reaction-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 5px;
+  transition: transform 0.2s;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.reaction-btn:hover {
+  transform: scale(1.2);
+  background: #f5f5f5;
+}
+
+/* Swipe animation */
+.message {
+  transition: transform 0.2s ease, background-color 0.2s;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.message:active {
+  background-color: rgba(0,0,0,0.05);
+}
+
+/* Seen indicator */
+.seen-indicator {
+  font-size: 12px;
+  margin-left: 5px;
+  opacity: 0.8;
+}
+
+/* Unfriend/Block buttons */
+.chat-options-dropdown {
+  position: fixed;
+  top: 70px;
+  right: 15px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 5px 25px rgba(0,0,0,0.15);
+  z-index: 1001;
+  overflow: hidden;
+  min-width: 200px;
+}
+
+.chat-options-dropdown.hidden {
+  display: none;
+}
+
+.option-btn {
+  display: block;
+  width: 100%;
+  padding: 15px 20px;
+  border: none;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+.option-btn:last-child {
+  border-bottom: none;
+}
+
+.option-btn:hover {
+  background: #f8f9fa;
+}
+
+.option-btn.danger {
+  color: #dc3545;
+}
+
+.option-btn.danger:hover {
+  background: #fff5f5;
+}
+
+/* Double click hint - optional */
+.message::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+}
+
+@media (hover: hover) {
+  .message:hover {
+    filter: brightness(0.98);
+  }
+}
+
+
