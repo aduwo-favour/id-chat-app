@@ -11,7 +11,7 @@ import {
   addDoc,
   deleteDoc,
   writeBatch,
-  setDoc  // ← ADD THIS
+  setDoc
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUsername = null;
@@ -71,8 +71,16 @@ function loadChats() {
       const promise = getUserStatus(otherUser).then(status => {
         const unread = chatData.unread?.[currentUsername] || 0;
         const unreadBadge = unread > 0 ? `<span class="unread-count">${unread}</span>` : '';
+        
+        // Set status class and text
         const statusClass = status.online ? 'online' : 'offline';
-        const statusText = status.online ? 'Online' : status.lastSeen;
+        let statusText = '';
+        
+        if (status.online) {
+          statusText = 'Online';
+        } else {
+          statusText = status.lastSeen; // This already includes "Last seen" prefix
+        }
 
         return `
           <div class="chat-item" onclick="openChat('${doc.id}', '${otherUser}')">
@@ -94,7 +102,7 @@ function loadChats() {
   });
 }
 
-// Get user online status
+// Get user online status - FIXED VERSION
 async function getUserStatus(username) {
   if (!username) return { online: false, lastSeen: 'Offline' };
   
@@ -104,26 +112,55 @@ async function getUserStatus(username) {
 
   if (!snapshot.empty) {
     const data = snapshot.docs[0].data();
-    const lastSeen = data.lastSeen ? new Date(data.lastSeen) : null;
-    const timeAgo = lastSeen ? formatLastSeen(lastSeen) : 'Offline';
     
-    return {
-      online: data.online || false,
-      lastSeen: timeAgo
-    };
+    // Check if user is online (strict comparison)
+    if (data.online === true) {
+      return {
+        online: true,
+        lastSeen: 'Online'
+      };
+    }
+    
+    // If offline, calculate last seen
+    if (data.lastSeen) {
+      const lastSeen = new Date(data.lastSeen);
+      const timeAgo = formatLastSeen(lastSeen);
+      return {
+        online: false,
+        lastSeen: timeAgo
+      };
+    }
+    
+    return { online: false, lastSeen: 'Offline' };
   }
   return { online: false, lastSeen: 'Offline' };
 }
 
-// Format last seen
+// Format last seen - IMPROVED VERSION
 function formatLastSeen(date) {
   const now = new Date();
-  const diff = Math.floor((now - date) / 1000 / 60);
+  const diffSeconds = Math.floor((now - date) / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
 
-  if (diff < 1) return 'Just now';
-  if (diff < 60) return `${diff}m ago`;
-  if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
-  return date.toLocaleDateString();
+  if (diffSeconds < 30) {
+    return 'Just now';
+  } else if (diffSeconds < 60) {
+    return `${diffSeconds} seconds ago`;
+  } else if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  } else if (diffDays < 7) {
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  } else {
+    return date.toLocaleDateString([], {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }
 }
 
 // Search users
@@ -206,7 +243,7 @@ function getRequestButton(username, status) {
   }
 }
 
-// Send message request - FIXED VERSION
+// Send message request
 window.sendRequest = async function(toUser) {
   console.log("Sending request to:", toUser);
   
@@ -252,7 +289,7 @@ window.sendRequest = async function(toUser) {
     
     // Create a new request document reference properly
     const requestsCollection = collection(db, "requests");
-    const newRequestRef = doc(requestsCollection); // Fixed: proper way to create doc reference
+    const newRequestRef = doc(requestsCollection);
     
     // Use batch for multiple operations
     const batch = writeBatch(db);
