@@ -165,13 +165,16 @@ async function createChatIfNotExists() {
   }
 
   const requestRef = doc(db, "messageRequests", chatId);
+const requestSnap = await getDoc(requestRef);
+
+if (!requestSnap.exists()) {
   await setDoc(requestRef, {
     from: currentUserId,
     to: otherUserId,
     status: "pending",
     createdAt: serverTimestamp(),
     lastUpdated: serverTimestamp()
-  }, { merge: true });
+  });
 }
 
 /* ================= SEND MESSAGE ================= */
