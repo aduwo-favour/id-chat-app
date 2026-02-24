@@ -8,11 +8,11 @@ import {
   onSnapshot,
   doc,
   getDoc,
-  orderBy,
   updateDoc,
   serverTimestamp,
   addDoc,
-  setDoc
+  setDoc,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUsername = null;
@@ -33,11 +33,12 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Load all private chats
+// Load only accepted chats
 function loadChats() {
   const chatsQuery = query(
     collection(db, "chats"),
-    where("participants", "array-contains", currentUsername)
+    where("participants", "array-contains", currentUsername),
+    where("status", "==", "accepted")  // Only show accepted chats
   );
 
   onSnapshot(chatsQuery, async (snapshot) => {
@@ -89,7 +90,7 @@ async function getUserStatus(username) {
 
   if (!snapshot.empty) {
     const data = snapshot.docs[0].data();
-    const lastSeen = data.lastSeen?.toDate();
+    const lastSeen = data.lastSeen ? new Date(data.lastSeen) : null;
     const timeAgo = lastSeen ? formatLastSeen(lastSeen) : 'Offline';
     
     return {
@@ -103,7 +104,7 @@ async function getUserStatus(username) {
 // Format last seen
 function formatLastSeen(date) {
   const now = new Date();
-  const diff = Math.floor((now - date) / 1000 / 60); // minutes
+  const diff = Math.floor((now - date) / 1000 / 60);
 
   if (diff < 1) return 'Just now';
   if (diff < 60) return `${diff}m ago`;
@@ -128,57 +129,71 @@ window.searchUsers = async function() {
   }
 
   let resultsHTML = '<div class="search-header">Search Results:</div>';
-  snapshot.forEach(doc => {
+  
+  for (const doc of snapshot.docs) {
     const userData = doc.data();
     if (userData.username !== currentUsername) {
+      // Check if already have pending request
+      const hasRequest = await checkExistingRequest(userData.username);
+      const requestStatus = hasRequest ? ' (Request Pending)' : '';
+      
       resultsHTML += `
-        <div class="search-result-item" onclick="startChat('${userData.username}')">
-          <span>${userData.username}</span>
-          <button class="start-chat-btn">Chat</button>
+        <div class="search-result-item">
+          <span>${userData.username}${requestStatus}</span>
+          ${!hasRequest ? `<button onclick="sendRequest('${userData.username}')" class="start-chat-btn">Send Request</button>` : '<span class="pending-badge">Pending</span>'}
         </div>
       `;
     }
-  });
+  }
 
   resultsDiv.innerHTML = resultsHTML;
 };
 
-// Start new chat
-window.startChat = async function(username) {
-  // Check if not blocked
-  const userRef = collection(db, "users");
-  const q = query(userRef, where("username", "==", username));
+// Check if request already exists
+async function checkExistingRequest(toUser) {
+  const requestsRef = collection(db, "requests");
+  const q = query(
+    requestsRef, 
+    where("from", "==", currentUsername),
+    where("to", "==", toUser),
+    where("status", "==", "pending")
+  );
   const snapshot = await getDocs(q);
-  
-  if (snapshot.empty) return;
+  return !snapshot.empty;
+}
 
-  const otherUserDoc = snapshot.docs[0];
-  const otherUserData = otherUserDoc.data();
+// Send message request
+window.sendRequest = async function(toUser) {
+  try {
+    // Check if user blocks you
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("username", "==", toUser));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) return;
+    
+    const userData = snapshot.docs[0].data();
+    if (userData.blockedUsers?.includes(currentUsername)) {
+      alert('You cannot send a request to this user');
+      return;
+    }
 
-  // Check if blocked
-  if (otherUserData.blockedUsers?.includes(currentUsername)) {
-    alert('You cannot chat with this user');
-    return;
-  }
-
-  const chatId = [currentUsername, username].sort().join('_');
-  
-  // Check if chat exists
-  const chatRef = doc(db, "chats", chatId);
-  const chatSnap = await getDoc(chatRef);
-
-  if (!chatSnap.exists()) {
-    // Create new chat
-    await setDoc(chatRef, {
-      participants: [currentUsername, username],
-      createdAt: serverTimestamp(),
-      unread: {},
-      isBlocked: false,
-      blockedBy: null
+    // Create request
+    await addDoc(collection(db, "requests"), {
+      from: currentUsername,
+      to: toUser,
+      status: "pending",
+      createdAt: new Date().toISOString()
     });
-  }
 
-  window.location.href = `chat.html?chatId=${chatId}&user=${username}`;
+    alert('Request sent successfully!');
+    document.getElementById('searchResults').innerHTML = '';
+    document.getElementById('searchUser').value = '';
+
+  } catch (error) {
+    console.error("Send request error:", error);
+    alert('Failed to send request');
+  }
 };
 
 // Open existing chat
