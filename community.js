@@ -126,7 +126,9 @@ async function getCommunityStats(communityId, communityData) {
     
     membersSnap.forEach(doc => {
       const data = doc.data();
-      if (data.status === 'member' || data.status === 'admin' || data.status === 'creator') {
+      
+      // Count all members (any role)
+      if (data.role === 'creator' || data.role === 'admin' || data.role === 'member') {
         memberCount++;
         
         // Check if online (last seen within 5 minutes)
@@ -140,11 +142,14 @@ async function getCommunityStats(communityId, communityData) {
       
       // Check current user's status
       if (doc.id === currentUid) {
-        userStatus = data.status || 'pending';
+        console.log("Found current user in members with role:", data.role);
+        userStatus = data.role || 'member'; // Set to actual role instead of 'member'
       }
     });
     
+    console.log("Community stats:", { memberCount, onlineCount, userStatus });
     return { memberCount, onlineCount, userStatus };
+    
   } catch (error) {
     console.error("Error getting community stats:", error);
     return { memberCount: 0, onlineCount: 0, userStatus: 'none' };
@@ -288,4 +293,3 @@ window.cancelRequest = async function(communityId) {
 window.openCommunity = function(communityId, name) {
   window.location.href = `community-chat.html?communityId=${communityId}&name=${encodeURIComponent(name)}`;
 };
-      
