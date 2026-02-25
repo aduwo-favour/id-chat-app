@@ -60,6 +60,7 @@ function loadChats() {
       chatsList.innerHTML = '<div class="no-chats">No chats yet. Search for users to start chatting!</div>';
       return;
     }
+    
 
     let chatsHTML = '';
     const chatPromises = [];
