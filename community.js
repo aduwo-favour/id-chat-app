@@ -69,7 +69,7 @@ function loadCommunities() {
         let statusBadge = '';
         
         if (userStatus === 'member') {
-          actionButton = `<button onclick="joinCommunity('${doc.id}')" class="join-btn entered">✓ Joined</button>`;
+          actionButton = `<button onclick="joinCommunity('${doc.id}')" class="join-btn entered">âœ“ Joined</button>`;
         } else if (userStatus === 'pending') {
           statusBadge = '<span class="pending-badge">Request Pending</span>';
           actionButton = `<button onclick="cancelRequest('${doc.id}')" class="cancel-btn">Cancel</button>`;
@@ -90,8 +90,8 @@ function loadCommunities() {
               </div>
               <div class="community-description">${data.description || 'No description'}</div>
               <div class="community-stats">
-                <span>👥 ${memberCount} members</span>
-                <span class="online-dot">🟢 ${onlineCount} online</span>
+                <span>ðŸ‘¥ ${memberCount} members</span>
+                <span class="online-dot">ðŸŸ¢ ${onlineCount} online</span>
               </div>
               ${statusBadge}
             </div>
@@ -175,6 +175,8 @@ window.createCommunity = async function() {
   }
 
   try {
+    console.log("Creating community:", name);
+    
     // Create community document
     const communityRef = await addDoc(collection(db, "communities"), {
       name: name,
@@ -189,6 +191,8 @@ window.createCommunity = async function() {
       }
     });
 
+    console.log("Community created with ID:", communityRef.id);
+
     // Add creator as member with creator role
     await setDoc(doc(db, "communities", communityRef.id, "members", currentUid), {
       username: currentUsername,
@@ -198,6 +202,8 @@ window.createCommunity = async function() {
       lastSeen: new Date().toISOString(),
       online: true
     });
+
+    console.log("Creator added to members with role: creator");
 
     alert('Community created successfully!');
     hideCreateCommunityModal();
@@ -282,3 +288,4 @@ window.cancelRequest = async function(communityId) {
 window.openCommunity = function(communityId, name) {
   window.location.href = `community-chat.html?communityId=${communityId}&name=${encodeURIComponent(name)}`;
 };
+      
