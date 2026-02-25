@@ -17,14 +17,12 @@ import {
 
 let currentUsername = null;
 let currentUid = null;
-let userCommunityStatus = {}; // Track status for each community
+let userCommunityStatus = {};
 
-// Go back
 window.goBack = function() {
   window.location.href = 'dashboard.html';
 };
 
-// Check authentication
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = 'index.html';
@@ -41,7 +39,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Load all communities
 function loadCommunities() {
   const communitiesQuery = query(
     collection(db, "communities"),
@@ -64,9 +61,8 @@ function loadCommunities() {
       const promise = getCommunityStats(doc.id, data).then(stats => {
         const memberCount = stats.memberCount;
         const onlineCount = stats.onlineCount;
-        const userStatus = stats.userStatus; // 'creator', 'admin', 'member', 'pending', 'banned', 'none'
+        const userStatus = stats.userStatus;
         
-        // Store status for this community
         userCommunityStatus[doc.id] = userStatus;
         
         console.log("Community:", data.name, "User status:", userStatus);
@@ -74,20 +70,15 @@ function loadCommunities() {
         let actionButton = '';
         let statusBadge = '';
         
-        // Determine what button to show based on user status
         if (userStatus === 'creator' || userStatus === 'admin' || userStatus === 'member') {
-          // User is already a member - show joined button (clickable to enter chat)
           actionButton = `<button onclick="event.stopPropagation(); openCommunity('${doc.id}', '${data.name}')" class="join-btn entered">✓ Joined</button>`;
         } else if (userStatus === 'pending') {
-          // User has pending request
           statusBadge = '<span class="pending-badge">Request Pending</span>';
           actionButton = `<button onclick="event.stopPropagation(); cancelRequest('${doc.id}')" class="cancel-btn">Cancel</button>`;
         } else if (userStatus === 'banned') {
-          // User is banned
           statusBadge = '<span class="banned-badge">Banned</span>';
           actionButton = `<button class="join-btn disabled" disabled>Banned</button>`;
         } else {
-          // User is not a member - show request button
           actionButton = `<button onclick="event.stopPropagation(); joinCommunity('${doc.id}', '${data.type}')" class="join-btn">Request to Join</button>`;
         }
 
@@ -122,10 +113,8 @@ function loadCommunities() {
   });
 }
 
-// Handle community card click based on status
 window.handleCommunityClick = function(communityId, name, status) {
   if (status === 'creator' || status === 'admin' || status === 'member') {
-    // Members can enter chat
     window.location.href = `community-chat.html?communityId=${communityId}&name=${encodeURIComponent(name)}`;
   } else if (status === 'pending') {
     showGlobalBanner('pending');
@@ -136,14 +125,11 @@ window.handleCommunityClick = function(communityId, name, status) {
   }
 };
 
-// Show global banner
 function showGlobalBanner(type) {
-  // Hide all banners first
   document.getElementById('globalJoinBanner').classList.add('hidden');
   document.getElementById('globalPendingBanner').classList.add('hidden');
   document.getElementById('globalBannedBanner').classList.add('hidden');
   
-  // Show the relevant banner
   if (type === 'join') {
     document.getElementById('globalJoinBanner').classList.remove('hidden');
     setTimeout(() => {
@@ -162,10 +148,8 @@ function showGlobalBanner(type) {
   }
 }
 
-// Get community stats
 async function getCommunityStats(communityId, communityData) {
   try {
-    // Get all members
     const membersRef = collection(db, "communities", communityId, "members");
     const membersSnap = await getDocs(membersRef);
     
@@ -176,17 +160,14 @@ async function getCommunityStats(communityId, communityData) {
     const now = new Date();
     const fiveMinutesAgo = new Date(now.getTime() - 5 * 60000);
     
-    // First, check if current user is in members
     let userFoundInMembers = false;
     
     membersSnap.forEach(doc => {
       const data = doc.data();
       
-      // Count all members with valid roles
       if (data.role === 'creator' || data.role === 'admin' || data.role === 'member') {
         memberCount++;
         
-        // Check if online (last seen within 5 minutes)
         if (data.lastSeen) {
           const lastSeen = new Date(data.lastSeen);
           if (lastSeen > fiveMinutesAgo) {
@@ -195,18 +176,15 @@ async function getCommunityStats(communityId, communityData) {
         }
       }
       
-      // Check current user's status
       if (doc.id === currentUid) {
         console.log("Found current user in members with role:", data.role);
         userFoundInMembers = true;
-        // Set userStatus to the actual role
         if (data.role === 'creator' || data.role === 'admin' || data.role === 'member') {
           userStatus = data.role;
         }
       }
     });
     
-    // If user not found in members, check if they have a pending request
     if (!userFoundInMembers) {
       const requestsRef = collection(db, "communities", communityId, "requests");
       const q = query(requestsRef, where("userId", "==", currentUid), where("status", "==", "pending"));
@@ -215,7 +193,6 @@ async function getCommunityStats(communityId, communityData) {
       if (!requestsSnap.empty) {
         userStatus = 'pending';
       } else {
-        // Check if banned
         const bannedRef = doc(db, "communities", communityId, "banned", currentUid);
         const bannedSnap = await getDoc(bannedRef);
         
@@ -234,19 +211,16 @@ async function getCommunityStats(communityId, communityData) {
   }
 }
 
-// Show create community modal
 window.showCreateCommunityModal = function() {
   document.getElementById('createCommunityModal').classList.remove('hidden');
 };
 
-// Hide create community modal
 window.hideCreateCommunityModal = function() {
   document.getElementById('createCommunityModal').classList.add('hidden');
   document.getElementById('communityName').value = '';
   document.getElementById('communityDescription').value = '';
 };
 
-// Create community
 window.createCommunity = async function() {
   const name = document.getElementById('communityName').value.trim();
   const description = document.getElementById('communityDescription').value.trim();
@@ -260,7 +234,6 @@ window.createCommunity = async function() {
   try {
     console.log("Creating community:", name);
     
-    // Create community document
     const communityRef = await addDoc(collection(db, "communities"), {
       name: name,
       description: description,
@@ -276,7 +249,6 @@ window.createCommunity = async function() {
 
     console.log("Community created with ID:", communityRef.id);
 
-    // Add creator as member with creator role
     await setDoc(doc(db, "communities", communityRef.id, "members", currentUid), {
       username: currentUsername,
       role: 'creator',
@@ -291,7 +263,6 @@ window.createCommunity = async function() {
     alert('Community created successfully!');
     hideCreateCommunityModal();
     
-    // Open the community
     window.location.href = `community-chat.html?communityId=${communityRef.id}&name=${encodeURIComponent(name)}`;
 
   } catch (error) {
@@ -300,12 +271,10 @@ window.createCommunity = async function() {
   }
 };
 
-// Join/Request to join community - FIXED VERSION
 window.joinCommunity = async function(communityId, communityType) {
   try {
     console.log("Joining community:", communityId, "Type:", communityType);
     
-    // Check if already has pending request
     const requestsRef = collection(db, "communities", communityId, "requests");
     const q = query(requestsRef, where("userId", "==", currentUid), where("status", "==", "pending"));
     const existingSnap = await getDocs(q);
@@ -315,7 +284,6 @@ window.joinCommunity = async function(communityId, communityType) {
       return;
     }
 
-    // Check if already a member
     const memberRef = doc(db, "communities", communityId, "members", currentUid);
     const memberSnap = await getDoc(memberRef);
     
@@ -327,12 +295,10 @@ window.joinCommunity = async function(communityId, communityType) {
       return;
     }
 
-    // Get community details
     const communityDoc = await getDoc(doc(db, "communities", communityId));
     const communityData = communityDoc.data();
 
     if (communityData.type === 'public') {
-      // Auto-join for public communities - go straight to chat
       await setDoc(doc(db, "communities", communityId, "members", currentUid), {
         username: currentUsername,
         role: 'member',
@@ -346,16 +312,18 @@ window.joinCommunity = async function(communityId, communityType) {
       window.location.href = `community-chat.html?communityId=${communityId}&name=${encodeURIComponent(communityData.name)}`;
       
     } else {
-      // Create request for private communities
-      await addDoc(collection(db, "communities", communityId, "requests"), {
+      const requestData = {
         userId: currentUid,
         username: currentUsername,
         status: 'pending',
         requestedAt: new Date().toISOString()
-      });
+      };
       
-      alert('Join request sent!');
-      // No redirect - stay on community page to see pending status
+      console.log("Creating request:", requestData);
+      
+      await addDoc(collection(db, "communities", communityId, "requests"), requestData);
+      
+      alert('Join request sent! The admin will review your request.');
     }
 
   } catch (error) {
@@ -364,7 +332,6 @@ window.joinCommunity = async function(communityId, communityType) {
   }
 };
 
-// Cancel join request
 window.cancelRequest = async function(communityId) {
   try {
     const requestsRef = collection(db, "communities", communityId, "requests");
@@ -384,7 +351,6 @@ window.cancelRequest = async function(communityId) {
   }
 };
 
-// Open community (only for members)
 window.openCommunity = function(communityId, name) {
   window.location.href = `community-chat.html?communityId=${communityId}&name=${encodeURIComponent(name)}`;
 };
