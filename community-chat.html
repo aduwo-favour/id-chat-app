@@ -4,26 +4,16 @@
   <title>Community Chat</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, height=device-height">
   <link rel="stylesheet" href="style.css">
-  <style>
-    /* Emergency fixes for layout */
-    html, body {
-      height: 100%;
-      overflow: hidden;
-      position: fixed;
-      width: 100%;
-    }
-  </style>
 </head>
-<body>
+<body class="community-chat-page">
 
 <div class="chat-wrapper">
-  <!-- Fixed Header -->
   <div class="chat-header-fixed">
     <div class="chat-header-left">
       <button onclick="goBack()" class="back-btn">←</button>
       <div class="chat-user-info">
         <h3 id="communityName">Loading...</h3>
-        <div class="community-stats" id="communityStats">
+        <div class="community-stats">
           <span id="onlineCount">0</span> online · <span id="totalMembers">0</span> members
         </div>
       </div>
@@ -35,14 +25,12 @@
     </div>
   </div>
 
-  <!-- Community Options Dropdown -->
   <div id="communityOptions" class="chat-options-dropdown hidden">
     <button onclick="viewMembers()" class="option-btn">👥 View Members</button>
     <button onclick="viewMyRequests()" class="option-btn">📋 My Requests</button>
     <button onclick="leaveCommunity()" class="option-btn danger" id="leaveBtn">Leave Community</button>
   </div>
 
-  <!-- Admin Only Options -->
   <div id="adminOptions" class="chat-options-dropdown admin-only hidden">
     <div class="admin-header">Admin Controls</div>
     <button onclick="manageRequests()" class="option-btn">📨 Manage Requests</button>
@@ -50,32 +38,20 @@
     <button onclick="editCommunity()" class="option-btn">✏️ Edit Community</button>
   </div>
 
-  <!-- Messages Container - Fixed height -->
-  <div id="messagesContainer" class="messages-container">
-    <!-- Messages will load here -->
-  </div>
+  <div id="messagesContainer" class="messages-container"></div>
 
-  <!-- Reply Preview -->
   <div id="replyPreview" class="reply-preview hidden">
     <span>Replying to: </span>
     <span id="replyText"></span>
     <button onclick="cancelReply()" class="cancel-reply">✕</button>
   </div>
 
-  <!-- Input Area - Fixed at Bottom -->
   <div class="chat-input-fixed" id="chatInputArea">
-    <input 
-      type="text" 
-      id="messageInput" 
-      placeholder="Type a message..."
-      autocomplete="off"
-      disabled
-    >
+    <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off" disabled>
     <button onclick="sendMessage()" id="sendBtn" disabled>Send</button>
   </div>
 </div>
 
-<!-- Members Modal -->
 <div id="membersModal" class="modal hidden">
   <div class="modal-content large">
     <div class="modal-header">
@@ -93,7 +69,6 @@
   </div>
 </div>
 
-<!-- Manage Requests Modal -->
 <div id="requestsModal" class="modal hidden">
   <div class="modal-content">
     <div class="modal-header">
@@ -106,7 +81,6 @@
   </div>
 </div>
 
-<!-- Manage Members Modal -->
 <div id="manageMembersModal" class="modal hidden">
   <div class="modal-content large">
     <div class="modal-header">
@@ -120,22 +94,16 @@
   </div>
 </div>
 
-<!-- Google Translate -->
-<script type="text/javascript">
+<script>
   function googleTranslateElementInit() {
     new google.translate.TranslateElement(
-      { 
-        pageLanguage: 'en',
-        includedLanguages: 'en,es,fr,de,it,pt,ru,ja,ko,zh-CN,ar',
-        layout: google.translate.TranslateElement.InlineLayout.SIMPLE
-      },
+      { pageLanguage: 'en', includedLanguages: 'en,es,fr,de,it,pt,ru,ja,ko,zh-CN,ar' },
       'google_translate_element'
     );
   }
 </script>
-<script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
-<!-- Click outside to close dropdowns -->
 <script>
   document.addEventListener('click', function(event) {
     const options = document.getElementById('communityOptions');
@@ -145,7 +113,6 @@
     if (options && !options.contains(event.target) && !optionsBtn.contains(event.target)) {
       options.classList.add('hidden');
     }
-    
     if (adminOptions && !adminOptions.contains(event.target) && !optionsBtn.contains(event.target)) {
       adminOptions.classList.add('hidden');
     }
