@@ -2091,5 +2091,130 @@ body {
   max-height: 60vh;
   overflow-y: auto;
 }
+/* CRITICAL FIXES FOR CHAT LAYOUT STABILITY */
+
+/* Ensure html and body don't scroll */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Chat wrapper takes full height */
+.chat-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: -webkit-fill-available;
+  max-width: 600px;
+  margin: 0 auto;
+  background: white;
+  box-shadow: 0 0 50px rgba(0,0,0,0.1);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Header stays fixed */
+.chat-header-fixed {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 15px;
+  background: #667eea;
+  color: white;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* Messages container takes remaining space and scrolls */
+.messages-container {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f7fafc;
+  min-height: 0; /* Critical for flex scrolling */
+  height: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Reply preview stays above input */
+.reply-preview {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.reply-preview.hidden {
+  display: none;
+}
+
+/* Input area fixed at bottom */
+.chat-input-fixed {
+  flex-shrink: 0;
+  display: flex;
+  padding: 10px 12px;
+  background: white;
+  border-top: 1px solid #e2e8f0;
+  gap: 8px;
+  z-index: 100;
+}
+
+/* Message bubbles */
+.message {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 18px;
+  position: relative;
+  word-wrap: break-word;
+  animation: fadeIn 0.2s;
+}
+
+/* Fix for iOS height issues */
+@supports (-webkit-touch-callout: none) {
+  .chat-wrapper {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Dropdown positioning */
+.chat-options-dropdown {
+  position: absolute;
+  top: 60px;
+  right: 10px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 5px 25px rgba(0,0,0,0.15);
+  z-index: 2000;
+  overflow: hidden;
+  min-width: 200px;
+}
+
+/* Modal fixes */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.modal-content {
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 
