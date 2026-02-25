@@ -26,15 +26,16 @@ onAuthStateChanged(auth, async (user) => {
         lastSeen: new Date().toISOString()
       });
       
-      // Listen for request count
+      // Listen for request counts
       listenForRequests();
+      listenForCommunityRequests();
     }
   } catch (error) {
     console.error("Dashboard error:", error);
   }
 });
 
-// Listen for pending requests
+// Listen for pending private chat requests
 function listenForRequests() {
   if (!currentUsername) return;
   
@@ -77,6 +78,40 @@ function listenForRequests() {
       chatBadge.style.display = 'inline';
     } else {
       chatBadge.style.display = 'none';
+    }
+  });
+}
+
+// Listen for pending community requests
+function listenForCommunityRequests() {
+  if (!currentUid) return;
+  
+  // Query all communities where user has pending requests
+  const communitiesQuery = query(collection(db, "communities"));
+  
+  onSnapshot(communitiesQuery, async (snapshot) => {
+    let pendingCount = 0;
+    
+    // Check each community for pending requests
+    const promises = [];
+    snapshot.forEach(doc => {
+      const requestsRef = collection(db, "communities", doc.id, "requests");
+      const q = query(requestsRef, where("userId", "==", currentUid), where("status", "==", "pending"));
+      promises.push(getDocs(q).then(snap => {
+        pendingCount += snap.size;
+      }));
+    });
+    
+    await Promise.all(promises);
+    
+    const badge = document.getElementById('communityBadge');
+    if (badge) {
+      if (pendingCount > 0) {
+        badge.textContent = pendingCount;
+        badge.style.display = 'inline';
+      } else {
+        badge.style.display = 'none';
+      }
     }
   });
 }
