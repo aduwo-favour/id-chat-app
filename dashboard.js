@@ -1,6 +1,6 @@
 import { auth, db } from "./firebase.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { doc, getDoc, updateDoc, collection, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { doc, getDoc, updateDoc, collection, query, where, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUsername = null;
 let currentUid = null;
@@ -14,19 +14,16 @@ onAuthStateChanged(auth, async (user) => {
   currentUid = user.uid;
 
   try {
-    // Get user data
     const userDoc = await getDoc(doc(db, "users", user.uid));
     if (userDoc.exists()) {
       currentUsername = userDoc.data().username;
       document.getElementById('welcomeUser').textContent = `Welcome, ${currentUsername}!`;
       
-      // Update online status
       await updateDoc(doc(db, "users", user.uid), {
         online: true,
         lastSeen: new Date().toISOString()
       });
       
-      // Listen for request counts
       listenForRequests();
       listenForCommunityRequests();
     }
@@ -35,7 +32,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Listen for pending private chat requests
 function listenForRequests() {
   if (!currentUsername) return;
   
@@ -48,16 +44,10 @@ function listenForRequests() {
   onSnapshot(requestsQuery, (snapshot) => {
     const count = snapshot.size;
     const badge = document.getElementById('requestsBadge');
-    
-    if (count > 0) {
-      badge.textContent = count;
-      badge.style.display = 'inline';
-    } else {
-      badge.style.display = 'none';
-    }
+    badge.style.display = count > 0 ? 'inline' : 'none';
+    if (count > 0) badge.textContent = count;
   });
 
-  // Also listen for unread messages
   const chatsQuery = query(
     collection(db, "chats"),
     where("participants", "array-contains", currentUsername)
@@ -73,55 +63,40 @@ function listenForRequests() {
     });
 
     const chatBadge = document.getElementById('privateChatsBadge');
-    if (totalUnread > 0) {
-      chatBadge.textContent = totalUnread;
-      chatBadge.style.display = 'inline';
-    } else {
-      chatBadge.style.display = 'none';
-    }
+    chatBadge.style.display = totalUnread > 0 ? 'inline' : 'none';
+    if (totalUnread > 0) chatBadge.textContent = totalUnread;
   });
 }
 
-// Listen for pending community requests
 function listenForCommunityRequests() {
   if (!currentUid) return;
   
-  // Query all communities where user has pending requests
   const communitiesQuery = query(collection(db, "communities"));
   
   onSnapshot(communitiesQuery, async (snapshot) => {
     let pendingCount = 0;
-    
-    // Check each community for pending requests
     const promises = [];
+    
     snapshot.forEach(doc => {
       const requestsRef = collection(db, "communities", doc.id, "requests");
       const q = query(requestsRef, where("userId", "==", currentUid), where("status", "==", "pending"));
-      promises.push(getDocs(q).then(snap => {
-        pendingCount += snap.size;
-      }));
+      promises.push(getDocs(q).then(snap => { pendingCount += snap.size; }));
     });
     
     await Promise.all(promises);
     
     const badge = document.getElementById('communityBadge');
     if (badge) {
-      if (pendingCount > 0) {
-        badge.textContent = pendingCount;
-        badge.style.display = 'inline';
-      } else {
-        badge.style.display = 'none';
-      }
+      badge.style.display = pendingCount > 0 ? 'inline' : 'none';
+      if (pendingCount > 0) badge.textContent = pendingCount;
     }
   });
 }
 
-// Navigation
 window.navigateTo = function(page) {
   window.location.href = page;
 };
 
-// Logout
 window.logout = async function() {
   if (currentUid) {
     try {
@@ -129,9 +104,7 @@ window.logout = async function() {
         online: false,
         lastSeen: new Date().toISOString()
       });
-    } catch (e) {
-      console.log("Offline update skipped");
-    }
+    } catch (e) {}
   }
   await signOut(auth);
   window.location.href = 'index.html';
