@@ -181,6 +181,7 @@ function listenForMessages() {
 
       const messageDate = data.timestamp ? new Date(data.timestamp) : null;
       const isMine = data.sender === currentUsername;
+      
 
       // Date divider
       if (messageDate) {
@@ -584,3 +585,4 @@ window.goBack = function() {
 
 // Remove old showChatOptions function if it exists
 // window.showChatOptions is removed - using toggleChatOptions instead
+
