@@ -2031,5 +2031,65 @@ body {
   margin-left: 5px;
 }
 
+/* Fix for community chat layout */
+.chat-wrapper {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  background: white;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.message {
+  max-width: 80%;
+  word-wrap: break-word;
+}
+
+/* Fix for mobile */
+@media (max-width: 600px) {
+  .chat-wrapper {
+    max-width: 100%;
+    height: 100vh;
+  }
+  
+  .message {
+    max-width: 85%;
+  }
+  
+  .chat-options-dropdown {
+    position: fixed;
+    top: 60px;
+    right: 10px;
+    min-width: 180px;
+  }
+}
+
+/* Ensure modals are centered and don't overflow */
+.modal-content {
+  max-width: 90%;
+  max-height: 80vh;
+}
+
+.modal-content.large {
+  max-width: 95%;
+}
+
+/* Fix for members list scrolling */
+.members-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
 
 
