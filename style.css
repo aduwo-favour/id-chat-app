@@ -2012,4 +2012,24 @@ body {
   background: #6c757d;
 }
 
+/* Public/Private badges */
+.public-badge {
+  background: #48bb78;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  margin-left: 5px;
+}
+
+.private-badge {
+  background: #fbbf24;
+  color: #333;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  margin-left: 5px;
+}
+
+
 
