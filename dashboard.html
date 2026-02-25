@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Dashboard</title>
+  <title>Dashboard - Chat Web</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -9,7 +9,7 @@
 
 <div class="dashboard-container">
   <div class="dashboard-header">
-    <h2>ChatApp</h2>
+    <h2>Chat Web</h2>
     <div class="user-info">
       <span id="welcomeUser">Loading...</span>
       <button onclick="logout()" class="logout-btn">Logout</button>
@@ -25,11 +25,11 @@
     </div>
 
     <div class="dashboard-card" onclick="navigateTo('community.html')">
-  <div class="card-icon">🌍</div>
-  <h3>Community Chat</h3>
-  <p>Join public communities</p>
-  <span class="badge" id="communityBadge"></span>
-</div>
+      <div class="card-icon">🌍</div>
+      <h3>Community Chat</h3>
+      <p>Join public communities</p>
+      <span class="badge" id="communityBadge"></span>
+    </div>
 
     <div class="dashboard-card" onclick="navigateTo('requests.html')">
       <div class="card-icon">📨</div>
@@ -44,4 +44,3 @@
 <script type="module" src="dashboard.js"></script>
 </body>
 </html>
-
