@@ -8,33 +8,27 @@
 <body>
 
 <div class="community-wrapper">
-  <!-- Header -->
   <div class="community-header">
     <button onclick="goBack()" class="back-btn">← Back</button>
     <h2>Community Chats</h2>
-    <button onclick="showCreateCommunityModal()" class="create-btn" id="createCommunityBtn">+ Create</button>
+    <button onclick="showCreateCommunityModal()" class="create-btn">+ Create</button>
   </div>
 
-  <!-- Status Banners (Moved from chat) -->
   <div id="globalJoinBanner" class="global-banner hidden">
     <p>You need to join this community to access chat</p>
   </div>
-
   <div id="globalPendingBanner" class="global-banner pending hidden">
     <p>Your join request is pending approval</p>
   </div>
-
   <div id="globalBannedBanner" class="global-banner banned hidden">
     <p>You are banned from this community</p>
   </div>
 
-  <!-- Communities List -->
   <div id="communitiesList" class="communities-list">
     <div class="loading">Loading communities...</div>
   </div>
 </div>
 
-<!-- Create Community Modal -->
 <div id="createCommunityModal" class="modal hidden">
   <div class="modal-content">
     <div class="modal-header">
