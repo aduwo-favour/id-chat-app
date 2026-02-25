@@ -17,6 +17,7 @@ import {
 
 let currentUsername = null;
 let currentUid = null;
+let userCommunityStatus = {}; // Track status for each community
 
 // Go back
 window.goBack = function() {
@@ -65,6 +66,9 @@ function loadCommunities() {
         const onlineCount = stats.onlineCount;
         const userStatus = stats.userStatus; // 'creator', 'admin', 'member', 'pending', 'banned', 'none'
         
+        // Store status for this community
+        userCommunityStatus[doc.id] = userStatus;
+        
         console.log("Community:", data.name, "User status:", userStatus);
         
         let actionButton = '';
@@ -72,23 +76,23 @@ function loadCommunities() {
         
         // Determine what button to show based on user status
         if (userStatus === 'creator' || userStatus === 'admin' || userStatus === 'member') {
-          // User is already a member - show joined button (non-clickable)
-          actionButton = `<button class="join-btn entered" disabled>✓ Joined</button>`;
+          // User is already a member - show joined button (clickable to enter chat)
+          actionButton = `<button onclick="event.stopPropagation(); openCommunity('${doc.id}', '${data.name}')" class="join-btn entered">✓ Joined</button>`;
         } else if (userStatus === 'pending') {
           // User has pending request
           statusBadge = '<span class="pending-badge">Request Pending</span>';
-          actionButton = `<button onclick="cancelRequest('${doc.id}')" class="cancel-btn">Cancel</button>`;
+          actionButton = `<button onclick="event.stopPropagation(); cancelRequest('${doc.id}')" class="cancel-btn">Cancel</button>`;
         } else if (userStatus === 'banned') {
           // User is banned
           statusBadge = '<span class="banned-badge">Banned</span>';
-          actionButton = '';
+          actionButton = `<button class="join-btn disabled" disabled>Banned</button>`;
         } else {
           // User is not a member - show request button
-          actionButton = `<button onclick="joinCommunity('${doc.id}')" class="join-btn">Request to Join</button>`;
+          actionButton = `<button onclick="event.stopPropagation(); joinCommunity('${doc.id}')" class="join-btn">Request to Join</button>`;
         }
 
         return `
-          <div class="community-card" onclick="openCommunity('${doc.id}', '${data.name}')">
+          <div class="community-card" onclick="handleCommunityClick('${doc.id}', '${data.name}', '${userStatus}')">
             <div class="community-avatar">${data.name[0].toUpperCase()}</div>
             <div class="community-info">
               <div class="community-name">
@@ -102,7 +106,7 @@ function loadCommunities() {
               </div>
               ${statusBadge}
             </div>
-            <div class="community-action" onclick="event.stopPropagation()">
+            <div class="community-action">
               ${actionButton}
             </div>
           </div>
@@ -115,6 +119,46 @@ function loadCommunities() {
     const communityCards = await Promise.all(communityPromises);
     communitiesList.innerHTML = communityCards.join('');
   });
+}
+
+// Handle community card click based on status
+window.handleCommunityClick = function(communityId, name, status) {
+  if (status === 'creator' || status === 'admin' || status === 'member') {
+    // Members can enter chat
+    window.location.href = `community-chat.html?communityId=${communityId}&name=${encodeURIComponent(name)}`;
+  } else if (status === 'pending') {
+    showGlobalBanner('pending');
+  } else if (status === 'banned') {
+    showGlobalBanner('banned');
+  } else {
+    showGlobalBanner('join');
+  }
+};
+
+// Show global banner
+function showGlobalBanner(type) {
+  // Hide all banners first
+  document.getElementById('globalJoinBanner').classList.add('hidden');
+  document.getElementById('globalPendingBanner').classList.add('hidden');
+  document.getElementById('globalBannedBanner').classList.add('hidden');
+  
+  // Show the relevant banner
+  if (type === 'join') {
+    document.getElementById('globalJoinBanner').classList.remove('hidden');
+    setTimeout(() => {
+      document.getElementById('globalJoinBanner').classList.add('hidden');
+    }, 3000);
+  } else if (type === 'pending') {
+    document.getElementById('globalPendingBanner').classList.remove('hidden');
+    setTimeout(() => {
+      document.getElementById('globalPendingBanner').classList.add('hidden');
+    }, 3000);
+  } else if (type === 'banned') {
+    document.getElementById('globalBannedBanner').classList.remove('hidden');
+    setTimeout(() => {
+      document.getElementById('globalBannedBanner').classList.add('hidden');
+    }, 3000);
+  }
 }
 
 // Get community stats
@@ -284,7 +328,6 @@ window.joinCommunity = async function(communityId) {
       });
       
       alert('You joined the community!');
-      window.location.href = `community-chat.html?communityId=${communityId}&name=${encodeURIComponent(communityData.name)}`;
       
     } else {
       // Create request for private communities
@@ -324,7 +367,7 @@ window.cancelRequest = async function(communityId) {
   }
 };
 
-// Open community
+// Open community (only for members)
 window.openCommunity = function(communityId, name) {
   window.location.href = `community-chat.html?communityId=${communityId}&name=${encodeURIComponent(name)}`;
 };
