@@ -15,6 +15,19 @@
     <button onclick="showCreateCommunityModal()" class="create-btn" id="createCommunityBtn">+ Create</button>
   </div>
 
+  <!-- Status Banners (Moved from chat) -->
+  <div id="globalJoinBanner" class="global-banner hidden">
+    <p>You need to join this community to access chat</p>
+  </div>
+
+  <div id="globalPendingBanner" class="global-banner pending hidden">
+    <p>Your join request is pending approval</p>
+  </div>
+
+  <div id="globalBannedBanner" class="global-banner banned hidden">
+    <p>You are banned from this community</p>
+  </div>
+
   <!-- Communities List -->
   <div id="communitiesList" class="communities-list">
     <div class="loading">Loading communities...</div>
@@ -32,8 +45,8 @@
       <input type="text" id="communityName" placeholder="Community Name" maxlength="50">
       <textarea id="communityDescription" placeholder="Community Description (optional)" rows="3"></textarea>
       <select id="communityType">
-        <option value="public">Public - Anyone can see</option>
-        <option value="private">Private - By request only</option>
+        <option value="public">Public - Anyone can join</option>
+        <option value="private">Private - Request to join</option>
       </select>
     </div>
     <div class="modal-footer">
