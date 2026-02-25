@@ -79,7 +79,8 @@ function loadChats() {
         if (status.online) {
           statusText = 'Online';
         } else {
-          statusText = status.lastSeen; // This already includes "Last seen" prefix
+          // For offline, show the formatted last seen with prefix
+          statusText = status.lastSeen; // This will be like "Last seen 5 minutes ago"
         }
 
         return `
@@ -127,7 +128,7 @@ async function getUserStatus(username) {
       const timeAgo = formatLastSeen(lastSeen);
       return {
         online: false,
-        lastSeen: timeAgo
+        lastSeen: `Last seen ${timeAgo}`
       };
     }
     
@@ -145,7 +146,7 @@ function formatLastSeen(date) {
   const diffDays = Math.floor(diffHours / 24);
 
   if (diffSeconds < 30) {
-    return 'Just now';
+    return 'just now';
   } else if (diffSeconds < 60) {
     return `${diffSeconds} seconds ago`;
   } else if (diffMinutes < 60) {
