@@ -1955,5 +1955,61 @@ body {
     margin-bottom: 10px;
   }
   }
+/* Global banners on community page */
+.global-banner {
+  padding: 12px 20px;
+  margin: 10px 20px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 14px;
+  animation: slideDown 0.3s ease;
+  position: sticky;
+  top: 70px;
+  z-index: 99;
+}
+
+.global-banner.hidden {
+  display: none;
+}
+
+.global-banner.pending {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+}
+
+.global-banner.banned {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.global-banner:not(.pending):not(.banned) {
+  background: #e3f2fd;
+  color: #0d47a1;
+  border: 1px solid #bbdefb;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Disabled button */
+.join-btn.disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.join-btn.disabled:hover {
+  background: #6c757d;
+}
 
 
