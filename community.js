@@ -88,7 +88,7 @@ function loadCommunities() {
           actionButton = `<button class="join-btn disabled" disabled>Banned</button>`;
         } else {
           // User is not a member - show request button
-          actionButton = `<button onclick="event.stopPropagation(); joinCommunity('${doc.id}')" class="join-btn">Request to Join</button>`;
+          actionButton = `<button onclick="event.stopPropagation(); joinCommunity('${doc.id}', '${data.type}')" class="join-btn">Request to Join</button>`;
         }
 
         return `
@@ -97,6 +97,7 @@ function loadCommunities() {
             <div class="community-info">
               <div class="community-name">
                 ${data.name}
+                ${data.type === 'private' ? '<span class="private-badge">Private</span>' : '<span class="public-badge">Public</span>'}
                 ${data.createdBy === currentUsername ? '<span class="creator-badge">Creator</span>' : ''}
               </div>
               <div class="community-description">${data.description || 'No description'}</div>
@@ -299,9 +300,11 @@ window.createCommunity = async function() {
   }
 };
 
-// Join/Request to join community
-window.joinCommunity = async function(communityId) {
+// Join/Request to join community - FIXED VERSION
+window.joinCommunity = async function(communityId, communityType) {
   try {
+    console.log("Joining community:", communityId, "Type:", communityType);
+    
     // Check if already has pending request
     const requestsRef = collection(db, "communities", communityId, "requests");
     const q = query(requestsRef, where("userId", "==", currentUid), where("status", "==", "pending"));
@@ -312,12 +315,24 @@ window.joinCommunity = async function(communityId) {
       return;
     }
 
+    // Check if already a member
+    const memberRef = doc(db, "communities", communityId, "members", currentUid);
+    const memberSnap = await getDoc(memberRef);
+    
+    if (memberSnap.exists()) {
+      alert('You are already a member of this community');
+      const communityDoc = await getDoc(doc(db, "communities", communityId));
+      const communityData = communityDoc.data();
+      window.location.href = `community-chat.html?communityId=${communityId}&name=${encodeURIComponent(communityData.name)}`;
+      return;
+    }
+
     // Get community details
     const communityDoc = await getDoc(doc(db, "communities", communityId));
     const communityData = communityDoc.data();
 
     if (communityData.type === 'public') {
-      // Auto-approve for public communities
+      // Auto-join for public communities - go straight to chat
       await setDoc(doc(db, "communities", communityId, "members", currentUid), {
         username: currentUsername,
         role: 'member',
@@ -328,6 +343,7 @@ window.joinCommunity = async function(communityId) {
       });
       
       alert('You joined the community!');
+      window.location.href = `community-chat.html?communityId=${communityId}&name=${encodeURIComponent(communityData.name)}`;
       
     } else {
       // Create request for private communities
@@ -339,11 +355,12 @@ window.joinCommunity = async function(communityId) {
       });
       
       alert('Join request sent!');
+      // No redirect - stay on community page to see pending status
     }
 
   } catch (error) {
     console.error("Join community error:", error);
-    alert('Failed to join community');
+    alert('Failed to join community: ' + error.message);
   }
 };
 
