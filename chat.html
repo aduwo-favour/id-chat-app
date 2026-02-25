@@ -2,13 +2,22 @@
 <html>
 <head>
   <title>Chat</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, height=device-height">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Emergency fixes for layout */
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+    }
+  </style>
 </head>
 <body>
 
 <div class="chat-wrapper">
-  <!-- Fixed Header - Never Moves -->
+  <!-- Fixed Header -->
   <div class="chat-header-fixed">
     <div class="chat-header-left">
       <button onclick="goBack()" class="back-btn">←</button>
@@ -31,7 +40,7 @@
     <button onclick="blockUser()" class="option-btn danger" id="blockBtn">Block Messages</button>
   </div>
 
-  <!-- Messages Area - Scrollable Only -->
+  <!-- Messages Container - Fixed height -->
   <div id="messagesContainer" class="messages-container">
     <!-- Messages will load here -->
   </div>
