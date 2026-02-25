@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Community Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="community-wrapper">
+  <!-- Header -->
+  <div class="community-header">
+    <button onclick="goBack()" class="back-btn">← Back</button>
+    <h2>Community Chats</h2>
+    <button onclick="showCreateCommunityModal()" class="create-btn" id="createCommunityBtn">+ Create</button>
+  </div>
+
+  <!-- Communities List -->
+  <div id="communitiesList" class="communities-list">
+    <div class="loading">Loading communities...</div>
+  </div>
+</div>
+
+<!-- Create Community Modal -->
+<div id="createCommunityModal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Create New Community</h3>
+      <button onclick="hideCreateCommunityModal()" class="close-btn">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="text" id="communityName" placeholder="Community Name" maxlength="50">
+      <textarea id="communityDescription" placeholder="Community Description (optional)" rows="3"></textarea>
+      <select id="communityType">
+        <option value="public">Public - Anyone can see</option>
+        <option value="private">Private - By request only</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button onclick="createCommunity()" class="create-community-btn">Create Community</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="firebase.js"></script>
+<script type="module" src="community.js"></script>
+</body>
+</html>
