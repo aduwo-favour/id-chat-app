@@ -12,7 +12,6 @@ import {
   deleteDoc,
   where,
   getDocs,
-  serverTimestamp,
   orderBy
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
@@ -36,6 +35,7 @@ onAuthStateChanged(auth, async (user) => {
   const userDoc = await getDoc(doc(db, "users", user.uid));
   if (userDoc.exists()) {
     currentUsername = userDoc.data().username;
+    console.log("Current user:", currentUsername);
     loadCommunities();
   }
 });
@@ -63,20 +63,27 @@ function loadCommunities() {
       const promise = getCommunityStats(doc.id, data).then(stats => {
         const memberCount = stats.memberCount;
         const onlineCount = stats.onlineCount;
-        const userStatus = stats.userStatus; // 'member', 'pending', 'banned', 'none'
+        const userStatus = stats.userStatus; // 'creator', 'admin', 'member', 'pending', 'banned', 'none'
+        
+        console.log("Community:", data.name, "User status:", userStatus);
         
         let actionButton = '';
         let statusBadge = '';
         
-        if (userStatus === 'member') {
-          actionButton = `<button onclick="joinCommunity('${doc.id}')" class="join-btn entered">âœ“ Joined</button>`;
+        // Determine what button to show based on user status
+        if (userStatus === 'creator' || userStatus === 'admin' || userStatus === 'member') {
+          // User is already a member - show joined button (non-clickable)
+          actionButton = `<button class="join-btn entered" disabled>✓ Joined</button>`;
         } else if (userStatus === 'pending') {
+          // User has pending request
           statusBadge = '<span class="pending-badge">Request Pending</span>';
           actionButton = `<button onclick="cancelRequest('${doc.id}')" class="cancel-btn">Cancel</button>`;
         } else if (userStatus === 'banned') {
+          // User is banned
           statusBadge = '<span class="banned-badge">Banned</span>';
           actionButton = '';
         } else {
+          // User is not a member - show request button
           actionButton = `<button onclick="joinCommunity('${doc.id}')" class="join-btn">Request to Join</button>`;
         }
 
@@ -90,8 +97,8 @@ function loadCommunities() {
               </div>
               <div class="community-description">${data.description || 'No description'}</div>
               <div class="community-stats">
-                <span>ðŸ‘¥ ${memberCount} members</span>
-                <span class="online-dot">ðŸŸ¢ ${onlineCount} online</span>
+                <span>👥 ${memberCount} members</span>
+                <span>🟢 ${onlineCount} online</span>
               </div>
               ${statusBadge}
             </div>
@@ -124,10 +131,13 @@ async function getCommunityStats(communityId, communityData) {
     const now = new Date();
     const fiveMinutesAgo = new Date(now.getTime() - 5 * 60000);
     
+    // First, check if current user is in members
+    let userFoundInMembers = false;
+    
     membersSnap.forEach(doc => {
       const data = doc.data();
       
-      // Count all members (any role)
+      // Count all members with valid roles
       if (data.role === 'creator' || data.role === 'admin' || data.role === 'member') {
         memberCount++;
         
@@ -143,9 +153,32 @@ async function getCommunityStats(communityId, communityData) {
       // Check current user's status
       if (doc.id === currentUid) {
         console.log("Found current user in members with role:", data.role);
-        userStatus = data.role || 'member'; // Set to actual role instead of 'member'
+        userFoundInMembers = true;
+        // Set userStatus to the actual role
+        if (data.role === 'creator' || data.role === 'admin' || data.role === 'member') {
+          userStatus = data.role;
+        }
       }
     });
+    
+    // If user not found in members, check if they have a pending request
+    if (!userFoundInMembers) {
+      const requestsRef = collection(db, "communities", communityId, "requests");
+      const q = query(requestsRef, where("userId", "==", currentUid), where("status", "==", "pending"));
+      const requestsSnap = await getDocs(q);
+      
+      if (!requestsSnap.empty) {
+        userStatus = 'pending';
+      } else {
+        // Check if banned
+        const bannedRef = doc(db, "communities", communityId, "banned", currentUid);
+        const bannedSnap = await getDoc(bannedRef);
+        
+        if (bannedSnap.exists()) {
+          userStatus = 'banned';
+        }
+      }
+    }
     
     console.log("Community stats:", { memberCount, onlineCount, userStatus });
     return { memberCount, onlineCount, userStatus };
@@ -278,10 +311,12 @@ window.cancelRequest = async function(communityId) {
     const q = query(requestsRef, where("userId", "==", currentUid), where("status", "==", "pending"));
     const snapshot = await getDocs(q);
     
-    snapshot.forEach(async (doc) => {
-      await deleteDoc(doc.ref);
+    const deletePromises = [];
+    snapshot.forEach(doc => {
+      deletePromises.push(deleteDoc(doc.ref));
     });
     
+    await Promise.all(deletePromises);
     alert('Request cancelled');
     
   } catch (error) {
