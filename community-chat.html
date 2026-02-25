@@ -41,7 +41,7 @@
     <button onclick="editCommunity()" class="option-btn">✏️ Edit Community</button>
   </div>
 
-  <!-- Messages Area -->
+  <!-- Messages Container with fixed width -->
   <div id="messagesContainer" class="messages-container">
     <!-- Messages will load here -->
   </div>
@@ -53,7 +53,7 @@
     <button onclick="cancelReply()" class="cancel-reply">✕</button>
   </div>
 
-  <!-- Input Area (only for approved members) -->
+  <!-- Input Area -->
   <div class="chat-input-fixed" id="chatInputArea">
     <input 
       type="text" 
@@ -125,6 +125,27 @@
   }
 </script>
 <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+<!-- Click outside to close dropdowns -->
+<script>
+  document.addEventListener('click', function(event) {
+    const options = document.getElementById('communityOptions');
+    const adminOptions = document.getElementById('adminOptions');
+    const optionsBtn = document.getElementById('optionsBtn');
+    
+    if (options && optionsBtn) {
+      if (!options.contains(event.target) && !optionsBtn.contains(event.target)) {
+        options.classList.add('hidden');
+      }
+    }
+    
+    if (adminOptions && optionsBtn) {
+      if (!adminOptions.contains(event.target) && !optionsBtn.contains(event.target)) {
+        adminOptions.classList.add('hidden');
+      }
+    }
+  });
+</script>
 
 <script type="module" src="firebase.js"></script>
 <script type="module" src="community-chat.js"></script>
