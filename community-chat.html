@@ -2,8 +2,17 @@
 <html>
 <head>
   <title>Community Chat</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, height=device-height">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Emergency fixes for layout */
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      position: fixed;
+      width: 100%;
+    }
+  </style>
 </head>
 <body>
 
@@ -33,7 +42,7 @@
     <button onclick="leaveCommunity()" class="option-btn danger" id="leaveBtn">Leave Community</button>
   </div>
 
-  <!-- Admin Only Options (hidden for non-admins) -->
+  <!-- Admin Only Options -->
   <div id="adminOptions" class="chat-options-dropdown admin-only hidden">
     <div class="admin-header">Admin Controls</div>
     <button onclick="manageRequests()" class="option-btn">📨 Manage Requests</button>
@@ -41,7 +50,7 @@
     <button onclick="editCommunity()" class="option-btn">✏️ Edit Community</button>
   </div>
 
-  <!-- Messages Container with fixed width -->
+  <!-- Messages Container - Fixed height -->
   <div id="messagesContainer" class="messages-container">
     <!-- Messages will load here -->
   </div>
@@ -53,7 +62,7 @@
     <button onclick="cancelReply()" class="cancel-reply">✕</button>
   </div>
 
-  <!-- Input Area -->
+  <!-- Input Area - Fixed at Bottom -->
   <div class="chat-input-fixed" id="chatInputArea">
     <input 
       type="text" 
@@ -84,7 +93,7 @@
   </div>
 </div>
 
-<!-- Manage Requests Modal (Admin only) -->
+<!-- Manage Requests Modal -->
 <div id="requestsModal" class="modal hidden">
   <div class="modal-content">
     <div class="modal-header">
@@ -97,7 +106,7 @@
   </div>
 </div>
 
-<!-- Manage Members Modal (Admin only) -->
+<!-- Manage Members Modal -->
 <div id="manageMembersModal" class="modal hidden">
   <div class="modal-content large">
     <div class="modal-header">
@@ -133,16 +142,12 @@
     const adminOptions = document.getElementById('adminOptions');
     const optionsBtn = document.getElementById('optionsBtn');
     
-    if (options && optionsBtn) {
-      if (!options.contains(event.target) && !optionsBtn.contains(event.target)) {
-        options.classList.add('hidden');
-      }
+    if (options && !options.contains(event.target) && !optionsBtn.contains(event.target)) {
+      options.classList.add('hidden');
     }
     
-    if (adminOptions && optionsBtn) {
-      if (!adminOptions.contains(event.target) && !optionsBtn.contains(event.target)) {
-        adminOptions.classList.add('hidden');
-      }
+    if (adminOptions && !adminOptions.contains(event.target) && !optionsBtn.contains(event.target)) {
+      adminOptions.classList.add('hidden');
     }
   });
 </script>
