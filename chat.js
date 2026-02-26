@@ -55,17 +55,31 @@ function listenForUserStatus() {
     const data = snap.docs[0].data();
     const statusEl = document.getElementById('userStatus');
     const lastSeenEl = document.getElementById('lastSeen');
-    if (data.online === true) {
-      statusEl.textContent = 'Online';
-      statusEl.className = 'user-status online';
-      lastSeenEl.textContent = '';
+    
+    const now = new Date();
+    const twoMinAgo = new Date(now.getTime() - 120000);
+    
+    if (data.online === true && data.lastSeen) {
+      const lastSeen = new Date(data.lastSeen);
+      if (lastSeen > twoMinAgo) {
+        statusEl.textContent = 'Online';
+        statusEl.className = 'user-status online';
+        lastSeenEl.textContent = '';
+      } else {
+        statusEl.textContent = 'Offline';
+        statusEl.className = 'user-status offline';
+        if (data.lastSeen) {
+          lastSeenEl.textContent = `Last seen: ${formatLastSeen(new Date(data.lastSeen))}`;
+        }
+      }
     } else {
       statusEl.textContent = 'Offline';
       statusEl.className = 'user-status offline';
       if (data.lastSeen) {
-        const lastSeen = new Date(data.lastSeen);
-        lastSeenEl.textContent = `Last seen: ${formatLastSeen(lastSeen)}`;
-      } else lastSeenEl.textContent = '';
+        lastSeenEl.textContent = `Last seen: ${formatLastSeen(new Date(data.lastSeen))}`;
+      } else {
+        lastSeenEl.textContent = '';
+      }
     }
   });
 }
