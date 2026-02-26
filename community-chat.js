@@ -135,10 +135,16 @@ function createMessageElement(data, msgId, isMine) {
     reactionsHTML = `<div class="message-reactions">${uniq.map(e => `<span class="reaction-badge">${e}</span>`).join('')}</div>`;
   }
   if (data.deletedForEveryone) {
-    div.innerHTML = '<div class="deleted-message">This message was deleted</div>';
-  } else {
-    div.innerHTML = `${senderHTML}${replyHTML}<div class="message-text">${data.text}</div>${reactionsHTML}<div class="message-footer"><span class="message-time">${time}</span></div>`;
-  }
+  div.innerHTML = '<div class="deleted-message">This message was deleted</div>';
+} else {
+  // Add verified badge if sender is verified
+  const verifiedBadge = data.senderVerified ? '<span class="verified-badge" title="Verified Account">✓</span>' : '';
+  
+  // Modify senderHTML to include verified badge
+  const modifiedSenderHTML = !isMine ? `<div class="message-sender">${data.sender || 'Unknown'} ${verifiedBadge}</div>` : '';
+  
+  div.innerHTML = `${modifiedSenderHTML}${replyHTML}<div class="message-text">${data.text}</div>${reactionsHTML}<div class="message-footer"><span class="message-time">${time}</span></div>`;
+}
 
   let touchStartX = 0, touchStartY = 0, swiped = false;
   div.addEventListener('touchstart', e => {
