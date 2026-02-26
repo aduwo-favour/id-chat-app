@@ -27,6 +27,12 @@ onAuthStateChanged(auth, async (user) => {
         lastSeen: new Date().toISOString()
       });
       
+      // Check if user is admin and show admin card
+      const isAdmin = userDoc.data().isAdmin || false;
+      if (isAdmin) {
+        document.getElementById('adminCard').style.display = 'block';
+      }
+      
       listenForRequests();
       listenForCommunityRequests();
     }
@@ -133,3 +139,4 @@ window.logout = async function() {
   await signOut(auth);
   window.location.href = 'index.html';
 };
+
