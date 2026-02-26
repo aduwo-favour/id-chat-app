@@ -137,30 +137,37 @@ function createMessageElement(data, msgId, isMine) {
     const uniq = [...new Set(Object.values(data.reactions))];
     reactionsHtml = `<div class="message-reactions">${uniq.map(e => `<span class="reaction-badge">${e}</span>`).join('')}</div>`;
   }
-  if (data.deletedForEveryone) {
-  div.innerHTML = '<div class="deleted-message">This message was deleted</div>';
-} else {
-  // Add verified badge if sender is verified
+  
+  // Create verified badge if user is verified
   const verifiedBadge = data.senderVerified ? '<span class="verified-badge" title="Verified Account">✓</span>' : '';
   
-  div.innerHTML = `
-    ${replyHtml}
-    <div class="message-text">${data.text}</div>
-    ${reactionsHtml}
-    <div class="message-footer">
-      <span class="message-time">${time}</span>
-      ${isMine && data.seen ? '<span class="seen-indicator">✓✓</span>' : ''}
-    </div>
-  `;
-  
-  // For other people's messages, add sender name with verified badge at the top
-  if (!isMine) {
-    const senderDiv = document.createElement('div');
-    senderDiv.className = 'message-sender';
-    senderDiv.innerHTML = `${data.sender || 'Unknown'} ${verifiedBadge}`;
-    div.insertBefore(senderDiv, div.firstChild);
+  if (data.deletedForEveryone) {
+    div.innerHTML = '<div class="deleted-message">This message was deleted</div>';
+  } else {
+    // For other people's messages, show sender name with verified badge
+    if (!isMine) {
+      div.innerHTML = `
+        <div class="message-sender">${data.sender || 'Unknown'} ${verifiedBadge}</div>
+        ${replyHtml}
+        <div class="message-text">${data.text}</div>
+        ${reactionsHtml}
+        <div class="message-footer">
+          <span class="message-time">${time}</span>
+        </div>
+      `;
+    } else {
+      // For your own messages, don't show sender name
+      div.innerHTML = `
+        ${replyHtml}
+        <div class="message-text">${data.text}</div>
+        ${reactionsHtml}
+        <div class="message-footer">
+          <span class="message-time">${time}</span>
+          ${data.seen ? '<span class="seen-indicator">✓✓</span>' : ''}
+        </div>
+      `;
+    }
   }
-}
 
   let touchStartX = 0, touchStartY = 0, swiped = false;
   div.addEventListener('touchstart', e => {
@@ -268,7 +275,7 @@ window.sendMessage = async function() {
   
   await addDoc(collection(db, "chats", chatId, "messages"), {
     sender: currentUsername,
-    senderVerified: isVerified,  // Add this line
+    senderVerified: isVerified,
     text, timestamp: new Date().toISOString(),
     deletedForEveryone: false, replyTo: replyingTo,
     seen: false, seenAt: null, reactions: {}
