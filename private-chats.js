@@ -69,11 +69,22 @@ function loadChats() {
 
 async function getUserStatus(username) {
   if (!username) return { online: false, lastSeen: 'Offline' };
+  
   const q = query(collection(db, "users"), where("username", "==", username));
   const snapshot = await getDocs(q);
+  
   if (!snapshot.empty) {
     const data = snapshot.docs[0].data();
-    if (data.online === true) return { online: true, lastSeen: 'Online' };
+    const now = new Date();
+    const twoMinAgo = new Date(now.getTime() - 120000);
+    
+    if (data.online === true && data.lastSeen) {
+      const lastSeen = new Date(data.lastSeen);
+      if (lastSeen > twoMinAgo) {
+        return { online: true, lastSeen: 'Online' };
+      }
+    }
+    
     if (data.lastSeen) {
       const lastSeen = new Date(data.lastSeen);
       return { online: false, lastSeen: `Last seen ${formatLastSeen(lastSeen)}` };
