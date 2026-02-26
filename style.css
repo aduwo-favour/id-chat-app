@@ -906,3 +906,43 @@ body { top: 0 !important; }
 @supports (-webkit-touch-callout: none) {
   .chat-wrapper { height: -webkit-fill-available; }
 }
+
+/* Add these styles at the end of your style.css file */
+
+/* Better status indicators */
+.member-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.member-status::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+
+.member-status.online::before {
+  background: #48bb78;
+  box-shadow: 0 0 8px #48bb78;
+  animation: pulse 2s infinite;
+}
+
+.member-status.offline::before {
+  background: #a0aec0;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.last-seen-time {
+  font-size: 11px;
+  color: #718096;
+  margin-left: 4px;
+}
