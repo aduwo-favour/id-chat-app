@@ -1,6 +1,9 @@
 import { auth, db } from "./firebase.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { doc, getDoc, updateDoc, collection, query, where, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { 
+  doc, getDoc, updateDoc, collection, query, where, 
+  onSnapshot, getDocs 
+} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUsername = null;
 let currentUid = null;
@@ -104,8 +107,29 @@ window.logout = async function() {
         online: false,
         lastSeen: new Date().toISOString()
       });
-    } catch (e) {}
+      
+      const communities = await getDocs(collection(db, "communities"));
+      const updatePromises = [];
+      
+      for (const community of communities.docs) {
+        const memberRef = doc(db, "communities", community.id, "members", currentUid);
+        const memberSnap = await getDoc(memberRef);
+        if (memberSnap.exists()) {
+          updatePromises.push(
+            updateDoc(memberRef, {
+              online: false,
+              lastSeen: new Date().toISOString()
+            }).catch(() => {})
+          );
+        }
+      }
+      
+      await Promise.all(updatePromises);
+    } catch (e) {
+      console.error("Error updating status on logout:", e);
+    }
   }
+  
   await signOut(auth);
   window.location.href = 'index.html';
 };
