@@ -250,8 +250,14 @@ window.sendMessage = async function() {
   const input = document.getElementById('messageInput');
   const text = input.value.trim();
   if (!text) return;
+  
+  // Get user's verified status
+  const userDoc = await getDoc(doc(db, "users", currentUid));
+  const isVerified = userDoc.data().verified || false;
+  
   await addDoc(collection(db, "chats", chatId, "messages"), {
     sender: currentUsername,
+    senderVerified: isVerified,  // Add this line
     text, timestamp: new Date().toISOString(),
     deletedForEveryone: false, replyTo: replyingTo,
     seen: false, seenAt: null, reactions: {}
