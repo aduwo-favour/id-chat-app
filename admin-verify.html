@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Verification</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .admin-container { max-width: 800px; margin: 20px auto; padding: 20px; }
+    .user-list { margin-top: 20px; }
+    .user-item { display: flex; align-items: center; padding: 15px; background: #f5f5f5; margin-bottom: 10px; border-radius: 8px; }
+    .user-info { flex: 1; }
+    .user-name { font-weight: bold; }
+    .verified-badge { background: #3897f0; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px; }
+    .verify-btn { background: #3897f0; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+    .verify-btn:disabled { background: #ccc; cursor: not-allowed; }
+    .admin-warning { color: red; text-align: center; padding: 20px; }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    <div class="chats-header">
+      <button onclick="goBack()" class="back-btn">← Back</button>
+      <h3>User Verification Panel</h3>
+    </div>
+    
+    <div id="adminCheck" class="admin-warning">Checking admin status...</div>
+    
+    <div id="verificationPanel" style="display: none;">
+      <div class="search-box">
+        <input type="text" id="searchUsers" placeholder="Search users...">
+        <button onclick="loadUnverifiedUsers()">Search</button>
+      </div>
+      
+      <div id="usersList" class="user-list">
+        <div class="loading">Loading users...</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="firebase.js"></script>
+  <script type="module" src="admin-verify.js"></script>
+</body>
+</html>
