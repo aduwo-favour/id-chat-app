@@ -138,18 +138,29 @@ function createMessageElement(data, msgId, isMine) {
     reactionsHtml = `<div class="message-reactions">${uniq.map(e => `<span class="reaction-badge">${e}</span>`).join('')}</div>`;
   }
   if (data.deletedForEveryone) {
-    div.innerHTML = '<div class="deleted-message">This message was deleted</div>';
-  } else {
-    div.innerHTML = `
-      ${replyHtml}
-      <div class="message-text">${data.text}</div>
-      ${reactionsHtml}
-      <div class="message-footer">
-        <span class="message-time">${time}</span>
-        ${isMine && data.seen ? '<span class="seen-indicator">✓✓</span>' : ''}
-      </div>
-    `;
+  div.innerHTML = '<div class="deleted-message">This message was deleted</div>';
+} else {
+  // Add verified badge if sender is verified
+  const verifiedBadge = data.senderVerified ? '<span class="verified-badge" title="Verified Account">✓</span>' : '';
+  
+  div.innerHTML = `
+    ${replyHtml}
+    <div class="message-text">${data.text}</div>
+    ${reactionsHtml}
+    <div class="message-footer">
+      <span class="message-time">${time}</span>
+      ${isMine && data.seen ? '<span class="seen-indicator">✓✓</span>' : ''}
+    </div>
+  `;
+  
+  // For other people's messages, add sender name with verified badge at the top
+  if (!isMine) {
+    const senderDiv = document.createElement('div');
+    senderDiv.className = 'message-sender';
+    senderDiv.innerHTML = `${data.sender || 'Unknown'} ${verifiedBadge}`;
+    div.insertBefore(senderDiv, div.firstChild);
   }
+}
 
   let touchStartX = 0, touchStartY = 0, swiped = false;
   div.addEventListener('touchstart', e => {
