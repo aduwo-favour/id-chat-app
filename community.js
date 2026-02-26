@@ -88,19 +88,28 @@ async function getCommunityStats(id, data) {
   try {
     const membersSnap = await getDocs(collection(db, "communities", id, "members"));
     let memberCount = 0, onlineCount = 0, userStatus = 'none';
-    const fiveMinAgo = new Date(Date.now() - 300000);
+    const now = new Date();
+    const twoMinAgo = new Date(now.getTime() - 120000);
     let found = false;
+    
     membersSnap.forEach(d => {
       const dta = d.data();
       if (['creator','admin','member'].includes(dta.role)) {
         memberCount++;
-        if (dta.lastSeen && new Date(dta.lastSeen) > fiveMinAgo) onlineCount++;
+        
+        if (dta.online === true && dta.lastSeen) {
+          const lastSeen = new Date(dta.lastSeen);
+          if (lastSeen > twoMinAgo) {
+            onlineCount++;
+          }
+        }
       }
       if (d.id === currentUid) {
         found = true;
         userStatus = dta.role;
       }
     });
+    
     if (!found) {
       const reqSnap = await getDocs(query(
         collection(db, "communities", id, "requests"),
@@ -115,6 +124,7 @@ async function getCommunityStats(id, data) {
     }
     return { memberCount, onlineCount, userStatus };
   } catch (error) {
+    console.error("Error getting community stats:", error);
     return { memberCount: 0, onlineCount: 0, userStatus: 'none' };
   }
 }
