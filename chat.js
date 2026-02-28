@@ -20,7 +20,23 @@ onAuthStateChanged(auth, async (user) => {
   const userDoc = await getDoc(doc(db, "users", user.uid));
   if (userDoc.exists()) {
     currentUsername = userDoc.data().username;
-    document.getElementById('chatUserName').textContent = otherUsername;
+    
+    // Get other user's verified status for header badge
+    const otherUserQuery = query(collection(db, "users"), where("username", "==", otherUsername));
+    const otherUserSnap = await getDocs(otherUserQuery);
+    let otherUserVerified = false;
+    if (!otherUserSnap.empty) {
+      otherUserVerified = otherUserSnap.docs[0].data().verified || false;
+    }
+    
+    // Update chat header with verified badge if needed
+    const nameElement = document.getElementById('chatUserName');
+    if (otherUserVerified) {
+      nameElement.innerHTML = `${otherUsername} <span class="verified-badge" title="Verified Account">✓</span>`;
+    } else {
+      nameElement.textContent = otherUsername;
+    }
+    
     await checkBlockStatus();
     listenForMessages();
     listenForUserStatus();
