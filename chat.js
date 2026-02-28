@@ -12,41 +12,75 @@ let isBlocked = false, blockedByMe = false;
 const urlParams = new URLSearchParams(window.location.search);
 chatId = urlParams.get('chatId');
 otherUsername = urlParams.get('user');
-if (!chatId || !otherUsername) window.location.href = 'private-chats.html';
+if (!chatId || !otherUsername) {
+  alert('Invalid chat link');
+  window.location.href = 'private-chats.html';
+}
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) { window.location.href = 'index.html'; return; }
   currentUid = user.uid;
+  
+  // Get current user's username
   const userDoc = await getDoc(doc(db, "users", user.uid));
-  if (userDoc.exists()) {
-    currentUsername = userDoc.data().username;
-    
-    // Get other user's verified status for header badge
-    const otherUserQuery = query(collection(db, "users"), where("username", "==", otherUsername));
-    const otherUserSnap = await getDocs(otherUserQuery);
-    let otherUserVerified = false;
-    if (!otherUserSnap.empty) {
-      otherUserVerified = otherUserSnap.docs[0].data().verified || false;
-    }
-    
-    // Update chat header with verified badge if needed
-    const nameElement = document.getElementById('chatUserName');
-    if (otherUserVerified) {
-      nameElement.innerHTML = `${otherUsername} <span class="verified-badge" title="Verified Account">✓</span>`;
-    } else {
-      nameElement.textContent = otherUsername;
-    }
-    
-    await checkBlockStatus();
-    listenForMessages();
-    listenForUserStatus();
-    await updateDoc(doc(db, "users", user.uid), {
-      online: true,
-      lastSeen: new Date().toISOString()
-    });
-    await resetUnreadCount();
+  if (!userDoc.exists()) {
+    alert('User data not found');
+    return;
   }
+  currentUsername = userDoc.data().username;
+
+  // SECURITY CHECK: Verify current user is a participant of this chat
+  const chatRef = doc(db, "chats", chatId);
+  const chatSnap = await getDoc(chatRef);
+  
+  if (!chatSnap.exists()) {
+    alert('Chat does not exist');
+    window.location.href = 'private-chats.html';
+    return;
+  }
+  
+  const chatData = chatSnap.data();
+  if (!chatData.participants || !chatData.participants.includes(currentUsername)) {
+    alert('You are not a participant of this chat');
+    window.location.href = 'private-chats.html';
+    return;
+  }
+  
+  // Verify that the 'otherUsername' parameter matches the other participant
+  const otherParticipant = chatData.participants.find(p => p !== currentUsername);
+  if (otherParticipant !== otherUsername) {
+    alert('Chat user mismatch');
+    window.location.href = 'private-chats.html';
+    return;
+  }
+
+  // Get other user's verified status for header badge
+  const otherUserQuery = query(collection(db, "users"), where("username", "==", otherUsername));
+  const otherUserSnap = await getDocs(otherUserQuery);
+  let otherUserVerified = false;
+  if (!otherUserSnap.empty) {
+    otherUserVerified = otherUserSnap.docs[0].data().verified || false;
+  }
+  
+  // Update chat header with verified badge if needed
+  const nameElement = document.getElementById('chatUserName');
+  if (otherUserVerified) {
+    nameElement.innerHTML = `${otherUsername} <span class="verified-badge" title="Verified Account">✓</span>`;
+  } else {
+    nameElement.textContent = otherUsername;
+  }
+  
+  await checkBlockStatus();
+  listenForMessages();
+  listenForUserStatus();
+  await updateDoc(doc(db, "users", user.uid), {
+    online: true,
+    lastSeen: new Date().toISOString()
+  });
+  await resetUnreadCount();
 });
+
+// ... rest of the file remains exactly the same (functions: checkBlockStatus, updateBlockButton, listenForUserStatus, formatLastSeen, listenForMessages, createMessageElement, createDateDivider, showReactionMenu, addReaction, sendMessage, replyToMessage, cancelReply, deleteMessage, resetUnreadCount, unfriendUser, blockUser, showNotification, toggleChatOptions, goBack)
 
 async function checkBlockStatus() {
   const chatSnap = await getDoc(doc(db, "chats", chatId));
