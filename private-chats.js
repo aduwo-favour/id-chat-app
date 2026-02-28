@@ -48,12 +48,13 @@ function loadChats() {
         const badge = unread > 0 ? `<span class="unread-count">${unread}</span>` : '';
         const statusClass = status.online ? 'online' : 'offline';
         const statusText = status.online ? 'Online' : status.lastSeen;
+        const verifiedBadge = status.verified ? '<span class="verified-badge" title="Verified Account">✓</span>' : '';
 
         return `
           <div class="chat-item" onclick="openChat('${doc.id}', '${otherUser}')">
             <div class="chat-avatar">${otherUser ? otherUser[0].toUpperCase() : '?'}</div>
             <div class="chat-details">
-              <div class="chat-name">${otherUser || 'Unknown'}</div>
+              <div class="chat-name">${otherUser || 'Unknown'} ${verifiedBadge}</div>
               <div class="chat-status ${statusClass}">${statusText}</div>
             </div>
             ${badge}
@@ -68,7 +69,7 @@ function loadChats() {
 }
 
 async function getUserStatus(username) {
-  if (!username) return { online: false, lastSeen: 'Offline' };
+  if (!username) return { online: false, lastSeen: 'Offline', verified: false };
   
   const q = query(collection(db, "users"), where("username", "==", username));
   const snapshot = await getDocs(q);
@@ -78,19 +79,27 @@ async function getUserStatus(username) {
     const now = new Date();
     const twoMinAgo = new Date(now.getTime() - 120000);
     
+    let online = false;
     if (data.online === true && data.lastSeen) {
       const lastSeen = new Date(data.lastSeen);
       if (lastSeen > twoMinAgo) {
-        return { online: true, lastSeen: 'Online' };
+        online = true;
       }
     }
     
+    let lastSeenText = 'Offline';
     if (data.lastSeen) {
       const lastSeen = new Date(data.lastSeen);
-      return { online: false, lastSeen: `Last seen ${formatLastSeen(lastSeen)}` };
+      lastSeenText = `Last seen ${formatLastSeen(lastSeen)}`;
     }
+    
+    return {
+      online,
+      lastSeen: online ? 'Online' : lastSeenText,
+      verified: data.verified || false
+    };
   }
-  return { online: false, lastSeen: 'Offline' };
+  return { online: false, lastSeen: 'Offline', verified: false };
 }
 
 function formatLastSeen(date) {
@@ -135,9 +144,10 @@ window.searchUsers = async function() {
       const userData = doc.data();
       if (userData.username !== currentUsername) {
         const status = await checkRequestStatus(userData.username);
+        const verifiedBadge = userData.verified ? '<span class="verified-badge" title="Verified Account">✓</span>' : '';
         html += `
           <div class="search-result-item">
-            <span>${userData.username}</span>
+            <span>${userData.username} ${verifiedBadge}</span>
             ${getRequestButton(userData.username, status)}
           </div>
         `;
