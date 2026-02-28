@@ -37,16 +37,17 @@
       <p>Pending chat requests</p>
       <span class="badge" id="requestsBadge"></span>
     </div>
-  </div>
+
+    <!-- Admin Panel Card (hidden by default) -->
     <div class="dashboard-card" onclick="navigateTo('admin-verify.html')" id="adminCard" style="display: none;">
-    <div class="card-icon">👑</div>
-    <h3>Admin Panel</h3>
-    <p>Verify users with blue tick</p>
+      <div class="card-icon">👑</div>
+      <h3>Admin Panel</h3>
+      <p>Verify users with blue tick</p>
     </div>
+  </div>
 </div>
 
 <script type="module" src="firebase.js"></script>
 <script type="module" src="dashboard.js"></script>
 </body>
 </html>
-
