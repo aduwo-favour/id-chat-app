@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Admin Verification</title>
+  <title>Admin Panel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
   <style>
-    .admin-container { max-width: 800px; margin: 0 auto; background: white; min-height: 100vh; }
+    .admin-container { max-width: 1200px; margin: 0 auto; background: white; min-height: 100vh; }
     .admin-header {
       display: flex;
       align-items: center;
@@ -14,92 +14,302 @@
       color: white;
       gap: 20px;
     }
-    .admin-header h3 { flex: 1; }
-    .user-list { padding: 20px; }
-    .user-item {
+    .admin-header h2 { flex: 1; }
+    .admin-tabs {
       display: flex;
-      align-items: center;
-      padding: 15px;
-      background: #f5f5f5;
-      margin-bottom: 10px;
-      border-radius: 8px;
+      background: #f1f5f9;
+      padding: 10px 20px;
+      gap: 10px;
+      border-bottom: 1px solid #ddd;
     }
-    .user-avatar {
-      width: 50px;
-      height: 50px;
+    .admin-tab {
+      padding: 10px 20px;
+      background: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      color: #333;
+      transition: all 0.2s;
+    }
+    .admin-tab.active {
       background: #667eea;
       color: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      margin-right: 15px;
     }
-    .user-info { flex: 1; }
-    .user-name { font-weight: bold; margin-bottom: 5px; }
-    .verified-badge {
-      display: inline-block;
-      background: #3897f0;
-      color: white;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      margin-left: 10px;
-    }
-    .verify-btn {
-      background: #3897f0;
-      color: white;
-      border: none;
-      padding: 8px 15px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    .verify-btn:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-    .admin-message {
-      text-align: center;
-      padding: 40px;
-      color: #666;
-    }
-    .search-box {
-      padding: 20px;
-      background: #f5f5f5;
+    .admin-panel { padding: 20px; }
+    .panel-section { display: none; }
+    .panel-section.active { display: block; }
+    .search-bar {
       display: flex;
       gap: 10px;
+      margin-bottom: 20px;
     }
-    .search-box input {
+    .search-bar input {
       flex: 1;
       padding: 12px;
-      border: 1px solid #ddd;
+      border: 2px solid #e2e8f0;
       border-radius: 8px;
+      font-size: 16px;
     }
+    .search-bar button {
+      padding: 12px 24px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .data-table th {
+      background: #f8fafc;
+      padding: 12px;
+      text-align: left;
+      font-weight: 600;
+      color: #334155;
+    }
+    .data-table td {
+      padding: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: middle;
+    }
+    .data-table tr:hover { background: #f8fafc; }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .badge.admin { background: #fbbf24; color: #78350f; }
+    .badge.verified { background: #3897f0; color: white; }
+    .badge.banned { background: #ef4444; color: white; }
+    .badge.disabled { background: #6b7280; color: white; }
+    .action-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      margin: 0 4px;
+    }
+    .action-btn.edit { background: #3b82f6; color: white; }
+    .action-btn.delete { background: #ef4444; color: white; }
+    .action-btn.ban { background: #f59e0b; color: white; }
+    .action-btn.view { background: #10b981; color: white; }
+    .action-btn.small { padding: 4px 8px; font-size: 12px; }
+    .modal-body .message-list {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .message-item {
+      padding: 8px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .message-item:last-child { border-bottom: none; }
+    .message-sender { font-weight: 600; color: #334155; }
+    .message-time { font-size: 12px; color: #94a3b8; }
+    .settings-group {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+    .settings-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .settings-item:last-child { border-bottom: none; }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .2s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #667eea; }
+    input:checked + .slider:before { transform: translateX(26px); }
   </style>
 </head>
 <body>
-  <div class="admin-container">
-    <div class="admin-header">
-      <button onclick="goBack()" class="back-btn">← Back</button>
-      <h3>User Verification Panel</h3>
-    </div>
-    
-    <div id="adminCheck" class="admin-message">Checking admin status...</div>
-    
-    <div id="verificationPanel" style="display: none;">
-      <div class="search-box">
-        <input type="text" id="searchUsers" placeholder="Search users by username...">
-        <button onclick="loadUnverifiedUsers()">Search</button>
+<div class="admin-container">
+  <div class="admin-header">
+    <button onclick="goBack()" class="back-btn">← Back</button>
+    <h2>Admin Panel</h2>
+    <span id="adminStatus">Loading...</span>
+  </div>
+
+  <div class="admin-tabs" id="adminTabs">
+    <button class="admin-tab active" data-tab="users">👥 Users</button>
+    <button class="admin-tab" data-tab="chats">💬 Chats</button>
+    <button class="admin-tab" data-tab="communities">🌍 Communities</button>
+    <button class="admin-tab" data-tab="settings">⚙️ Settings</button>
+  </div>
+
+  <div class="admin-panel">
+    <!-- Users Panel -->
+    <div id="usersPanel" class="panel-section active">
+      <div class="search-bar">
+        <input type="text" id="userSearch" placeholder="Search by username...">
+        <button onclick="loadUsers()">Search</button>
       </div>
-      
-      <div id="usersList" class="user-list">
-        <div class="loading">Loading users...</div>
+      <table class="data-table" id="usersTable">
+        <thead>
+          <tr><th>Username</th><th>Email</th><th>Status</th><th>Created</th><th>Last Seen</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="usersList"></tbody>
+      </table>
+    </div>
+
+    <!-- Chats Panel -->
+    <div id="chatsPanel" class="panel-section">
+      <div class="search-bar">
+        <input type="text" id="chatSearch" placeholder="Search by participants...">
+        <button onclick="loadChats()">Search</button>
+      </div>
+      <table class="data-table" id="chatsTable">
+        <thead>
+          <tr><th>Chat ID</th><th>Participants</th><th>Created</th><th>Messages</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="chatsList"></tbody>
+      </table>
+    </div>
+
+    <!-- Communities Panel -->
+    <div id="communitiesPanel" class="panel-section">
+      <div class="search-bar">
+        <input type="text" id="communitySearch" placeholder="Search by name...">
+        <button onclick="loadCommunities()">Search</button>
+      </div>
+      <table class="data-table" id="communitiesTable">
+        <thead>
+          <tr><th>Name</th><th>Type</th><th>Creator</th><th>Members</th><th>Created</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="communitiesList"></tbody>
+      </table>
+    </div>
+
+    <!-- Settings Panel -->
+    <div id="settingsPanel" class="panel-section">
+      <div class="settings-group">
+        <h3>Global Features</h3>
+        <div class="settings-item">
+          <span>Enable file uploads</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggleFileUploads" onchange="updateSetting('fileUploads', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="settings-item">
+          <span>Enable message reactions</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggleReactions" onchange="updateSetting('reactions', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="settings-item">
+          <span>Enable community creation</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggleCommunityCreation" onchange="updateSetting('communityCreation', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h3>Moderation Defaults</h3>
+        <div class="settings-item">
+          <span>Auto‑flag offensive words</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggleAutoFlag" onchange="updateSetting('autoFlag', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="settings-item">
+          <span>Require admin approval for new users</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggleApproval" onchange="updateSetting('requireApproval', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
       </div>
     </div>
   </div>
+</div>
 
-  <script type="module" src="firebase.js"></script>
-  <script type="module" src="admin-verify.js"></script>
+<!-- Modals -->
+<div id="userActivityModal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>User Activity Log</h3>
+      <button onclick="hideModal('userActivityModal')" class="close-btn">✕</button>
+    </div>
+    <div class="modal-body" id="userActivityContent">Loading...</div>
+  </div>
+</div>
+
+<div id="chatMessagesModal" class="modal hidden">
+  <div class="modal-content large">
+    <div class="modal-header">
+      <h3>Chat Messages</h3>
+      <button onclick="hideModal('chatMessagesModal')" class="close-btn">✕</button>
+    </div>
+    <div class="modal-body" id="chatMessagesContent"></div>
+    <div class="modal-footer">
+      <button onclick="clearChat()" class="action-btn delete">Clear Entire Chat</button>
+    </div>
+  </div>
+</div>
+
+<div id="communityManageModal" class="modal hidden">
+  <div class="modal-content large">
+    <div class="modal-header">
+      <h3>Manage Community</h3>
+      <button onclick="hideModal('communityManageModal')" class="close-btn">✕</button>
+    </div>
+    <div class="modal-body" id="communityManageContent"></div>
+  </div>
+</div>
+
+<script type="module" src="firebase.js"></script>
+<script type="module" src="admin-verify.js"></script>
 </body>
 </html>
