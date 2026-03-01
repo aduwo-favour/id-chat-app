@@ -4,171 +4,7 @@
   <title>Admin Panel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
-  <style>
-    .admin-container { max-width: 1200px; margin: 0 auto; background: white; min-height: 100vh; }
-    .admin-header {
-      display: flex;
-      align-items: center;
-      padding: 20px;
-      background: #667eea;
-      color: white;
-      gap: 20px;
-    }
-    .admin-header h2 { flex: 1; }
-    .admin-tabs {
-      display: flex;
-      background: #f1f5f9;
-      padding: 10px 20px;
-      gap: 10px;
-      border-bottom: 1px solid #ddd;
-    }
-    .admin-tab {
-      padding: 10px 20px;
-      background: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 500;
-      color: #333;
-      transition: all 0.2s;
-    }
-    .admin-tab.active {
-      background: #667eea;
-      color: white;
-    }
-    .admin-panel { padding: 20px; }
-    .panel-section { display: none; }
-    .panel-section.active { display: block; }
-    .search-bar {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .search-bar input {
-      flex: 1;
-      padding: 12px;
-      border: 2px solid #e2e8f0;
-      border-radius: 8px;
-      font-size: 16px;
-    }
-    .search-bar button {
-      padding: 12px 24px;
-      background: #667eea;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    }
-    .data-table th {
-      background: #f8fafc;
-      padding: 12px;
-      text-align: left;
-      font-weight: 600;
-      color: #334155;
-    }
-    .data-table td {
-      padding: 12px;
-      border-bottom: 1px solid #e2e8f0;
-      vertical-align: middle;
-    }
-    .data-table tr:hover { background: #f8fafc; }
-    .badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-    .badge.admin { background: #fbbf24; color: #78350f; }
-    .badge.verified { background: #3897f0; color: white; }
-    .badge.banned { background: #ef4444; color: white; }
-    .badge.disabled { background: #6b7280; color: white; }
-    .action-btn {
-      padding: 6px 12px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      margin: 0 4px;
-    }
-    .action-btn.edit { background: #3b82f6; color: white; }
-    .action-btn.delete { background: #ef4444; color: white; }
-    .action-btn.ban { background: #f59e0b; color: white; }
-    .action-btn.view { background: #10b981; color: white; }
-    .action-btn.small { padding: 4px 8px; font-size: 12px; }
-    .modal-body .message-list {
-      max-height: 400px;
-      overflow-y: auto;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 10px;
-    }
-    .message-item {
-      padding: 8px;
-      border-bottom: 1px solid #f1f5f9;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .message-item:last-child { border-bottom: none; }
-    .message-sender { font-weight: 600; color: #334155; }
-    .message-time { font-size: 12px; color: #94a3b8; }
-    .settings-group {
-      background: #f8fafc;
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 20px;
-    }
-    .settings-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 0;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .settings-item:last-child { border-bottom: none; }
-    .toggle-switch {
-      position: relative;
-      display: inline-block;
-      width: 50px;
-      height: 24px;
-    }
-    .toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      transition: .2s;
-      border-radius: 24px;
-    }
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 20px;
-      width: 20px;
-      left: 2px;
-      bottom: 2px;
-      background-color: white;
-      transition: .2s;
-      border-radius: 50%;
-    }
-    input:checked + .slider { background-color: #667eea; }
-    input:checked + .slider:before { transform: translateX(26px); }
-  </style>
+         
 </head>
 <body>
 <div class="admin-container">
@@ -177,7 +13,181 @@
     <h2>Admin Panel</h2>
     <span id="adminStatus">Loading...</span>
   </div>
+<style>
+  /* ... existing styles ... */
+  .admin-container { max-width: 1200px; margin: 0 auto; background: white; min-height: 100vh; }
+  .admin-header {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    background: #667eea;
+    color: white;
+    gap: 20px;
+  }
+  .admin-header h2 { flex: 1; }
+  .admin-tabs {
+    display: flex;
+    background: #f1f5f9;
+    padding: 10px 20px;
+    gap: 10px;
+    border-bottom: 1px solid #ddd;
+  }
+  .admin-tab {
+    padding: 10px 20px;
+    background: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    color: #333;
+    transition: all 0.2s;
+  }
+  .admin-tab.active {
+    background: #667eea;
+    color: white;
+  }
+  .admin-panel { padding: 20px; }
+  .panel-section { display: none; }
+  .panel-section.active { display: block; }
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .search-bar input {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 16px;
+  }
+  .search-bar button {
+    padding: 12px 24px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  /* Improved table styling */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 14px;
+  }
+  .data-table th {
+    background: #f8fafc;
+    padding: 14px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #1e293b;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  .data-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+    color: #334155;
+  }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover { background: #f8fafc; }
 
+  /* Status badges */
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+    min-width: 60px;
+  }
+  .badge.admin { background: #fbbf24; color: #78350f; }
+  .badge.verified { background: #3897f0; color: white; }
+  .badge.banned { background: #ef4444; color: white; }
+  .badge.disabled { background: #6b7280; color: white; }
+  .badge.active { background: #10b981; color: white; } /* fallback */
+
+  /* Action buttons as small, rounded, text-like */
+  .action-btn {
+    display: inline-block;
+    padding: 6px 12px;
+    margin: 2px 4px 2px 0;
+    border: none;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    background: #f1f5f9;
+    color: #334155;
+    transition: background 0.2s, color 0.2s;
+    text-decoration: none;
+  }
+  .action-btn:hover {
+    background: #e2e8f0;
+  }
+  .action-btn.view { background: #e0f2fe; color: #0369a1; }
+  .action-btn.view:hover { background: #bae6fd; }
+  .action-btn.edit { background: #fef9c3; color: #854d0e; }
+  .action-btn.edit:hover { background: #fde047; }
+  .action-btn.ban { background: #fee2e2; color: #b91c1c; }
+  .action-btn.ban:hover { background: #fecaca; }
+  .action-btn.delete { background: #fee2e2; color: #b91c1c; }
+  .action-btn.delete:hover { background: #fecaca; }
+  .action-btn.small { padding: 4px 8px; font-size: 11px; }
+
+  /* Modal improvements */
+  .modal-content {
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .modal-body { padding: 20px; }
+  .modal-footer {
+    padding: 20px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
+  /* Settings toggle */
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc;
+    transition: .2s;
+    border-radius: 24px;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .2s;
+    border-radius: 50%;
+  }
+  input:checked + .slider { background-color: #667eea; }
+  input:checked + .slider:before { transform: translateX(26px); }
+</style>
   <div class="admin-tabs" id="adminTabs">
     <button class="admin-tab active" data-tab="users">👥 Users</button>
     <button class="admin-tab" data-tab="chats">💬 Chats</button>
