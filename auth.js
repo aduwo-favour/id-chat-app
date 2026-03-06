@@ -1,6 +1,6 @@
-import { auth, db } from "./firebase.js";
+import { auth, db, requestNotificationPermission } from "./firebase.js";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { doc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { doc, setDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 window.switchTab = function(tab) {
   document.getElementById('loginTab').classList.remove('active');
@@ -46,13 +46,25 @@ window.handleSignup = async function() {
     const email = makeEmail(username);
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     
+    // Request notification permission and get token
+    let fcmTokens = [];
+    try {
+      const token = await requestNotificationPermission();
+      if (token) fcmTokens = [token];
+    } catch (notifError) {
+      console.log('Notification permission not granted:', notifError);
+    }
+    
     await setDoc(doc(db, "users", userCredential.user.uid), {
       username: username,
       email: email,
       createdAt: new Date().toISOString(),
       online: true,
       lastSeen: new Date().toISOString(),
-      blockedUsers: []
+      blockedUsers: [],
+      verified: false,
+      isAdmin: false,
+      fcmTokens: fcmTokens // Store FCM tokens for push notifications
     });
 
     alert('Account created successfully!');
@@ -87,7 +99,34 @@ window.handleLogin = async function() {
 
   try {
     const email = makeEmail(username);
-    await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    
+    // Request notification permission and update token
+    try {
+      const token = await requestNotificationPermission();
+      if (token) {
+        const userRef = doc(db, "users", userCredential.user.uid);
+        await updateDoc(userRef, {
+          online: true,
+          lastSeen: new Date().toISOString(),
+          fcmTokens: arrayUnion(token) // Add new token without duplicates
+        });
+      } else {
+        // Still update online status even if no token
+        await updateDoc(doc(db, "users", userCredential.user.uid), {
+          online: true,
+          lastSeen: new Date().toISOString()
+        });
+      }
+    } catch (notifError) {
+      console.log('Notification setup failed:', notifError);
+      // Still proceed with login even if notifications fail
+      await updateDoc(doc(db, "users", userCredential.user.uid), {
+        online: true,
+        lastSeen: new Date().toISOString()
+      });
+    }
+    
     window.location.href = 'dashboard.html';
   } catch (error) {
     console.error('Login error:', error);
