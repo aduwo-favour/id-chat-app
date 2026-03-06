@@ -62,9 +62,11 @@ window.handleSignup = async function() {
       online: true,
       lastSeen: new Date().toISOString(),
       blockedUsers: [],
+      fcmTokens: fcmTokens, // Store FCM tokens for push notifications
       verified: false,
       isAdmin: false,
-      fcmTokens: fcmTokens // Store FCM tokens for push notifications
+      banned: false,
+      disabled: false
     });
 
     alert('Account created successfully!');
@@ -107,20 +109,14 @@ window.handleLogin = async function() {
       if (token) {
         const userRef = doc(db, "users", userCredential.user.uid);
         await updateDoc(userRef, {
-          online: true,
-          lastSeen: new Date().toISOString(),
-          fcmTokens: arrayUnion(token) // Add new token without duplicates
-        });
-      } else {
-        // Still update online status even if no token
-        await updateDoc(doc(db, "users", userCredential.user.uid), {
+          fcmTokens: arrayUnion(token),
           online: true,
           lastSeen: new Date().toISOString()
         });
       }
     } catch (notifError) {
-      console.log('Notification setup failed:', notifError);
-      // Still proceed with login even if notifications fail
+      console.log('Notification permission not granted:', notifError);
+      // Still update online status even if notifications fail
       await updateDoc(doc(db, "users", userCredential.user.uid), {
         online: true,
         lastSeen: new Date().toISOString()
