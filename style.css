@@ -975,3 +975,67 @@ body { top: 0 !important; }
 .my-message .message-sender {
   color: rgba(255,255,255,0.9);
 }
+/* Add to existing style.css */
+
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #667eea;
+  color: white;
+  padding: 15px 20px;
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+  z-index: 10000;
+  max-width: 300px;
+  cursor: pointer;
+  animation: slideInRight 0.3s ease;
+  border-left: 4px solid white;
+}
+
+.notification strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.notification span {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.notification.fade-out {
+  animation: fadeOut 0.5s ease forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* Add a small badge style for notification indicator */
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #e53e3e;
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+}
