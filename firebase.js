@@ -21,7 +21,7 @@ export const requestNotificationPermission = async () => {
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      const token = await getToken(messaging, { vapidKey: 'YOUR_VAPID_KEY' }); // Get VAPID key from Firebase Console
+      const token = await getToken(messaging, { vapidKey: 'BCdXGHDstKoy4Zgvbmiaw8Cx8eSOE0Y9rQT8D_h3nbxLtg3xhtP-d5pOyTSimNac3J_lW3PL2uj7e4jX8R1YvqM' }); // Get VAPID key from Firebase Console
       return token;
     } else {
       console.log('Notification permission denied');
@@ -39,3 +39,4 @@ export const onForegroundMessage = (callback) => {
     callback(payload);
   });
 };
+
