@@ -136,46 +136,58 @@ function showGlobalBanner(type) {
   }
 }
 
+// Cache user status per community so we don't re-fetch on every snapshot
+const userStatusCache = new Map();
+
 async function getCommunityStats(id, data) {
   try {
-    const membersSnap = await getDocs(collection(db, "communities", id, "members"));
-    let memberCount = 0, onlineCount = 0, userStatus = 'none';
     const now = new Date();
     const twoMinAgo = new Date(now.getTime() - 120000);
-    let found = false;
-    
+
+    // Fetch members + user status in parallel
+    const membersPromise = getDocs(collection(db, "communities", id, "members"));
+
+    // Only re-check user status if not cached
+    let userStatus = userStatusCache.get(id);
+    let userStatusPromise = null;
+
+    if (userStatus === undefined) {
+      // Check member doc directly (single read, fast)
+      userStatusPromise = getDoc(doc(db, "communities", id, "members", currentUid))
+        .then(async (snap) => {
+          if (snap.exists()) return snap.data().role || 'member';
+          // Not a member — check requests
+          const reqSnap = await getDocs(query(
+            collection(db, "communities", id, "requests"),
+            where("userId", "==", currentUid),
+            where("status", "==", "pending")
+          ));
+          if (!reqSnap.empty) return 'pending';
+          // Check banned
+          const bannedSnap = await getDoc(doc(db, "communities", id, "banned", currentUid));
+          return bannedSnap.exists() ? 'banned' : 'none';
+        });
+    }
+
+    const [membersSnap, resolvedStatus] = await Promise.all([
+      membersPromise,
+      userStatusPromise || Promise.resolve(userStatus)
+    ]);
+
+    userStatus = resolvedStatus;
+    userStatusCache.set(id, userStatus);
+
+    let memberCount = 0, onlineCount = 0;
     membersSnap.forEach(d => {
       const dta = d.data();
-      if (['creator','admin','member'].includes(dta.role)) {
+      if (['creator', 'admin', 'member'].includes(dta.role)) {
         memberCount++;
-        
-        if (dta.online === true && dta.lastSeen) {
-          const lastSeen = new Date(dta.lastSeen);
-          if (lastSeen > twoMinAgo) {
-            onlineCount++;
-          }
+        if (dta.online === true && dta.lastSeen && new Date(dta.lastSeen) > twoMinAgo) {
+          onlineCount++;
         }
       }
-      if (d.id === currentUid) {
-        found = true;
-        userStatus = dta.role;
-      }
     });
-    
-    if (!found) {
-      // Check pending requests
-      const reqSnap = await getDocs(query(
-        collection(db, "communities", id, "requests"),
-        where("userId", "==", currentUid),
-        where("status", "==", "pending")
-      ));
-      if (!reqSnap.empty) userStatus = 'pending';
-      else {
-        // Check banned
-        const bannedSnap = await getDoc(doc(db, "communities", id, "banned", currentUid));
-        if (bannedSnap.exists()) userStatus = 'banned';
-      }
-    }
+
     return { memberCount, onlineCount, userStatus };
   } catch (error) {
     console.error("Error getting community stats:", error);
@@ -287,7 +299,7 @@ window.joinCommunity = async function(id, type) {
         lastSeen: new Date().toISOString(), 
         online: true
       });
-      alert('You joined the community!');
+      userStatusCache.set(id, 'member');
       window.location.href = `community-chat.html?communityId=${id}&name=${encodeURIComponent(data.name)}`;
     } else {
       // Private - send request
@@ -298,6 +310,7 @@ window.joinCommunity = async function(id, type) {
         requestedAt: new Date().toISOString()
       });
 
+      userStatusCache.set(id, 'pending');
       // Update the button immediately in the DOM — no refresh needed
       const btn = document.querySelector(\`.join-btn[onclick*="joinCommunity('${id}'"]\`);
       if (btn) {
@@ -320,6 +333,7 @@ window.joinCommunity = async function(id, type) {
 };
 
 window.cancelRequest = async function(id) {
+  userStatusCache.delete(id);
   try {
     const q = query(
       collection(db, "communities", id, "requests"),
