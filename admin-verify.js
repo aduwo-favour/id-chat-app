@@ -159,11 +159,37 @@ window.toggleBan = async (userId, username, currentBanned) => {
 };
 
 window.deleteUser = async (userId, username) => {
-  if (!confirm(`Permanently disable this user? This cannot be undone.`)) return;
+  if (!confirm(`Permanently DELETE user "${username}"? This will remove their account, all their chats, and cannot be undone.`)) return;
   try {
-    await updateDoc(doc(db, "users", userId), { disabled: true, disabledAt: new Date().toISOString() });
+    const batch = writeBatch(db);
+
+    // Delete all chats they are a participant in
+    const chatsSnap = await getDocs(query(collection(db, "chats"), where("participants", "array-contains", username)));
+    for (const chatDoc of chatsSnap.docs) {
+      // Delete all messages in the chat
+      const msgsSnap = await getDocs(collection(db, "chats", chatDoc.id, "messages"));
+      msgsSnap.forEach(m => batch.delete(m.ref));
+      batch.delete(chatDoc.ref);
+    }
+
+    // Delete any pending requests sent to or from them
+    const reqSentSnap = await getDocs(query(collection(db, "requests"), where("from", "==", username)));
+    reqSentSnap.forEach(r => batch.delete(r.ref));
+
+    const reqReceivedSnap = await getDocs(query(collection(db, "requests"), where("to", "==", username)));
+    reqReceivedSnap.forEach(r => batch.delete(r.ref));
+
+    // Delete the user document itself
+    batch.delete(doc(db, "users", userId));
+
+    await batch.commit();
+
+    alert(`User "${username}" has been permanently deleted.`);
     loadUsers(document.getElementById('userSearch').value);
-  } catch (error) { alert('Failed to disable user'); }
+  } catch (error) {
+    alert('Failed to delete user. Check console.');
+    console.error('deleteUser error:', error);
+  }
 };
 
 window.viewUserActivity = async (userId) => {
