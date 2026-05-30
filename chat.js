@@ -1,4 +1,5 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
+import { Cache } from "./cache.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
   doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
@@ -357,32 +358,47 @@ function formatLastSeen(date) {
 // Listen for messages
 function listenForMessages() {
   if (!chatId) return;
-  
+
+  const cacheKey = 'msgs_' + chatId;
+  let unreadDividerInserted = false;
+  let isFirstLoad = true;
+
   try {
     const messagesRef = collection(db, "chats", chatId, "messages");
     const q = query(messagesRef, orderBy("timestamp", "asc"));
-    
+
+    // Render cached messages instantly before Firestore responds
+    const container = document.getElementById('messagesContainer');
+    const cachedHtml = Cache.get(cacheKey);
+    if (cachedHtml && container) {
+      container.innerHTML = cachedHtml;
+      scrollToBottom(container);
+    }
+
     unsubscribeMessages = onSnapshot(q, (snap) => {
-      const container = document.getElementById('messagesContainer');
       if (!container) return;
-      
-      // Store scroll position
+
       const wasAtBottom = isScrolledToBottom(container);
-      
       container.innerHTML = '';
       let lastDate = null;
-      
+      unreadDividerInserted = false;
+
+      // For unread divider: find where unread messages start
+      // Use the other user's last-seen time to determine what's "new"
+      const unreadStartTime = isFirstLoad
+        ? Cache.get('lastread_' + chatId)
+        : null;
+
       snap.forEach(doc => {
         const data = doc.data();
-        
-        // Mark message as seen if it's from other user
+
         if (data.sender !== currentUsername && !data.seen) {
           markMessageAsSeen(doc.ref);
         }
-        
+
         const msgDate = data.timestamp ? new Date(data.timestamp) : null;
         const isMine = data.sender === currentUsername;
-        
+
         if (msgDate) {
           const dateStr = msgDate.toDateString();
           if (lastDate !== dateStr) {
@@ -390,15 +406,31 @@ function listenForMessages() {
             container.appendChild(createDateDivider(msgDate));
           }
         }
-        
+
+        // Insert "New Messages" divider before first unread message from other user
+        if (!unreadDividerInserted && isFirstLoad && unreadStartTime && !isMine && msgDate) {
+          if (msgDate > new Date(unreadStartTime)) {
+            container.appendChild(createPrivateChatUnreadDivider());
+            unreadDividerInserted = true;
+          }
+        }
+
         container.appendChild(createMessageElement(data, doc.id, isMine));
       });
-      
-      // Scroll to bottom if was at bottom or no messages
-      if (wasAtBottom || snap.empty) {
+
+      // Cache the rendered HTML for next visit
+      Cache.set(cacheKey, container.innerHTML);
+
+      // Scroll: go to unread divider on first load, else maintain position
+      const unreadEl = container.querySelector('.unread-divider');
+      if (unreadEl && isFirstLoad && !wasAtBottom) {
+        unreadEl.scrollIntoView({ block: 'center' });
+      } else if (wasAtBottom || snap.empty) {
         scrollToBottom(container);
       }
-      
+
+      isFirstLoad = false;
+
     }, (error) => {
       console.error('Error listening to messages:', error);
       showNotification('Error loading messages');
@@ -407,6 +439,20 @@ function listenForMessages() {
     console.error('Error setting up messages listener:', error);
   }
 }
+
+function createPrivateChatUnreadDivider() {
+  const div = document.createElement('div');
+  div.className = 'unread-divider';
+  div.innerHTML = '<span>New Messages</span>';
+  return div;
+}
+
+// Save last-read timestamp when leaving chat
+function saveLastRead() {
+  if (chatId) Cache.set('lastread_' + chatId, new Date().toISOString());
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveLastRead(); });
+window.addEventListener('beforeunload', saveLastRead);
 
 // Check if container is scrolled to bottom
 function isScrolledToBottom(container) {

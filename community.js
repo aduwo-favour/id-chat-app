@@ -1,4 +1,5 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
+import { Cache } from "./cache.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   collection, query, onSnapshot, doc, getDoc, addDoc,
@@ -49,7 +50,14 @@ onAuthStateChanged(auth, async (user) => {
 
 function loadCommunities() {
   const list = document.getElementById('communitiesList');
-  list.innerHTML = '<div class="loading">Loading communities...</div>';
+
+  // Show cached community list instantly
+  const cached = Cache.get('communities_' + currentUid);
+  if (cached) {
+    list.innerHTML = cached;
+  } else {
+    list.innerHTML = '<div class="loading">Loading communities...</div>';
+  }
 
   try {
     const q = query(collection(db, "communities"), orderBy("createdAt", "desc"));
@@ -114,6 +122,8 @@ function loadCommunities() {
       if (!list.hasChildNodes()) {
         list.innerHTML = '<div class="error-message">No communities available</div>';
       }
+      // Cache for instant next load
+      Cache.set('communities_' + currentUid, list.innerHTML);
 
     }, (error) => {
       console.error('Communities listener error:', error);
@@ -228,6 +238,7 @@ window.createCommunity = async function() {
     });
 
     userStatusCache.set(ref.id, 'creator');
+    Cache.del('communities_' + currentUid);
     hideCreateCommunityModal();
     window.location.href = `community-chat.html?communityId=${ref.id}&name=${encodeURIComponent(name)}`;
   } catch (error) {
@@ -267,6 +278,7 @@ window.joinCommunity = async function(id, type) {
         joinedAt: new Date().toISOString(), lastSeen: new Date().toISOString(), online: true
       });
       userStatusCache.set(id, 'member');
+      Cache.del('communities_' + currentUid);
       window.location.href = `community-chat.html?communityId=${id}&name=${encodeURIComponent(data.name)}`;
     } else {
       await addDoc(collection(db, "communities", id, "requests"), {
@@ -274,6 +286,7 @@ window.joinCommunity = async function(id, type) {
         status: 'pending', requestedAt: new Date().toISOString()
       });
       userStatusCache.set(id, 'pending');
+      Cache.del('communities_' + currentUid);
 
       // Update DOM immediately — no refresh needed
       const allBtns = document.querySelectorAll('.join-btn');
@@ -328,6 +341,7 @@ function watchApprovals() {
 
 window.cancelRequest = async function(id) {
   userStatusCache.delete(id);
+  Cache.del('communities_' + currentUid);
   try {
     const q = query(
       collection(db, "communities", id, "requests"),

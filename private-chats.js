@@ -1,4 +1,5 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
+import { Cache } from "./cache.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
   collection, query, where, getDocs, onSnapshot,
@@ -47,7 +48,14 @@ function loadChats() {
   if (!currentUsername) return;
   
   const chatsList = document.getElementById('chatsList');
-  chatsList.innerHTML = '<div class="loading">Loading chats...</div>';
+
+  // Render cached chat list instantly while Firestore loads
+  const cached = Cache.get('chats_' + currentUsername);
+  if (cached) {
+    chatsList.innerHTML = cached;
+  } else {
+    chatsList.innerHTML = '<div class="loading">Loading chats...</div>';
+  }
   
   try {
     const chatsQuery = query(
@@ -115,7 +123,10 @@ function loadChats() {
         return new Date(b.lastMessageAt) - new Date(a.lastMessageAt);
       });
 
-      chatsList.innerHTML = items.map(i => i.html).join('') || '<div class="no-chats">No chats available</div>';
+      const html = items.map(i => i.html).join('') || '<div class="no-chats">No chats available</div>';
+      chatsList.innerHTML = html;
+      // Cache the rendered HTML for instant next load
+      Cache.set('chats_' + currentUsername, html);
 
     }, (error) => {
       console.error('Chats listener error:', error);
@@ -129,6 +140,11 @@ function loadChats() {
 
 async function getUserStatus(username) {
   if (!username) return { online: false, lastSeen: 'Offline', verified: false };
+
+  // Cache user status for 30 seconds — frequent enough to stay current
+  const cacheKey = 'ustatus_' + username;
+  const cached = Cache.get(cacheKey, 30000);
+  if (cached) return cached;
   
   try {
     const q = query(collection(db, "users"), where("username", "==", username));
@@ -158,6 +174,8 @@ async function getUserStatus(username) {
         lastSeen: online ? 'Online' : lastSeenText,
         verified: data.verified || false
       };
+      Cache.set(cacheKey, result);
+      return result;
     }
   } catch (error) {
     console.error('Error in getUserStatus:', error);

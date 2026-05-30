@@ -289,6 +289,12 @@ window.logout = async function() {
     if (unsubscribeRequests) unsubscribeRequests();
     if (unsubscribeChats) unsubscribeChats();
 
+    // Clear all cached data so next user doesn't see stale content
+    try {
+      const keys = Object.keys(sessionStorage).filter(k => k.startsWith('chatapp_'));
+      keys.forEach(k => sessionStorage.removeItem(k));
+    } catch (e) {}
+
     await signOut(auth);
     window.location.href = 'index.html';
   } catch (error) {
