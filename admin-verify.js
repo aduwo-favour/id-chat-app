@@ -43,10 +43,20 @@ onAuthStateChanged(auth, async (user) => {
     isAdmin = userDoc.data().isAdmin || false;
     const statusEl = document.getElementById('adminStatus');
     if (isAdmin) {
-      // SECURITY: Use textContent for status messages, not innerHTML
       if (statusEl) statusEl.textContent = '✅ Admin logged in';
       loadUsers();
       loadSettings();
+
+      // Watch for real-time demotion — if another admin removes this user's
+      // admin rights while the panel is open, redirect them immediately
+      onSnapshot(doc(db, "users", user.uid), (snap) => {
+        if (!snap.exists()) { window.location.href = 'dashboard.html'; return; }
+        const data = snap.data();
+        if (!data.isAdmin || data.banned || data.disabled || data.deleted) {
+          alert('Your admin access has been revoked. Redirecting.');
+          window.location.href = 'dashboard.html';
+        }
+      });
     } else {
       if (statusEl) statusEl.textContent = '⛔ Not authorized';
       setTimeout(() => { window.location.href = 'dashboard.html'; }, 2000);
@@ -133,6 +143,14 @@ function makeBtn(label, className, handler) {
 window.toggleAdmin = async (userId, currentStatus) => {
   try {
     await updateDoc(doc(db, "users", userId), { isAdmin: !currentStatus });
+
+    // If the current logged-in admin just demoted themselves, redirect away
+    if (userId === currentUid && currentStatus === true) {
+      alert('You have been demoted. Redirecting to dashboard.');
+      window.location.href = 'dashboard.html';
+      return;
+    }
+
     loadUsers(document.getElementById('userSearch').value);
   } catch (error) { alert('Failed to update admin status'); }
 };
