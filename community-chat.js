@@ -1,5 +1,5 @@
-import { auth, db } from "./firebase.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { auth, db, watchBanStatus } from "./firebase.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 // SECURITY: Escape HTML to prevent XSS when inserting dynamic content into innerHTML
 function escapeHtml(text) {
@@ -27,6 +27,13 @@ window.goBack = function() { window.location.href = 'community.html'; };
 onAuthStateChanged(auth, async (user) => {
   if (!user) { window.location.href = 'index.html'; return; }
   currentUid = user.uid;
+
+  // Immediately kick user if banned while in community chat
+  watchBanStatus(user.uid, async () => {
+    await signOut(auth);
+    window.location.href = 'index.html';
+  });
+
   const userDoc = await getDoc(doc(db, "users", user.uid));
   if (userDoc.exists()) {
     currentUsername = userDoc.data().username;

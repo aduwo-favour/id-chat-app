@@ -1,4 +1,4 @@
-import { auth, db } from "./firebase.js";
+import { auth, db, watchBanStatus } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
   collection, query, where, getDocs, onSnapshot,
@@ -24,6 +24,10 @@ onAuthStateChanged(auth, async (user) => {
     return; 
   }
   currentUid = user.uid;
+    watchBanStatus(user.uid, async () => {
+      await signOut(auth);
+      window.location.href = 'index.html';
+    });
   
   try {
     const userDoc = await getDoc(doc(db, "users", user.uid));

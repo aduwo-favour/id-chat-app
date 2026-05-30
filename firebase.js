@@ -5,7 +5,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging.js";
 
 const firebaseConfig = {
@@ -76,3 +76,18 @@ export const onForegroundMessage = (callback) => {
     console.error('Error setting up foreground message handler:', error);
   }
 };
+
+// Real-time ban/disable watcher.
+// Call once after confirming the user is logged in on every page.
+// Returns an unsubscribe fn — call it on logout / page unload.
+export function watchBanStatus(uid, onBanned) {
+  return onSnapshot(doc(db, "users", uid), (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.data();
+    if (data.banned || data.disabled) {
+      onBanned();
+    }
+  }, (err) => {
+    console.error("watchBanStatus error:", err);
+  });
+}

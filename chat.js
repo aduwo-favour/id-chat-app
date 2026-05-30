@@ -1,4 +1,4 @@
-import { auth, db } from "./firebase.js";
+import { auth, db, watchBanStatus } from "./firebase.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
   doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
@@ -39,6 +39,10 @@ onAuthStateChanged(auth, async (user) => {
   }
   
   currentUid = user.uid;
+    watchBanStatus(user.uid, async () => {
+      await signOut(auth);
+      window.location.href = 'index.html';
+    });
   
   try {
     // Get current user's username

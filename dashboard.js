@@ -1,4 +1,4 @@
-import { auth, db, messaging, onForegroundMessage } from "./firebase.js";
+import { auth, db, messaging, onForegroundMessage, watchBanStatus } from "./firebase.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   doc, getDoc, updateDoc, collection, query, where,
@@ -80,6 +80,11 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   currentUid = user.uid;
+    // Immediately sign out if admin bans this user while they are online
+    watchBanStatus(user.uid, async () => {
+      await signOut(auth);
+      window.location.href = 'index.html';
+    });
 
   try {
     const userDoc = await getDoc(doc(db, "users", user.uid));
