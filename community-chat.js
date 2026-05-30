@@ -1,5 +1,10 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import {
+  doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
+  updateDoc, where, getDocs, deleteDoc, arrayUnion, arrayRemove,
+  writeBatch, setDoc
+} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 // SECURITY: Escape HTML to prevent XSS when inserting dynamic content into innerHTML
 function escapeHtml(text) {
@@ -8,11 +13,6 @@ function escapeHtml(text) {
   div.textContent = String(text);
   return div.innerHTML;
 }
-import { 
-  doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
-  updateDoc, where, getDocs, deleteDoc, arrayUnion, arrayRemove,
-  writeBatch, setDoc
-} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let currentUsername, currentUid, communityId, communityName, replyingTo = null;
 let userRole = null, onlineInterval = null;
