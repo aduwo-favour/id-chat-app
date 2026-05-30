@@ -1,0 +1,2 @@
+# SECURITY: Never commit real Firebase credentials
+firebase-config.js

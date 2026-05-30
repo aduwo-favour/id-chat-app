@@ -7,7 +7,7 @@ window.switchTab = function(tab) {
   document.getElementById('signupTab').classList.remove('active');
   document.getElementById('loginForm').classList.remove('active');
   document.getElementById('signupForm').classList.remove('active');
-  
+
   if (tab === 'login') {
     document.getElementById('loginTab').classList.add('active');
     document.getElementById('loginForm').classList.add('active');
@@ -17,25 +17,57 @@ window.switchTab = function(tab) {
   }
 };
 
+// SECURITY: Restrict username characters to alphanumeric + underscore only.
+// This prevents injection via the derived email and limits attack surface.
+function isValidUsername(username) {
+  return /^[a-zA-Z0-9_]{3,30}$/.test(username);
+}
+
+// SECURITY: Stronger password policy
+function isValidPassword(password) {
+  return password.length >= 8;
+}
+
 function makeEmail(username) {
-  return username.toLowerCase().replace(/[^a-z0-9]/g, '') + "@temp.com";
+  // Username is already validated to be alphanumeric+underscore, safe to use directly
+  return username.toLowerCase() + "@temp.com";
+}
+
+// SECURITY: Show errors in the DOM instead of alert() to prevent UI-redressing
+// and allow proper escaping. Never insert raw error messages from Firebase into innerHTML.
+function showError(elementId, message) {
+  const el = document.getElementById(elementId);
+  if (el) {
+    el.textContent = message; // textContent, not innerHTML — safe
+    el.style.display = 'block';
+  }
+}
+
+function clearError(elementId) {
+  const el = document.getElementById(elementId);
+  if (el) {
+    el.textContent = '';
+    el.style.display = 'none';
+  }
 }
 
 window.handleSignup = async function() {
+  clearError('signupError');
   const username = document.getElementById('signupUserId').value.trim();
-  const password = document.getElementById('signupPassword').value.trim();
+  const password = document.getElementById('signupPassword').value;
   const btn = document.getElementById('signupBtn');
 
-  if (!username || !password) {
-    alert('Please fill all fields');
+  // SECURITY: Validate username format strictly
+  if (!username) {
+    showError('signupError', 'Please enter a username');
     return;
   }
-  if (username.length < 3) {
-    alert('Username must be at least 3 characters');
+  if (!isValidUsername(username)) {
+    showError('signupError', 'Username must be 3–30 characters and contain only letters, numbers, or underscores');
     return;
   }
-  if (password.length < 6) {
-    alert('Password must be at least 6 characters');
+  if (!isValidPassword(password)) {
+    showError('signupError', 'Password must be at least 8 characters');
     return;
   }
 
@@ -45,16 +77,15 @@ window.handleSignup = async function() {
   try {
     const email = makeEmail(username);
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    
-    // Request notification permission and get token
+
     let fcmTokens = [];
     try {
       const token = await requestNotificationPermission();
       if (token) fcmTokens = [token];
     } catch (notifError) {
-      console.log('Notification permission not granted:', notifError);
+      // Non-fatal: notifications are optional
     }
-    
+
     await setDoc(doc(db, "users", userCredential.user.uid), {
       username: username,
       email: email,
@@ -62,23 +93,25 @@ window.handleSignup = async function() {
       online: true,
       lastSeen: new Date().toISOString(),
       blockedUsers: [],
-      fcmTokens: fcmTokens, // Store FCM tokens for push notifications
+      fcmTokens: fcmTokens,
       verified: false,
       isAdmin: false,
       banned: false,
       disabled: false
     });
 
-    alert('Account created successfully!');
     window.location.href = 'dashboard.html';
   } catch (error) {
-    console.error('Signup error:', error);
+    // SECURITY: Map error codes to safe, generic messages.
+    // Never expose raw error.message from Firebase to the user — it can leak internals.
     if (error.code === 'auth/email-already-in-use') {
-      alert('Username already taken');
+      showError('signupError', 'Username already taken');
     } else if (error.code === 'auth/weak-password') {
-      alert('Password too weak');
+      showError('signupError', 'Password is too weak');
+    } else if (error.code === 'auth/network-request-failed') {
+      showError('signupError', 'Network error. Please try again.');
     } else {
-      alert('Signup failed: ' + error.message);
+      showError('signupError', 'Signup failed. Please try again.');
     }
   } finally {
     btn.disabled = false;
@@ -87,12 +120,19 @@ window.handleSignup = async function() {
 };
 
 window.handleLogin = async function() {
+  clearError('loginError');
   const username = document.getElementById('loginUserId').value.trim();
-  const password = document.getElementById('loginPassword').value.trim();
+  const password = document.getElementById('loginPassword').value;
   const btn = document.getElementById('loginBtn');
 
   if (!username || !password) {
-    alert('Please fill all fields');
+    showError('loginError', 'Please fill all fields');
+    return;
+  }
+
+  // SECURITY: Validate username before constructing the email address
+  if (!isValidUsername(username)) {
+    showError('loginError', 'Invalid username or password');
     return;
   }
 
@@ -102,8 +142,26 @@ window.handleLogin = async function() {
   try {
     const email = makeEmail(username);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    
-    // Request notification permission and update token
+
+    // Check if account is banned or disabled before proceeding
+    const { getDoc } = await import("https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js");
+    const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      if (userData.banned) {
+        const { signOut } = await import("https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js");
+        await signOut(auth);
+        showError('loginError', 'Your account has been suspended');
+        return;
+      }
+      if (userData.disabled) {
+        const { signOut } = await import("https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js");
+        await signOut(auth);
+        showError('loginError', 'Your account has been disabled');
+        return;
+      }
+    }
+
     try {
       const token = await requestNotificationPermission();
       if (token) {
@@ -113,23 +171,37 @@ window.handleLogin = async function() {
           online: true,
           lastSeen: new Date().toISOString()
         });
+      } else {
+        await updateDoc(doc(db, "users", userCredential.user.uid), {
+          online: true,
+          lastSeen: new Date().toISOString()
+        });
       }
     } catch (notifError) {
-      console.log('Notification permission not granted:', notifError);
-      // Still update online status even if notifications fail
+      // Non-fatal: still proceed
       await updateDoc(doc(db, "users", userCredential.user.uid), {
         online: true,
         lastSeen: new Date().toISOString()
-      });
+      }).catch(() => {});
     }
-    
+
     window.location.href = 'dashboard.html';
   } catch (error) {
-    console.error('Login error:', error);
-    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-login-credentials') {
-      alert('Invalid username or password');
+    // SECURITY: Use a single generic message for all auth failures to prevent
+    // username enumeration attacks.
+    if (
+      error.code === 'auth/user-not-found' ||
+      error.code === 'auth/wrong-password' ||
+      error.code === 'auth/invalid-login-credentials' ||
+      error.code === 'auth/invalid-credential'
+    ) {
+      showError('loginError', 'Invalid username or password');
+    } else if (error.code === 'auth/too-many-requests') {
+      showError('loginError', 'Too many attempts. Please wait before trying again.');
+    } else if (error.code === 'auth/network-request-failed') {
+      showError('loginError', 'Network error. Please try again.');
     } else {
-      alert('Login failed: ' + error.message);
+      showError('loginError', 'Login failed. Please try again.');
     }
   } finally {
     btn.disabled = false;

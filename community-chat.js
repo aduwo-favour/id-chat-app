@@ -1,5 +1,13 @@
 import { auth, db } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+// SECURITY: Escape HTML to prevent XSS when inserting dynamic content into innerHTML
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = String(text);
+  return div.innerHTML;
+}
 import { 
   doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
   updateDoc, where, getDocs, deleteDoc, arrayUnion, arrayRemove,
@@ -189,9 +197,9 @@ function createMessageElement(data, msgId, isMine) {
     // For other people's messages, show sender name with verified badge
     if (!isMine) {
       div.innerHTML = `
-        <div class="message-sender">${data.sender || 'Unknown'} ${verifiedBadge}</div>
+        <div class="message-sender">${escapeHtml(data.sender || 'Unknown')} ${verifiedBadge}</div>
         ${replyHTML}
-        <div class="message-text">${data.text}</div>
+        <div class="message-text">${escapeHtml(data.text)}</div>
         ${reactionsHTML}
         <div class="message-footer">
           <span class="message-time">${time}</span>
@@ -201,7 +209,7 @@ function createMessageElement(data, msgId, isMine) {
       // For your own messages, don't show sender name
       div.innerHTML = `
         ${replyHTML}
-        <div class="message-text">${data.text}</div>
+        <div class="message-text">${escapeHtml(data.text)}</div>
         ${reactionsHTML}
         <div class="message-footer">
           <span class="message-time">${time}</span>
@@ -400,9 +408,9 @@ async function loadMembersList(filter = 'all') {
     const statusText = m.online ? 'Online' : (m.lastSeen ? formatLastSeen(new Date(m.lastSeen)) : 'Offline');
     html += `
       <div class="member-item">
-        <div class="member-avatar">${m.username[0].toUpperCase()}</div>
+        <div class="member-avatar">${escapeHtml(m.username[0].toUpperCase())}</div>
         <div class="member-info">
-          <div class="member-name">${m.username} ${roleBadge ? `<span class="role-badge">${roleBadge}</span>` : ''}</div>
+          <div class="member-name">${escapeHtml(m.username)} ${roleBadge ? `<span class="role-badge">${roleBadge}</span>` : ''}</div>
           <div class="member-status ${statusClass}">${statusText}</div>
         </div>
       </div>
@@ -488,7 +496,7 @@ async function loadRequestsList() {
         <div class="request-item" data-id="${d.id}">
           <div class="request-avatar">${data.username ? data.username[0].toUpperCase() : '?'}</div>
           <div class="request-details">
-            <div class="request-from">${data.username || 'Unknown'}</div>
+            <div class="request-from">${escapeHtml(data.username || 'Unknown')}</div>
             <div class="request-time">${formatTime(data.requestedAt)}</div>
           </div>
           <div class="request-actions">
@@ -500,7 +508,7 @@ async function loadRequestsList() {
     });
     list.innerHTML = html;
   } catch (error) {
-    document.getElementById('requestsList').innerHTML = '<div class="error-message">Error loading</div>';
+    document.getElementById('requestsList').innerHTML = '<div class="error-message">Error loading requests</div>'; console.error('Requests load error:', error);
   }
 }
 
@@ -579,7 +587,7 @@ async function loadManageMembersList(search = '') {
     html += `
       <div class="manage-member-item">
         <div class="member-info">
-          <div class="member-avatar">${m.username[0].toUpperCase()}</div>
+          <div class="member-avatar">${escapeHtml(m.username[0].toUpperCase())}</div>
           <div class="member-details">
             <div class="member-name">${m.username} <span class="role-badge">${roleBadge}</span></div>
             <div class="member-status ${statusClass}">${statusText}</div>

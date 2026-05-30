@@ -205,7 +205,7 @@ window.searchUsers = async function() {
     resultsDiv.innerHTML = html;
   } catch (error) {
     console.error('Search error:', error);
-    resultsDiv.innerHTML = '<div class="error-message">Search failed: ' + error.message + '</div>';
+    resultsDiv.innerHTML = '<div class="error-message">Search failed. Please try again.</div>'; console.error('Search error:', error);
   }
 };
 
@@ -298,7 +298,7 @@ window.sendRequest = async function(toUser) {
 
 window.openChat = function(chatId, username) {
   if (unsubscribeChats) unsubscribeChats();
-  window.location.href = `chat.html?chatId=${chatId}&user=${username}`;
+  window.location.href = `chat.html?chatId=${encodeURIComponent(chatId)}&user=${encodeURIComponent(username)}`;
 };
 
 // Cleanup on page unload

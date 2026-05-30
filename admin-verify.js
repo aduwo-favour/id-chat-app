@@ -1,6 +1,6 @@
 import { auth, db } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { 
+import {
   collection, getDocs, doc, updateDoc, getDoc, query, orderBy, where,
   deleteDoc, writeBatch, setDoc, addDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
@@ -9,6 +9,14 @@ let currentUsername = null;
 let currentUid = null;
 let isAdmin = false;
 
+// SECURITY: Central escapeHtml used everywhere instead of raw string interpolation
+function escapeHtml(text) {
+  if (text == null) return '';
+  const div = document.createElement('div');
+  div.textContent = String(text);
+  return div.innerHTML;
+}
+
 // Tab switching
 document.querySelectorAll('.admin-tab').forEach(tab => {
   tab.addEventListener('click', () => {
@@ -16,8 +24,7 @@ document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.classList.add('active');
     const panelId = tab.dataset.tab + 'Panel';
     document.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
-    document.getElementById(panelId).classList.add('active');
-    // Load data for the active tab
+    document.getElementById(panelId)?.classList.add('active');
     if (tab.dataset.tab === 'users') loadUsers();
     if (tab.dataset.tab === 'chats') loadChats();
     if (tab.dataset.tab === 'communities') loadCommunities();
@@ -25,7 +32,7 @@ document.querySelectorAll('.admin-tab').forEach(tab => {
   });
 });
 
-window.goBack = () => window.location.href = 'dashboard.html';
+window.goBack = () => { window.location.href = 'dashboard.html'; };
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) { window.location.href = 'index.html'; return; }
@@ -34,14 +41,15 @@ onAuthStateChanged(auth, async (user) => {
   if (userDoc.exists()) {
     currentUsername = userDoc.data().username;
     isAdmin = userDoc.data().isAdmin || false;
+    const statusEl = document.getElementById('adminStatus');
     if (isAdmin) {
-      document.getElementById('adminStatus').innerHTML = '✅ Admin logged in';
-      // Load default tab
+      // SECURITY: Use textContent for status messages, not innerHTML
+      if (statusEl) statusEl.textContent = '✅ Admin logged in';
       loadUsers();
-      loadSettings(); // preload settings for toggles
+      loadSettings();
     } else {
-      document.getElementById('adminStatus').innerHTML = '⛔ Not authorized';
-      setTimeout(() => window.location.href = 'dashboard.html', 2000);
+      if (statusEl) statusEl.textContent = '⛔ Not authorized';
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 2000);
     }
   }
 });
@@ -54,46 +62,78 @@ async function loadUsers(search = '') {
     const usersRef = collection(db, "users");
     const q = query(usersRef, orderBy("username"));
     const snap = await getDocs(q);
-    let html = '';
+    tbody.innerHTML = '';
+
+    let found = false;
     snap.forEach(docSnap => {
       const data = docSnap.data();
-      if (search && !data.username.toLowerCase().includes(search.toLowerCase())) return;
+      if (search && !data.username?.toLowerCase().includes(search.toLowerCase())) return;
+      found = true;
+
       const created = data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A';
       const lastSeen = data.lastSeen ? new Date(data.lastSeen).toLocaleString() : 'Never';
-      const status = [];
-      if (data.isAdmin) status.push('<span class="badge admin">Admin</span>');
-      if (data.verified) status.push('<span class="badge verified">Verified</span>');
-      if (data.banned) status.push('<span class="badge banned">Banned</span>');
-      if (data.disabled) status.push('<span class="badge disabled">Disabled</span>');
-      html += `
-        <tr>
-          <td>${data.username}</td>
-          <td>${data.email || 'N/A'}</td>
-          <td>${status.join(' ') || 'Active'}</td>
-          <td>${created}</td>
-          <td>${lastSeen}</td>
-          <td>
-            <button class="action-btn view small" onclick="viewUserActivity('${docSnap.id}')">📋 Log</button>
-            <button class="action-btn edit small" onclick="toggleAdmin('${docSnap.id}', ${data.isAdmin})">${data.isAdmin ? 'Demote' : 'Make Admin'}</button>
-            <button class="action-btn edit small" onclick="toggleVerified('${docSnap.id}', ${data.verified})">${data.verified ? 'Unverify' : 'Verify'}</button>
-            <button class="action-btn ban small" onclick="toggleBan('${docSnap.id}', '${data.username}', ${data.banned})">${data.banned ? 'Unban' : 'Ban'}</button>
-            <button class="action-btn delete small" onclick="deleteUser('${docSnap.id}', '${data.username}')">🗑️ Delete</button>
-          </td>
-        </tr>
-      `;
+
+      const tr = document.createElement('tr');
+
+      // SECURITY: Build table cells with textContent/DOM APIs, not string interpolation,
+      // so usernames containing HTML/script cannot inject into the admin panel.
+      const cells = [
+        data.username || '',
+        data.email || 'N/A',
+        '', // status badges (built below)
+        created,
+        lastSeen,
+        '' // actions (built below)
+      ];
+
+      cells.forEach((text, i) => {
+        const td = document.createElement('td');
+        if (i === 2) {
+          // Status badges - these are fixed strings, safe as innerHTML
+          if (data.isAdmin)    td.insertAdjacentHTML('beforeend', '<span class="badge admin">Admin</span> ');
+          if (data.verified)   td.insertAdjacentHTML('beforeend', '<span class="badge verified">Verified</span> ');
+          if (data.banned)     td.insertAdjacentHTML('beforeend', '<span class="badge banned">Banned</span> ');
+          if (data.disabled)   td.insertAdjacentHTML('beforeend', '<span class="badge disabled">Disabled</span> ');
+          if (!td.textContent.trim()) td.textContent = 'Active';
+        } else if (i === 5) {
+          // Action buttons — wire up via addEventListener, not onclick="..." with user data
+          const logBtn = makeBtn('📋 Log', 'action-btn view small', () => viewUserActivity(docSnap.id));
+          const adminBtn = makeBtn(data.isAdmin ? 'Demote' : 'Make Admin', 'action-btn edit small', () => toggleAdmin(docSnap.id, data.isAdmin));
+          const verifyBtn = makeBtn(data.verified ? 'Unverify' : 'Verify', 'action-btn edit small', () => toggleVerified(docSnap.id, data.verified));
+          const banBtn = makeBtn(data.banned ? 'Unban' : 'Ban', 'action-btn ban small', () => toggleBan(docSnap.id, data.username, data.banned));
+          const delBtn = makeBtn('🗑️ Delete', 'action-btn delete small', () => deleteUser(docSnap.id, data.username));
+          [logBtn, adminBtn, verifyBtn, banBtn, delBtn].forEach(b => td.appendChild(b));
+        } else {
+          td.textContent = text;
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
     });
-    tbody.innerHTML = html || '<tr><td colspan="6">No users found</td></tr>';
+
+    if (!found) {
+      tbody.innerHTML = '<tr><td colspan="6">No users found</td></tr>';
+    }
   } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="6">Error: ${error.message}</td></tr>`;
+    // SECURITY: Never expose raw error.message in the DOM
+    tbody.innerHTML = '<tr><td colspan="6">Error loading users. Check console.</td></tr>';
+    console.error('loadUsers error:', error);
   }
+}
+
+function makeBtn(label, className, handler) {
+  const btn = document.createElement('button');
+  btn.className = className;
+  btn.textContent = label;
+  btn.addEventListener('click', handler);
+  return btn;
 }
 
 window.toggleAdmin = async (userId, currentStatus) => {
   try {
     await updateDoc(doc(db, "users", userId), { isAdmin: !currentStatus });
-    alert(`Admin status toggled`);
     loadUsers(document.getElementById('userSearch').value);
-  } catch (error) { alert('Failed: ' + error.message); }
+  } catch (error) { alert('Failed to update admin status'); }
 };
 
 window.toggleVerified = async (userId, currentStatus) => {
@@ -103,9 +143,8 @@ window.toggleVerified = async (userId, currentStatus) => {
       verifiedAt: !currentStatus ? new Date().toISOString() : null,
       verifiedBy: !currentStatus ? currentUsername : null
     });
-    alert(`Verification toggled`);
     loadUsers(document.getElementById('userSearch').value);
-  } catch (error) { alert('Failed: ' + error.message); }
+  } catch (error) { alert('Failed to update verification'); }
 };
 
 window.toggleBan = async (userId, username, currentBanned) => {
@@ -115,43 +154,51 @@ window.toggleBan = async (userId, username, currentBanned) => {
       bannedAt: !currentBanned ? new Date().toISOString() : null,
       bannedBy: !currentBanned ? currentUsername : null
     });
-    alert(`${username} ${currentBanned ? 'unbanned' : 'banned'}`);
     loadUsers(document.getElementById('userSearch').value);
-  } catch (error) { alert('Failed: ' + error.message); }
+  } catch (error) { alert('Failed to update ban status'); }
 };
 
 window.deleteUser = async (userId, username) => {
-  if (!confirm(`Permanently delete user ${username}? This will remove all their data.`)) return;
+  if (!confirm(`Permanently disable this user? This cannot be undone.`)) return;
   try {
-    // Soft delete: mark as disabled and remove from auth? Not possible client-side.
-    // Instead, we can mark disabled and optionally delete their messages/chats.
     await updateDoc(doc(db, "users", userId), { disabled: true, disabledAt: new Date().toISOString() });
-    alert(`User ${username} disabled. (To fully delete, use Firebase Console.)`);
     loadUsers(document.getElementById('userSearch').value);
-  } catch (error) { alert('Failed: ' + error.message); }
+  } catch (error) { alert('Failed to disable user'); }
 };
 
 window.viewUserActivity = async (userId) => {
   const modal = document.getElementById('userActivityModal');
   const content = document.getElementById('userActivityContent');
-  content.innerHTML = 'Loading...';
+  content.textContent = 'Loading...';
   modal.classList.remove('hidden');
   try {
     const userDoc = await getDoc(doc(db, "users", userId));
     const data = userDoc.data();
-    let html = `<p><strong>Username:</strong> ${data.username}</p>`;
-    html += `<p><strong>Email:</strong> ${data.email || 'N/A'}</p>`;
-    html += `<p><strong>Created:</strong> ${data.createdAt ? new Date(data.createdAt).toLocaleString() : 'N/A'}</p>`;
-    html += `<p><strong>Last Seen:</strong> ${data.lastSeen ? new Date(data.lastSeen).toLocaleString() : 'N/A'}</p>`;
-    html += `<p><strong>Online:</strong> ${data.online ? 'Yes' : 'No'}</p>`;
-    html += `<p><strong>Verified:</strong> ${data.verified ? 'Yes' : 'No'}</p>`;
-    html += `<p><strong>Admin:</strong> ${data.isAdmin ? 'Yes' : 'No'}</p>`;
-    html += `<p><strong>Banned:</strong> ${data.banned ? 'Yes' : 'No'}</p>`;
-    html += `<p><strong>Blocked Users:</strong> ${data.blockedUsers?.length || 0}</p>`;
-    // Optionally show recent messages from this user across chats (could be heavy)
-    content.innerHTML = html;
+    content.innerHTML = '';
+
+    // SECURITY: Build DOM nodes with textContent, not string interpolation
+    const fields = [
+      ['Username', data.username],
+      ['Email', data.email || 'N/A'],
+      ['Created', data.createdAt ? new Date(data.createdAt).toLocaleString() : 'N/A'],
+      ['Last Seen', data.lastSeen ? new Date(data.lastSeen).toLocaleString() : 'N/A'],
+      ['Online', data.online ? 'Yes' : 'No'],
+      ['Verified', data.verified ? 'Yes' : 'No'],
+      ['Admin', data.isAdmin ? 'Yes' : 'No'],
+      ['Banned', data.banned ? 'Yes' : 'No'],
+      ['Blocked Users', data.blockedUsers?.length || 0],
+    ];
+
+    fields.forEach(([label, value]) => {
+      const p = document.createElement('p');
+      const strong = document.createElement('strong');
+      strong.textContent = label + ': ';
+      p.appendChild(strong);
+      p.appendChild(document.createTextNode(String(value)));
+      content.appendChild(p);
+    });
   } catch (error) {
-    content.innerHTML = 'Error loading activity.';
+    content.textContent = 'Error loading activity.';
   }
 };
 
@@ -162,66 +209,98 @@ async function loadChats(search = '') {
   try {
     const chatsRef = collection(db, "chats");
     const snap = await getDocs(chatsRef);
-    let html = '';
+    tbody.innerHTML = '';
+    let found = false;
+
     for (const docSnap of snap.docs) {
       const data = docSnap.data();
       const participants = data.participants?.join(', ') || 'N/A';
       if (search && !participants.toLowerCase().includes(search.toLowerCase())) continue;
-      // Get message count
+      found = true;
+
       const msgsSnap = await getDocs(collection(db, "chats", docSnap.id, "messages"));
-      const msgCount = msgsSnap.size;
-      html += `
-        <tr>
-          <td>${docSnap.id}</td>
-          <td>${participants}</td>
-          <td>${data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A'}</td>
-          <td>${msgCount}</td>
-          <td>
-            <button class="action-btn view small" onclick="viewChatMessages('${docSnap.id}')">View</button>
-            <button class="action-btn delete small" onclick="deleteChat('${docSnap.id}')">Delete</button>
-          </td>
-        </tr>
-      `;
+
+      const tr = document.createElement('tr');
+      [
+        docSnap.id,
+        participants,
+        data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A',
+        String(msgsSnap.size),
+      ].forEach(text => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        tr.appendChild(td);
+      });
+
+      const actionsTd = document.createElement('td');
+      actionsTd.appendChild(makeBtn('View', 'action-btn view small', () => viewChatMessages(docSnap.id)));
+      actionsTd.appendChild(makeBtn('Delete', 'action-btn delete small', () => deleteChat(docSnap.id)));
+      tr.appendChild(actionsTd);
+      tbody.appendChild(tr);
     }
-    tbody.innerHTML = html || '<tr><td colspan="5">No chats found</td></tr>';
+
+    if (!found) tbody.innerHTML = '<tr><td colspan="5">No chats found</td></tr>';
   } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="5">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="5">Error loading chats. Check console.</td></tr>';
+    console.error('loadChats error:', error);
   }
 }
 
 window.viewChatMessages = async (chatId) => {
   const modal = document.getElementById('chatMessagesModal');
   const content = document.getElementById('chatMessagesContent');
-  content.innerHTML = 'Loading messages...';
+  content.textContent = 'Loading messages...';
   modal.classList.remove('hidden');
-  // Store chatId for clear action
   window.currentChatId = chatId;
   try {
     const msgsRef = collection(db, "chats", chatId, "messages");
     const q = query(msgsRef, orderBy("timestamp", "desc"));
     const snap = await getDocs(q);
-    let html = '<div class="message-list">';
+
+    content.innerHTML = '';
+    const listDiv = document.createElement('div');
+    listDiv.className = 'message-list';
+
     snap.forEach(d => {
       const data = d.data();
       const time = data.timestamp ? new Date(data.timestamp).toLocaleString() : '';
-      const text = data.deletedForEveryone ? '<em>Deleted</em>' : data.text;
-      html += `
-        <div class="message-item">
-          <div>
-            <span class="message-sender">${data.sender || 'Unknown'}</span>
-            <span class="message-time">${time}</span>
-            <div>${text}</div>
-          </div>
-          <div>
-            <button class="action-btn delete small" onclick="deleteMessage('${chatId}', '${d.id}')">Delete</button>
-          </div>
-        </div>
-      `;
+
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'message-item';
+
+      const infoDiv = document.createElement('div');
+      const senderSpan = document.createElement('span');
+      senderSpan.className = 'message-sender';
+      senderSpan.textContent = data.sender || 'Unknown';   // textContent — safe
+
+      const timeSpan = document.createElement('span');
+      timeSpan.className = 'message-time';
+      timeSpan.textContent = time;
+
+      const textDiv = document.createElement('div');
+      if (data.deletedForEveryone) {
+        const em = document.createElement('em');
+        em.textContent = 'Deleted';
+        textDiv.appendChild(em);
+      } else {
+        textDiv.textContent = data.text || '';              // textContent — safe
+      }
+
+      infoDiv.appendChild(senderSpan);
+      infoDiv.appendChild(timeSpan);
+      infoDiv.appendChild(textDiv);
+
+      const actDiv = document.createElement('div');
+      actDiv.appendChild(makeBtn('Delete', 'action-btn delete small', () => deleteMessage(chatId, d.id)));
+
+      itemDiv.appendChild(infoDiv);
+      itemDiv.appendChild(actDiv);
+      listDiv.appendChild(itemDiv);
     });
-    html += '</div>';
-    content.innerHTML = html || '<p>No messages</p>';
+
+    content.appendChild(listDiv.childElementCount ? listDiv : Object.assign(document.createElement('p'), { textContent: 'No messages' }));
   } catch (error) {
-    content.innerHTML = 'Error loading messages.';
+    content.textContent = 'Error loading messages.';
   }
 };
 
@@ -232,9 +311,8 @@ window.deleteMessage = async (chatId, msgId) => {
       deletedForEveryone: true,
       text: ''
     });
-    alert('Message deleted');
-    viewChatMessages(chatId); // refresh
-  } catch (error) { alert('Failed'); }
+    viewChatMessages(chatId);
+  } catch (error) { alert('Failed to delete message'); }
 };
 
 window.clearChat = async () => {
@@ -245,9 +323,8 @@ window.clearChat = async () => {
     const msgs = await getDocs(collection(db, "chats", window.currentChatId, "messages"));
     msgs.forEach(d => batch.delete(d.ref));
     await batch.commit();
-    alert('Chat cleared');
     viewChatMessages(window.currentChatId);
-  } catch (error) { alert('Failed'); }
+  } catch (error) { alert('Failed to clear chat'); }
 };
 
 window.deleteChat = async (chatId) => {
@@ -258,9 +335,8 @@ window.deleteChat = async (chatId) => {
     msgs.forEach(d => batch.delete(d.ref));
     batch.delete(doc(db, "chats", chatId));
     await batch.commit();
-    alert('Chat deleted');
     loadChats(document.getElementById('chatSearch').value);
-  } catch (error) { alert('Failed'); }
+  } catch (error) { alert('Failed to delete chat'); }
 };
 
 // -------------------- COMMUNITY MANAGEMENT --------------------
@@ -270,80 +346,106 @@ async function loadCommunities(search = '') {
   try {
     const commRef = collection(db, "communities");
     const snap = await getDocs(commRef);
-    let html = '';
+    tbody.innerHTML = '';
+    let found = false;
+
     for (const docSnap of snap.docs) {
       const data = docSnap.data();
-      if (search && !data.name.toLowerCase().includes(search.toLowerCase())) continue;
+      if (search && !data.name?.toLowerCase().includes(search.toLowerCase())) continue;
+      found = true;
+
       const membersSnap = await getDocs(collection(db, "communities", docSnap.id, "members"));
-      const memberCount = membersSnap.size;
-      html += `
-        <tr>
-          <td>${data.name}</td>
-          <td>${data.type || 'public'}</td>
-          <td>${data.createdBy || 'N/A'}</td>
-          <td>${memberCount}</td>
-          <td>${data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A'}</td>
-          <td>
-            <button class="action-btn view small" onclick="manageCommunity('${docSnap.id}')">Manage</button>
-            <button class="action-btn delete small" onclick="deleteCommunity('${docSnap.id}')">Delete</button>
-          </td>
-        </tr>
-      `;
+
+      const tr = document.createElement('tr');
+      [
+        data.name || '',
+        data.type || 'public',
+        data.createdBy || 'N/A',
+        String(membersSnap.size),
+        data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A',
+      ].forEach(text => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        tr.appendChild(td);
+      });
+
+      const actionsTd = document.createElement('td');
+      actionsTd.appendChild(makeBtn('Manage', 'action-btn view small', () => manageCommunity(docSnap.id)));
+      actionsTd.appendChild(makeBtn('Delete', 'action-btn delete small', () => deleteCommunity(docSnap.id)));
+      tr.appendChild(actionsTd);
+      tbody.appendChild(tr);
     }
-    tbody.innerHTML = html || '<tr><td colspan="6">No communities found</td></tr>';
+
+    if (!found) tbody.innerHTML = '<tr><td colspan="6">No communities found</td></tr>';
   } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="6">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="6">Error loading communities. Check console.</td></tr>';
+    console.error('loadCommunities error:', error);
   }
 }
 
 window.manageCommunity = async (communityId) => {
   const modal = document.getElementById('communityManageModal');
   const content = document.getElementById('communityManageContent');
-  content.innerHTML = 'Loading...';
+  content.textContent = 'Loading...';
   modal.classList.remove('hidden');
   try {
     const commDoc = await getDoc(doc(db, "communities", communityId));
     const data = commDoc.data();
-    let html = `
-      <h4>${data.name}</h4>
-      <p><strong>Description:</strong> ${data.description || 'N/A'}</p>
-      <p><strong>Type:</strong> ${data.type}</p>
-      <p><strong>Created by:</strong> ${data.createdBy}</p>
-      <hr>
-      <h5>Members</h5>
-      <div id="communityMembersList"></div>
-      <hr>
-      <h5>Pending Requests</h5>
-      <div id="communityRequestsList"></div>
-    `;
-    content.innerHTML = html;
 
-    // Load members
+    // SECURITY: Build with DOM APIs, not innerHTML with user data
+    content.innerHTML = '';
+
+    const h4 = document.createElement('h4');
+    h4.textContent = data.name || '';
+    content.appendChild(h4);
+
+    [
+      ['Description', data.description || 'N/A'],
+      ['Type', data.type],
+      ['Created by', data.createdBy],
+    ].forEach(([label, val]) => {
+      const p = document.createElement('p');
+      p.innerHTML = `<strong>${escapeHtml(label)}:</strong> `;
+      p.appendChild(document.createTextNode(val || ''));
+      content.appendChild(p);
+    });
+
+    content.insertAdjacentHTML('beforeend', '<hr><h5>Members</h5>');
+    const membersDiv = document.createElement('div');
+    membersDiv.id = 'communityMembersList';
+    content.appendChild(membersDiv);
+
+    content.insertAdjacentHTML('beforeend', '<hr><h5>Pending Requests</h5>');
+    const reqDiv = document.createElement('div');
+    reqDiv.id = 'communityRequestsList';
+    content.appendChild(reqDiv);
+
     const membersSnap = await getDocs(collection(db, "communities", communityId, "members"));
-    let membersHtml = '<ul>';
+    const ul = document.createElement('ul');
     membersSnap.forEach(m => {
-      const mdata = m.data();
-      membersHtml += `<li>${mdata.username} (${mdata.role})</li>`;
+      const li = document.createElement('li');
+      li.textContent = `${m.data().username} (${m.data().role})`;
+      ul.appendChild(li);
     });
-    membersHtml += '</ul>';
-    document.getElementById('communityMembersList').innerHTML = membersHtml;
+    membersDiv.appendChild(ul);
 
-    // Load requests
     const reqSnap = await getDocs(collection(db, "communities", communityId, "requests"));
-    let reqHtml = '';
-    reqSnap.forEach(r => {
-      const rdata = r.data();
-      reqHtml += `
-        <div>
-          ${rdata.username} - requested ${new Date(rdata.requestedAt).toLocaleString()}
-          <button onclick="approveRequest('${communityId}', '${r.id}', '${rdata.userId}', '${rdata.username}')">Approve</button>
-          <button onclick="declineRequest('${communityId}', '${r.id}')">Decline</button>
-        </div>
-      `;
-    });
-    document.getElementById('communityRequestsList').innerHTML = reqHtml || 'No pending requests';
+    if (reqSnap.empty) {
+      reqDiv.textContent = 'No pending requests';
+    } else {
+      reqSnap.forEach(r => {
+        const rdata = r.data();
+        const div = document.createElement('div');
+        const span = document.createElement('span');
+        span.textContent = `${rdata.username} - requested ${new Date(rdata.requestedAt).toLocaleString()} `;
+        div.appendChild(span);
+        div.appendChild(makeBtn('Approve', '', () => approveRequest(communityId, r.id, rdata.userId, rdata.username)));
+        div.appendChild(makeBtn('Decline', '', () => declineRequest(communityId, r.id)));
+        reqDiv.appendChild(div);
+      });
+    }
   } catch (error) {
-    content.innerHTML = 'Error loading community.';
+    content.textContent = 'Error loading community.';
   }
 };
 
@@ -353,17 +455,15 @@ window.approveRequest = async (communityId, reqId, userId, username) => {
       username, role: 'member', joinedAt: new Date().toISOString(), online: true
     });
     await deleteDoc(doc(db, "communities", communityId, "requests", reqId));
-    alert('Request approved');
     manageCommunity(communityId);
-  } catch (error) { alert('Failed'); }
+  } catch (error) { alert('Failed to approve request'); }
 };
 
 window.declineRequest = async (communityId, reqId) => {
   try {
     await deleteDoc(doc(db, "communities", communityId, "requests", reqId));
-    alert('Request declined');
     manageCommunity(communityId);
-  } catch (error) { alert('Failed'); }
+  } catch (error) { alert('Failed to decline request'); }
 };
 
 window.deleteCommunity = async (communityId) => {
@@ -378,20 +478,18 @@ window.deleteCommunity = async (communityId) => {
     requests.forEach(d => batch.delete(d.ref));
     batch.delete(doc(db, "communities", communityId));
     await batch.commit();
-    alert('Community deleted');
     loadCommunities(document.getElementById('communitySearch').value);
-  } catch (error) { alert('Failed'); }
+  } catch (error) { alert('Failed to delete community'); }
 };
 
 // -------------------- SETTINGS --------------------
-const SETTINGS_DOC = 'globalSettings'; // single document in a 'settings' collection
+const SETTINGS_DOC = 'globalSettings';
 
 async function loadSettings() {
   try {
     const settingsRef = doc(db, "settings", SETTINGS_DOC);
     const snap = await getDoc(settingsRef);
-    let settings = {};
-    if (snap.exists()) settings = snap.data();
+    const settings = snap.exists() ? snap.data() : {};
     document.getElementById('toggleFileUploads').checked = settings.fileUploads ?? true;
     document.getElementById('toggleReactions').checked = settings.reactions ?? true;
     document.getElementById('toggleCommunityCreation').checked = settings.communityCreation ?? true;
@@ -406,7 +504,6 @@ window.updateSetting = async (key, value) => {
   try {
     const settingsRef = doc(db, "settings", SETTINGS_DOC);
     await setDoc(settingsRef, { [key]: value }, { merge: true });
-    alert('Setting updated');
   } catch (error) {
     alert('Failed to update setting');
   }
@@ -418,9 +515,8 @@ document.getElementById('chatSearch').addEventListener('input', (e) => loadChats
 document.getElementById('communitySearch').addEventListener('input', (e) => loadCommunities(e.target.value));
 
 // -------------------- UTILS --------------------
-window.hideModal = (id) => document.getElementById(id).classList.add('hidden');
+window.hideModal = (id) => document.getElementById(id)?.classList.add('hidden');
 
-// Make functions global for onclick handlers
 window.loadUsers = loadUsers;
 window.loadChats = loadChats;
 window.loadCommunities = loadCommunities;
