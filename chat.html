@@ -76,6 +76,13 @@
 </script>
 
 <style>
+  /* Kill any Google Translate injected elements that push layout down */
+  .goog-te-banner-frame,
+  .skiptranslate,
+  #goog-gt-tt,
+  .goog-te-balloon-frame { display: none !important; }
+  body { top: 0 !important; }
+
   .lang-selector-wrap select {
     background: rgba(255,255,255,0.2);
     border: 1px solid rgba(255,255,255,0.3);
@@ -89,6 +96,11 @@
   .lang-selector-wrap select option {
     background: #333;
     color: white;
+  }
+
+  /* Ensure chat input is always visible above keyboard on mobile */
+  .chat-wrapper {
+    height: 100dvh !important;
   }
 </style>
 

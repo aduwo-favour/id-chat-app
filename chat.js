@@ -639,12 +639,24 @@ async function translateText(text, targetLang) {
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
+
+    // Filter out API error strings that MyMemory returns as translated text
     const translated = data?.responseData?.translatedText;
-    if (translated && translated !== text) {
-      translateCache.set(cacheKey, translated);
-      return translated;
+    const responseStatus = data?.responseStatus;
+    if (
+      !translated ||
+      translated === text ||
+      responseStatus === 403 ||
+      translated.toUpperCase().includes('PLEASE SELECT TWO DISTINCT') ||
+      translated.toUpperCase().includes('MYMEMORY') ||
+      translated.toUpperCase().includes('QUERY LIMIT') ||
+      translated.length > text.length * 5  // sanity check
+    ) {
+      return null;
     }
-    return null;
+
+    translateCache.set(cacheKey, translated);
+    return translated;
   } catch (e) {
     return null;
   }
