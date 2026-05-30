@@ -151,5 +151,49 @@
 
 <script type="module" src="firebase.js"></script>
 <script type="module" src="community-chat.js"></script>
+
+<div id="editCommunityModal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>✏️ Edit Community</h3>
+      <button onclick="hideModal('editCommunityModal')" class="close-btn">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="edit-field">
+        <label>Community Name</label>
+        <input type="text" id="editName" maxlength="40" placeholder="Community name">
+      </div>
+      <div class="edit-field">
+        <label>Description</label>
+        <textarea id="editDescription" maxlength="200" placeholder="What is this community about?" rows="3"></textarea>
+      </div>
+      <div class="edit-field">
+        <label>Type</label>
+        <select id="editType">
+          <option value="public">🌍 Public — anyone can join</option>
+          <option value="private">🔒 Private — approval required</option>
+        </select>
+      </div>
+      <div class="edit-field">
+        <label>Avatar Color</label>
+        <div class="color-picker" id="colorPicker">
+          <div class="color-swatch selected" data-color="#667eea" style="background:#667eea"></div>
+          <div class="color-swatch" data-color="#e53e3e" style="background:#e53e3e"></div>
+          <div class="color-swatch" data-color="#38a169" style="background:#38a169"></div>
+          <div class="color-swatch" data-color="#f57c00" style="background:#f57c00"></div>
+          <div class="color-swatch" data-color="#d53f8c" style="background:#d53f8c"></div>
+          <div class="color-swatch" data-color="#0bc5ea" style="background:#0bc5ea"></div>
+          <div class="color-swatch" data-color="#805ad5" style="background:#805ad5"></div>
+          <div class="color-swatch" data-color="#2d3748" style="background:#2d3748"></div>
+        </div>
+      </div>
+      <div class="edit-field">
+        <label>Welcome Message <span style="font-size:0.75rem;color:#888">(shown to new members)</span></label>
+        <textarea id="editWelcome" maxlength="200" placeholder="Welcome to our community! 👋" rows="2"></textarea>
+      </div>
+      <button onclick="saveEditCommunity()" class="save-edit-btn">Save Changes</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

@@ -51,18 +51,51 @@ async function checkUserRole() {
   const memberRef = doc(db, "communities", communityId, "members", currentUid);
   const memberSnap = await getDoc(memberRef);
   if (memberSnap.exists()) {
-    userRole = memberSnap.data().role || 'member';
+    const memberData = memberSnap.data();
+    userRole = memberData.role || 'member';
+    isMuted = memberData.muted === true;
     enableChat();
     if (userRole === 'creator' || userRole === 'admin') showAdminOptions();
     updateUIForRole();
+
+    // Apply community color and show welcome message if newly joined
+    try {
+      const commSnap = await getDoc(doc(db, "communities", communityId));
+      if (commSnap.exists()) {
+        const commData = commSnap.data();
+        // Apply avatar color to header
+        const color = commData.color || '#667eea';
+        const headerAvatar = document.querySelector('.community-avatar-header');
+        if (headerAvatar) headerAvatar.style.background = color;
+
+        // Show welcome message to members who joined within the last 60s
+        const joinedAt = memberData.joinedAt ? new Date(memberData.joinedAt) : null;
+        const justJoined = joinedAt && (Date.now() - joinedAt.getTime()) < 60000;
+        if (justJoined && commData.welcomeMessage) {
+          setTimeout(() => {
+            const banner = document.createElement('div');
+            banner.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:var(--primary);color:white;padding:12px 20px;border-radius:12px;z-index:9999;max-width:320px;text-align:center;font-size:0.9rem;box-shadow:0 4px 20px rgba(0,0,0,0.3)';
+            banner.textContent = commData.welcomeMessage;
+            document.body.appendChild(banner);
+            setTimeout(() => banner.remove(), 5000);
+          }, 1000);
+        }
+      }
+    } catch (e) {}
   } else {
     window.location.href = 'community.html';
   }
 }
 
 function enableChat() {
-  document.getElementById('messageInput').disabled = false;
-  document.getElementById('sendBtn').disabled = false;
+  if (isMuted) {
+    const input = document.getElementById('messageInput');
+    if (input) { input.disabled = true; input.placeholder = 'You are muted'; }
+    document.getElementById('sendBtn').disabled = true;
+  } else {
+    document.getElementById('messageInput').disabled = false;
+    document.getElementById('sendBtn').disabled = false;
+  }
   document.getElementById('chatInputArea').classList.remove('hidden');
 }
 
@@ -319,12 +352,65 @@ function createMessageElement(data, msgId, isMine) {
   div.addEventListener('touchend', () => clearTimeout(pressTimer));
   div.addEventListener('touchcancel', () => clearTimeout(pressTimer));
 
-  if ((userRole === 'admin' || userRole === 'creator' || isMine) && !data.deletedForEveryone) {
-    div.addEventListener('contextmenu', e => {
-      e.preventDefault();
-      if (confirm('Delete this message?')) deleteMessage(msgId);
-    });
+  // Own messages: long-press or right-click to delete
+  // Admin/creator: same options on ANY message
+  if (!data.deletedForEveryone) {
+    const canDelete = isMine || userRole === 'admin' || userRole === 'creator';
+    if (canDelete) {
+      const showMenu = (e) => {
+        e.preventDefault();
+        // Remove any existing menus
+        document.querySelectorAll('.msg-context-menu').forEach(m => m.remove());
+
+        const menu = document.createElement('div');
+        menu.className = 'msg-context-menu';
+
+        if (isMine) {
+          const delBtn = document.createElement('button');
+          delBtn.textContent = '🗑️ Delete for everyone';
+          delBtn.onclick = () => { menu.remove(); if (confirm('Delete this message?')) deleteMessage(msgId); };
+          menu.appendChild(delBtn);
+        } else {
+          // Admin deleting someone else's message
+          const delBtn = document.createElement('button');
+          delBtn.textContent = `🗑️ Delete message`;
+          delBtn.style.color = '#e53e3e';
+          delBtn.onclick = () => { menu.remove(); if (confirm(`Delete this message from ${data.sender}?`)) deleteMessage(msgId); };
+          menu.appendChild(delBtn);
+        }
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '✕ Cancel';
+        cancelBtn.onclick = () => menu.remove();
+        menu.appendChild(cancelBtn);
+
+        document.body.appendChild(menu);
+
+        // Position near tap/click
+        const rect = div.getBoundingClientRect();
+        const menuH = 100;
+        const top = rect.top - menuH > 0 ? rect.top - menuH : rect.bottom + 8;
+        menu.style.cssText = `position:fixed;top:${top}px;left:50%;transform:translateX(-50%);z-index:10000`;
+
+        // Close on outside click
+        setTimeout(() => {
+          document.addEventListener('click', function close() {
+            menu.remove();
+            document.removeEventListener('click', close);
+          });
+        }, 100);
+      };
+
+      div.addEventListener('contextmenu', showMenu);
+
+      // Long press for mobile
+      let pressTimer;
+      div.addEventListener('touchstart', () => { pressTimer = setTimeout(() => showMenu({ preventDefault: () => {} }), 600); }, { passive: true });
+      div.addEventListener('touchend', () => clearTimeout(pressTimer));
+      div.addEventListener('touchmove', () => clearTimeout(pressTimer));
+    }
   }
+
   return div;
 }
 
@@ -705,10 +791,70 @@ window.banMember = async function(uid, username) {
   } catch (error) {}
 };
 
-window.editCommunity = function() {
-  alert('Edit coming soon');
+window.editCommunity = async function() {
   document.getElementById('communityOptions').classList.add('hidden');
   document.getElementById('adminOptions').classList.add('hidden');
+
+  // Load current community data into the form
+  try {
+    const commSnap = await getDoc(doc(db, "communities", communityId));
+    if (!commSnap.exists()) return;
+    const data = commSnap.data();
+
+    document.getElementById('editName').value = data.name || '';
+    document.getElementById('editDescription').value = data.description || '';
+    document.getElementById('editType').value = data.type || 'public';
+    document.getElementById('editWelcome').value = data.welcomeMessage || '';
+
+    // Set selected color swatch
+    const savedColor = data.color || '#667eea';
+    document.querySelectorAll('.color-swatch').forEach(sw => {
+      sw.classList.toggle('selected', sw.dataset.color === savedColor);
+      sw.onclick = () => {
+        document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        sw.classList.add('selected');
+      };
+    });
+
+    document.getElementById('editCommunityModal').classList.remove('hidden');
+  } catch (e) {
+    alert('Failed to load community data');
+  }
+};
+
+window.saveEditCommunity = async function() {
+  const name = document.getElementById('editName').value.trim();
+  const description = document.getElementById('editDescription').value.trim();
+  const type = document.getElementById('editType').value;
+  const welcome = document.getElementById('editWelcome').value.trim();
+  const selectedSwatch = document.querySelector('.color-swatch.selected');
+  const color = selectedSwatch ? selectedSwatch.dataset.color : '#667eea';
+
+  if (!name) { alert('Name cannot be empty'); return; }
+
+  const saveBtn = document.querySelector('.save-edit-btn');
+  saveBtn.textContent = 'Saving...';
+  saveBtn.disabled = true;
+
+  try {
+    await updateDoc(doc(db, "communities", communityId), {
+      name, description, type, color,
+      welcomeMessage: welcome,
+      updatedAt: new Date().toISOString(),
+      updatedBy: currentUsername
+    });
+
+    // Update header name live
+    document.getElementById('communityName').textContent = name;
+
+    hideModal('editCommunityModal');
+  } catch (e) {
+    alert('Failed to save changes');
+    console.error(e);
+  } finally {
+    saveBtn.textContent = 'Save Changes';
+    saveBtn.disabled = false;
+  }
 };
 
 window.hideModal = function(id) {
