@@ -62,43 +62,61 @@ function loadChats() {
         return;
       }
 
-      let chatsHTML = '';
       const promises = [];
 
-      snapshot.forEach(doc => {
-        const chatData = doc.data();
+      snapshot.forEach(chatDoc => {
+        const chatData = chatDoc.data();
         const otherUser = chatData.participants.find(p => p !== currentUsername);
-        
+
         promises.push(
           getUserStatus(otherUser)
             .then(status => {
               const unread = chatData.unread?.[currentUsername] || 0;
               const badge = unread > 0 ? `<span class="unread-count">${unread}</span>` : '';
-              const statusClass = status.online ? 'online' : 'offline';
-              const statusText = status.online ? 'Online' : status.lastSeen;
               const verifiedBadge = status.verified ? '<span class="verified-badge" title="Verified Account">✓</span>' : '';
+              const lastMessageAt = chatData.lastMessageAt || chatData.createdAt || '';
+              const lastText = chatData.lastMessageText
+                ? (chatData.lastMessageSender === currentUsername ? 'You: ' : '') + escapeHtml(chatData.lastMessageText)
+                : '<em style="opacity:0.5">No messages yet</em>';
+              const onlineDot = status.online
+                ? '<span style="display:inline-block;width:8px;height:8px;background:#44d;border-radius:50%;margin-right:4px;vertical-align:middle"></span>'
+                : '';
 
-              return `
-                <div class="chat-item" onclick="openChat('${doc.id}', '${otherUser}')">
-                  <div class="chat-avatar">${otherUser ? otherUser[0].toUpperCase() : '?'}</div>
-                  <div class="chat-details">
-                    <div class="chat-name">${escapeHtml(otherUser || 'Unknown')} ${verifiedBadge}</div>
-                    <div class="chat-status ${statusClass}">${statusText}</div>
+              return {
+                html: `
+                  <div class="chat-item" onclick="openChat('${chatDoc.id}', '${otherUser}')">
+                    <div class="chat-avatar">${otherUser ? otherUser[0].toUpperCase() : '?'}</div>
+                    <div class="chat-details" style="flex:1;min-width:0">
+                      <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div class="chat-name">${escapeHtml(otherUser || 'Unknown')} ${verifiedBadge}</div>
+                        ${lastMessageAt ? `<span style="font-size:0.7rem;color:var(--text3);flex-shrink:0;margin-left:6px">${formatChatTime(lastMessageAt)}</span>` : ''}
+                      </div>
+                      <div style="font-size:0.82rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">${onlineDot}${lastText}</div>
+                    </div>
+                    ${badge}
                   </div>
-                  ${badge}
-                </div>
-              `;
+                `,
+                lastMessageAt
+              };
             })
             .catch(err => {
               console.error('Error getting user status:', err);
-              return ''; // skip this chat if error
+              return null;
             })
         );
       });
 
-      const items = await Promise.all(promises);
-      chatsList.innerHTML = items.filter(html => html).join('') || '<div class="no-chats">No chats available</div>';
-      
+      const items = (await Promise.all(promises)).filter(Boolean);
+
+      // Sort: most recent message first
+      items.sort((a, b) => {
+        if (!a.lastMessageAt) return 1;
+        if (!b.lastMessageAt) return -1;
+        return new Date(b.lastMessageAt) - new Date(a.lastMessageAt);
+      });
+
+      chatsList.innerHTML = items.map(i => i.html).join('') || '<div class="no-chats">No chats available</div>';
+
     }, (error) => {
       console.error('Chats listener error:', error);
       chatsList.innerHTML = '<div class="error-message">Failed to load chats. Check console.</div>';
@@ -166,6 +184,22 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function formatChatTime(ts) {
+  if (!ts) return '';
+  try {
+    const d = new Date(ts);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 1) return 'now';
+    if (diffMins < 60) return diffMins + 'm';
+    if (diffDays < 1) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (diffDays < 7) return d.toLocaleDateString([], { weekday: 'short' });
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  } catch (e) { return ''; }
 }
 
 window.searchUsers = async function() {

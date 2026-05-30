@@ -833,9 +833,12 @@ window.sendMessage = async function() {
       reactions: {}
     });
     
-    // Update unread count for other user
-    await updateDoc(doc(db, "chats", chatId), { 
-      [`unread.${otherUsername}`]: increment(1) 
+    // Update unread count and lastMessageAt for sorting in chat list
+    await updateDoc(doc(db, "chats", chatId), {
+      [`unread.${otherUsername}`]: increment(1),
+      lastMessageAt: new Date().toISOString(),
+      lastMessageText: text.length > 60 ? text.slice(0, 60) + '…' : text,
+      lastMessageSender: currentUsername
     });
     
     // Clear input and reply
