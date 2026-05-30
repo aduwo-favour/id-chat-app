@@ -292,12 +292,26 @@ window.joinCommunity = async function(id, type) {
     } else {
       // Private - send request
       await addDoc(collection(db, "communities", id, "requests"), {
-        userId: currentUid, 
+        userId: currentUid,
         username: currentUsername,
-        status: 'pending', 
+        status: 'pending',
         requestedAt: new Date().toISOString()
       });
-      alert('Join request sent!');
+
+      // Update the button immediately in the DOM — no refresh needed
+      const btn = document.querySelector(\`.join-btn[onclick*="joinCommunity('${id}'"]\`);
+      if (btn) {
+        const card = btn.closest('.community-card');
+        btn.outerHTML = \`<button onclick="event.stopPropagation(); cancelRequest('${id}')" class="cancel-btn">Cancel</button>\`;
+        const info = card?.querySelector('.community-info');
+        if (info && !info.querySelector('.pending-badge')) {
+          const badge = document.createElement('span');
+          badge.className = 'pending-badge';
+          badge.textContent = 'Request Pending';
+          info.appendChild(badge);
+        }
+        card?.setAttribute('onclick', \`handleCommunityClick('${id}','${data.name}','pending')\`);
+      }
     }
   } catch (error) {
     console.error('Join community error:', error);
