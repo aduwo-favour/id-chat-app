@@ -244,7 +244,7 @@ function listenForCommunityRequests() {
 
 window.navigateTo = function(page) {
   // SECURITY: Whitelist allowed navigation targets to prevent open redirect
-  const allowedPages = ['private-chats.html', 'requests.html', 'community.html', 'admin-verify.html'];
+  const allowedPages = ['private-chats.html', 'profile.html', 'community.html', 'admin-verify.html'];
   if (allowedPages.includes(page)) {
     window.location.href = page;
   }

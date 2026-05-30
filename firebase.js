@@ -17,6 +17,7 @@ const firebaseConfig = {
   messagingSenderId: "625429860180", // IMPORTANT: Add this!
   appId: "1:625429860180:web:6719187a4eaa0be53d82c1"
 };
+
 // SECURITY: Keep your VAPID key separate too — never commit it publicly
 const VAPID_KEY = "REPLACE_WITH_YOUR_VAPID_KEY";
 
