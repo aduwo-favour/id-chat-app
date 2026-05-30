@@ -236,7 +236,16 @@ function listenForChatDocument() {
   const chatRef = doc(db, "chats", chatId);
 
   unsubscribeChat = onSnapshot(chatRef, (snap) => {
-    if (!snap.exists()) return;
+    // Chat was deleted (unfriend) — redirect both users immediately,
+    // even the one who didn't initiate the unfriend
+    if (!snap.exists()) {
+      cleanupListeners();
+      showNotification('This chat has been deleted');
+      setTimeout(() => {
+        window.location.href = 'private-chats.html';
+      }, 1500);
+      return;
+    }
 
     const data = snap.data();
     const wasBlocked = isBlocked;

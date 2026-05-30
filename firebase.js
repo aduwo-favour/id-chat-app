@@ -10,12 +10,12 @@ import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/fireb
 
 // SECURITY: Replace these with your actual values, then keep this file out of source control.
 const firebaseConfig = {
-  apiKey: "AIzaSyBEPEEQR63z_Dym50j3mS46ZyzPgMLbsi0",
-  authDomain: "chat-messaging-abaa9.firebaseapp.com",
-  projectId: "chat-messaging-abaa9",
-  storageBucket: "chat-messaging-abaa9.appspot.com",
-  messagingSenderId: "625429860180", // IMPORTANT: Add this!
-  appId: "1:625429860180:web:6719187a4eaa0be53d82c1"
+  apiKey: "REPLACE_WITH_YOUR_API_KEY",
+  authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
+  projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
+  storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
+  messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
+  appId: "REPLACE_WITH_YOUR_APP_ID"
 };
 
 // SECURITY: Keep your VAPID key separate too — never commit it publicly
