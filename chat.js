@@ -16,6 +16,7 @@ let isBlocked = false;
 let blockedByMe = false;
 let unsubscribeMessages = null;
 let unsubscribeStatus = null;
+let unsubscribeChat = null;
 let onlineInterval = null;
 let otherUserVerified = false;
 
@@ -88,6 +89,10 @@ onAuthStateChanged(auth, async (user) => {
     // Start listening to messages
     listenForMessages();
     
+    // Listen to chat document in real-time so block changes apply instantly
+    // without needing a page refresh
+    listenForChatDocument();
+    
     // Start listening to user status
     listenForUserStatus();
     
@@ -121,6 +126,7 @@ window.addEventListener('beforeunload', () => {
 function cleanupListeners() {
   if (unsubscribeMessages) unsubscribeMessages();
   if (unsubscribeStatus) unsubscribeStatus();
+  if (unsubscribeChat) unsubscribeChat();
   if (onlineInterval) clearInterval(onlineInterval);
 }
 
@@ -218,6 +224,46 @@ function updateBlockButton() {
   if (blockBtn) {
     blockBtn.textContent = blockedByMe ? 'Unblock User' : 'Block Messages';
   }
+}
+
+// Real-time listener on the chat document itself.
+// This is the fix for the "blocked user can still send messages" bug:
+// previously block state was only checked once on page load. Now any change
+// to isBlocked on the chat document is reflected instantly for both users.
+function listenForChatDocument() {
+  if (!chatId) return;
+
+  const chatRef = doc(db, "chats", chatId);
+
+  unsubscribeChat = onSnapshot(chatRef, (snap) => {
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    const wasBlocked = isBlocked;
+    isBlocked = data.isBlocked === true;
+    blockedByMe = data.blockedBy === currentUsername;
+
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    if (isBlocked) {
+      if (messageInput) messageInput.disabled = true;
+      if (sendBtn) sendBtn.disabled = true;
+
+      // Show a notification the moment the block takes effect for the non-blocker
+      if (!wasBlocked && !blockedByMe) {
+        showNotification('You have been blocked and can no longer send messages');
+      }
+    } else {
+      if (messageInput) messageInput.disabled = false;
+      if (sendBtn) sendBtn.disabled = false;
+    }
+
+    updateBlockButton();
+
+  }, (error) => {
+    console.error('Error listening to chat document:', error);
+  });
 }
 
 // Listen for user status changes
