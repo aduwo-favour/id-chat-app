@@ -67,6 +67,7 @@ async function loadUsers(search = '') {
     let found = false;
     snap.forEach(docSnap => {
       const data = docSnap.data();
+      if (data.deleted) return; // skip permanently deleted users
       if (search && !data.username?.toLowerCase().includes(search.toLowerCase())) return;
       found = true;
 
@@ -159,14 +160,13 @@ window.toggleBan = async (userId, username, currentBanned) => {
 };
 
 window.deleteUser = async (userId, username) => {
-  if (!confirm(`Permanently DELETE user "${username}"? This will remove their account, all their chats, and cannot be undone.`)) return;
+  if (!confirm(`Permanently DELETE user "${username}"? This will wipe their account and all their chats. Cannot be undone.`)) return;
   try {
     const batch = writeBatch(db);
 
     // Delete all chats they are a participant in
     const chatsSnap = await getDocs(query(collection(db, "chats"), where("participants", "array-contains", username)));
     for (const chatDoc of chatsSnap.docs) {
-      // Delete all messages in the chat
       const msgsSnap = await getDocs(collection(db, "chats", chatDoc.id, "messages"));
       msgsSnap.forEach(m => batch.delete(m.ref));
       batch.delete(chatDoc.ref);
@@ -175,14 +175,25 @@ window.deleteUser = async (userId, username) => {
     // Delete any pending requests sent to or from them
     const reqSentSnap = await getDocs(query(collection(db, "requests"), where("from", "==", username)));
     reqSentSnap.forEach(r => batch.delete(r.ref));
-
     const reqReceivedSnap = await getDocs(query(collection(db, "requests"), where("to", "==", username)));
     reqReceivedSnap.forEach(r => batch.delete(r.ref));
 
-    // Delete the user document itself
-    batch.delete(doc(db, "users", userId));
-
     await batch.commit();
+
+    // Firestore rules block deleting the user doc (allow delete: if false),
+    // so instead wipe all identifying data and mark as deleted so they
+    // disappear from the user list (loadUsers filters out deleted:true)
+    await updateDoc(doc(db, "users", userId), {
+      deleted: true,
+      deletedAt: new Date().toISOString(),
+      deletedBy: currentUsername,
+      banned: true,
+      disabled: true,
+      username: '[deleted]',
+      email: '[deleted]',
+      fcmTokens: [],
+      blockedUsers: []
+    });
 
     alert(`User "${username}" has been permanently deleted.`);
     loadUsers(document.getElementById('userSearch').value);
