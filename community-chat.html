@@ -127,8 +127,17 @@
       <button onclick="hideModal('manageMembersModal')" class="close-btn">✕</button>
     </div>
     <div class="modal-body">
-      <input type="text" id="searchMember" placeholder="Search members..." class="search-input">
-      <div id="manageMembersList" class="members-list"></div>
+      <div class="members-tabs">
+        <button class="tab-btn active" onclick="switchManageTab('members')" id="manageTabMembers">Members</button>
+        <button class="tab-btn" onclick="switchManageTab('banned')" id="manageTabBanned">🚫 Banned</button>
+      </div>
+      <div id="manageMembersPanel">
+        <input type="text" id="searchMember" placeholder="Search members..." class="search-input">
+        <div id="manageMembersList" class="members-list"></div>
+      </div>
+      <div id="manageBannedPanel" style="display:none">
+        <div id="manageBannedList" class="members-list"></div>
+      </div>
     </div>
   </div>
 </div>

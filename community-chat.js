@@ -41,6 +41,7 @@ onAuthStateChanged(auth, async (user) => {
     await checkUserRole();
     await loadMyLanguage();
     listenForMessages();
+    listenForCommunityDoc();
     updateOnlineStatus();
     startOnlineStatusUpdates();
     listenForMemberUpdates();
@@ -157,6 +158,20 @@ function startOnlineStatusUpdates() {
       }
     } else {
       updateOnlineStatus();
+    }
+  });
+}
+
+// Real-time listener on the community document itself —
+// so name/description changes from edit show immediately for everyone
+function listenForCommunityDoc() {
+  onSnapshot(doc(db, "communities", communityId), (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.data();
+    // Update header name live for all members
+    if (data.name) {
+      document.getElementById('communityName').textContent = data.name;
+      communityName = data.name;
     }
   });
 }
@@ -694,9 +709,64 @@ window.declineRequest = async function(reqId) {
 
 window.manageMembers = function() {
   loadManageMembersList();
+  switchManageTab('members');
   document.getElementById('manageMembersModal').classList.remove('hidden');
   document.getElementById('communityOptions').classList.add('hidden');
   document.getElementById('adminOptions').classList.add('hidden');
+};
+
+window.switchManageTab = function(tab) {
+  document.getElementById('manageMembersPanel').style.display = tab === 'members' ? 'block' : 'none';
+  document.getElementById('manageBannedPanel').style.display = tab === 'banned' ? 'block' : 'none';
+  document.getElementById('manageTabMembers').classList.toggle('active', tab === 'members');
+  document.getElementById('manageTabBanned').classList.toggle('active', tab === 'banned');
+  if (tab === 'banned') loadBannedList();
+};
+
+async function loadBannedList() {
+  const list = document.getElementById('manageBannedList');
+  list.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const snap = await getDocs(collection(db, "communities", communityId, "banned"));
+    if (snap.empty) {
+      list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3)">No banned members</div>';
+      return;
+    }
+    list.innerHTML = '';
+    snap.forEach(d => {
+      const data = d.data();
+      const bannedAt = data.bannedAt ? new Date(data.bannedAt).toLocaleDateString() : '';
+      const item = document.createElement('div');
+      item.className = 'manage-member-item';
+      item.innerHTML = `
+        <div class="member-info">
+          <div class="member-avatar" style="background:#e53e3e">${(data.username || '?')[0].toUpperCase()}</div>
+          <div class="member-details">
+            <div class="member-name">${escapeHtml(data.username)} <span class="role-badge" style="background:rgba(239,68,68,0.15);color:#e53e3e">Banned</span></div>
+            <div class="member-status offline">${bannedAt ? 'Banned ' + bannedAt : ''}${data.bannedBy ? ' by ' + escapeHtml(data.bannedBy) : ''}</div>
+          </div>
+        </div>
+        <div class="member-actions">
+          <button onclick="unbanMember('${d.id}','${escapeHtml(data.username)}')" class="action-btn unmute">✅ Unban</button>
+        </div>
+      `;
+      list.appendChild(item);
+    });
+  } catch (e) {
+    list.innerHTML = '<div class="error-message">Failed to load</div>';
+    console.error(e);
+  }
+}
+
+window.unbanMember = async function(uid, username) {
+  if (!confirm(`Unban ${username}? They can request to join again.`)) return;
+  try {
+    await deleteDoc(doc(db, "communities", communityId, "banned", uid));
+    loadBannedList();
+  } catch (e) {
+    alert('Failed to unban');
+    console.error(e);
+  }
 };
 
 async function loadManageMembersList(search = '') {
@@ -725,16 +795,23 @@ async function loadManageMembersList(search = '') {
     const statusText = isOnline ? 'Online' : (m.lastSeen ? `Last seen ${formatLastSeen(new Date(m.lastSeen))}` : 'Offline');
     let actions = '';
     if (m.role !== 'creator' && m.id !== currentUid) {
-        if (userRole === 'creator' || (userRole === 'admin' && m.role !== 'admin')) {
-          actions = `
-            <div class="member-actions">
-              ${m.role !== 'admin' ? `<button onclick="makeAdmin('${m.id}')" class="action-btn promote">⭐ Make Admin</button>` : ''}
-              ${m.muted ? `<button onclick="unmuteMember('${m.id}','${m.username}')" class="action-btn unmute">🔊 Unmute</button>` : `<button onclick="muteMember('${m.id}','${m.username}')" class="action-btn mute">🔇 Mute</button>`}
-              <button onclick="banMember('${m.id}','${m.username}')" class="action-btn ban">🚫 Ban</button>
-            </div>
-          `;
-        }
+      // Creator can manage everyone; admin can only manage regular members
+      if (userRole === 'creator' || (userRole === 'admin' && m.role === 'member')) {
+        const promoteBtn = m.role === 'admin'
+          ? `<button onclick="demoteAdmin('${m.id}','${m.username}')" class="action-btn mute">⬇️ Demote</button>`
+          : `<button onclick="makeAdmin('${m.id}')" class="action-btn promote">⭐ Make Admin</button>`;
+        const muteBtn = m.muted
+          ? `<button onclick="unmuteMember('${m.id}','${m.username}')" class="action-btn unmute">🔊 Unmute</button>`
+          : `<button onclick="muteMember('${m.id}','${m.username}')" class="action-btn mute">🔇 Mute</button>`;
+        actions = `
+          <div class="member-actions">
+            ${promoteBtn}
+            ${muteBtn}
+            <button onclick="banMember('${m.id}','${m.username}')" class="action-btn ban">🚫 Ban</button>
+          </div>
+        `;
       }
+    }
     html += `
       <div class="manage-member-item">
         <div class="member-info">
@@ -756,9 +833,16 @@ window.makeAdmin = async function(uid) {
   if (!confirm('Make admin?')) return;
   try {
     await updateDoc(doc(db, "communities", communityId, "members", uid), { role: 'admin' });
-    alert('User is now admin');
     loadManageMembersList();
-  } catch (error) {}
+  } catch (error) { alert('Failed to promote'); }
+};
+
+window.demoteAdmin = async function(uid, username) {
+  if (!confirm(`Demote ${username} from admin to member?`)) return;
+  try {
+    await updateDoc(doc(db, "communities", communityId, "members", uid), { role: 'member' });
+    loadManageMembersList();
+  } catch (error) { alert('Failed to demote'); }
 };
 
 window.muteMember = async function(uid, username) {
@@ -778,7 +862,7 @@ window.unmuteMember = async function(uid, username) {
 };
 
 window.banMember = async function(uid, username) {
-  if (!confirm(`Ban ${username}?`)) return;
+  if (!confirm(`Ban ${username}? They will be removed and cannot rejoin without being unbanned.`)) return;
   try {
     const batch = writeBatch(db);
     batch.set(doc(db, "communities", communityId, "banned", uid), {
@@ -786,9 +870,8 @@ window.banMember = async function(uid, username) {
     });
     batch.delete(doc(db, "communities", communityId, "members", uid));
     await batch.commit();
-    alert('User banned');
     loadManageMembersList();
-  } catch (error) {}
+  } catch (error) { alert('Failed to ban member'); }
 };
 
 window.editCommunity = async function() {
