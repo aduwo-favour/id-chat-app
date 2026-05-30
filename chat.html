@@ -22,7 +22,26 @@
     </div>
 
     <div class="chat-header-right">
-      <div id="google_translate_element"></div>
+      <div class="lang-selector-wrap">
+        <select id="chatLangSelect" title="Translate incoming messages" onchange="changeChatLanguage(this.value)">
+          <option value="">🌐</option>
+          <option value="en">🇬🇧 EN</option>
+          <option value="fr">🇫🇷 FR</option>
+          <option value="es">🇪🇸 ES</option>
+          <option value="de">🇩🇪 DE</option>
+          <option value="it">🇮🇹 IT</option>
+          <option value="pt">🇧🇷 PT</option>
+          <option value="ru">🇷🇺 RU</option>
+          <option value="ar">🇸🇦 AR</option>
+          <option value="zh">🇨🇳 ZH</option>
+          <option value="ja">🇯🇵 JA</option>
+          <option value="ko">🇰🇷 KO</option>
+          <option value="hi">🇮🇳 HI</option>
+          <option value="yo">YO</option>
+          <option value="ig">IG</option>
+          <option value="ha">HA</option>
+        </select>
+      </div>
       <button onclick="toggleChatOptions()" class="options-btn" id="optionsBtn">⚙️</button>
     </div>
   </div>
@@ -56,15 +75,22 @@
   });
 </script>
 
-<script type="text/javascript">
-  function googleTranslateElementInit() {
-    new google.translate.TranslateElement(
-      { pageLanguage: 'en', includedLanguages: 'en,es,fr,de,it,pt,ru,ja,ko,zh-CN,ar' },
-      'google_translate_element'
-    );
+<style>
+  .lang-selector-wrap select {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    border-radius: 8px;
+    padding: 5px 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    outline: none;
   }
-</script>
-<script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+  .lang-selector-wrap select option {
+    background: #333;
+    color: white;
+  }
+</style>
 
 <script type="module" src="firebase.js"></script>
 <script type="module" src="chat.js"></script>

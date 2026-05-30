@@ -575,10 +575,59 @@ async function loadMyLanguage() {
   try {
     const userDoc = await getDoc(doc(db, "users", currentUid));
     myLanguage = userDoc.data()?.language || '';
+    // Sync the dropdown in the chat header
+    const sel = document.getElementById('chatLangSelect');
+    if (sel) sel.value = myLanguage;
   } catch (e) {
     myLanguage = '';
   }
 }
+
+// Called when user changes language from the chat header dropdown
+window.changeChatLanguage = async function(lang) {
+  myLanguage = lang;
+  // Save to Firestore so it persists across sessions (same as profile settings)
+  if (currentUid) {
+    try {
+      await updateDoc(doc(db, "users", currentUid), { language: lang });
+    } catch (e) {
+      console.error('Failed to save language:', e);
+    }
+  }
+  // Clear translation cache so messages re-translate in new language
+  translateCache.clear();
+  // Re-render all visible messages with the new language
+  const container = document.getElementById('messagesContainer');
+  if (container) {
+    container.querySelectorAll('.translated-text').forEach(el => el.remove());
+    container.querySelectorAll('.translate-loading').forEach(el => el.remove());
+    if (lang) {
+      container.querySelectorAll('.other-message .message-text').forEach(textEl => {
+        const originalText = textEl.childNodes[0]?.textContent;
+        if (!originalText) return;
+        const indicator = document.createElement('span');
+        indicator.className = 'translate-loading';
+        indicator.textContent = ' 🌐';
+        indicator.style.cssText = 'font-size:0.7rem;opacity:0.4';
+        textEl.appendChild(indicator);
+        translateText(originalText, lang).then(translated => {
+          indicator.remove();
+          if (translated) {
+            const translatedEl = document.createElement('div');
+            translatedEl.className = 'translated-text';
+            translatedEl.style.cssText = 'margin-top:4px;padding-top:4px;border-top:1px solid rgba(0,0,0,0.1);font-style:italic;opacity:0.85;font-size:0.9em';
+            translatedEl.textContent = translated;
+            const flag = document.createElement('span');
+            flag.style.cssText = 'font-size:0.65rem;color:#aaa;display:block;margin-top:2px';
+            flag.textContent = '🌐 Translated';
+            translatedEl.appendChild(flag);
+            textEl.appendChild(translatedEl);
+          }
+        });
+      });
+    }
+  }
+};
 
 async function translateText(text, targetLang) {
   if (!targetLang || !text) return null;
