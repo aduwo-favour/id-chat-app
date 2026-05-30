@@ -211,6 +211,14 @@ window.searchUsers = async function() {
 
 async function checkRequestStatus(toUser) {
   try {
+    // Check if already friends (accepted chat exists)
+    const chatId = [currentUsername, toUser].sort().join('_');
+    const chatSnap = await getDoc(doc(db, "chats", chatId));
+    if (chatSnap.exists() && chatSnap.data().status === "accepted") {
+      return "friends";
+    }
+
+    // Check pending/declined request
     const q = query(
       collection(db, "requests"),
       where("from", "==", currentUsername),
@@ -221,6 +229,17 @@ async function checkRequestStatus(toUser) {
       const data = snap.docs[0].data();
       return data.status === "pending" ? "pending" : "declined";
     }
+
+    // Also check if THEY sent us a request we haven't answered yet
+    const inboundQ = query(
+      collection(db, "requests"),
+      where("from", "==", toUser),
+      where("to", "==", currentUsername),
+      where("status", "==", "pending")
+    );
+    const inboundSnap = await getDocs(inboundQ);
+    if (!inboundSnap.empty) return "inbound";
+
   } catch (error) {
     console.error('Error checking request status:', error);
   }
@@ -229,9 +248,11 @@ async function checkRequestStatus(toUser) {
 
 function getRequestButton(username, status) {
   switch(status) {
-    case "pending": return '<span class="pending-badge">Pending</span>';
-    case "declined": return '<span class="declined-badge">Declined</span>';
-    default: return `<button onclick="sendRequest('${username}')" class="start-chat-btn">Send Request</button>`;
+    case "friends":  return '<span class="pending-badge" style="background:#e8f8f0;color:#38a169">✓ Already Friends</span>';
+    case "pending":  return '<span class="pending-badge">Request Sent</span>';
+    case "inbound":  return '<span class="pending-badge" style="background:#fff3e0;color:#f57c00">Sent you a request</span>';
+    case "declined": return `<button onclick="sendRequest('${username}')" class="start-chat-btn">Send Request</button>`;
+    default:         return `<button onclick="sendRequest('${username}')" class="start-chat-btn">Send Request</button>`;
   }
 }
 

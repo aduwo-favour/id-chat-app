@@ -8,18 +8,16 @@ import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth
 import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging.js";
 
-// SECURITY: Replace these with your actual values, then keep this file out of source control.
 const firebaseConfig = {
   apiKey: "AIzaSyBEPEEQR63z_Dym50j3mS46ZyzPgMLbsi0",
   authDomain: "chat-messaging-abaa9.firebaseapp.com",
   projectId: "chat-messaging-abaa9",
   storageBucket: "chat-messaging-abaa9.appspot.com",
-  messagingSenderId: "625429860180", // IMPORTANT: Add this!
+  messagingSenderId: "625429860180",
   appId: "1:625429860180:web:6719187a4eaa0be53d82c1"
 };
 
-// SECURITY: Keep your VAPID key separate too — never commit it publicly
-const VAPID_KEY = "REPLACE_WITH_YOUR_VAPID_KEY";
+const VAPID_KEY = "BCdXGHDstKoy4Zgvbmiaw8Cx8eSOE0Y9rQT8D_h3nbxLtg3xhtP-d5pOyTSimNac3J_lW3PL2uj7e4jX8R1YvqM";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
