@@ -37,6 +37,7 @@ onAuthStateChanged(auth, async (user) => {
     if (userDoc.exists()) {
       currentUsername = userDoc.data().username;
       loadCommunities();
+      watchApprovals();
     } else {
       document.getElementById('communitiesList').innerHTML = '<div class="error-message">User data not found</div>';
     }
@@ -302,6 +303,28 @@ window.joinCommunity = async function(id, type) {
     alert('Failed to join community');
   }
 };
+
+// Watch all communities where the user has a pending request.
+// When a request is approved (member doc created), auto-redirect them in.
+function watchApprovals() {
+  // Listen to all communities for this user's member doc appearing
+  onSnapshot(query(collection(db, "communities"), orderBy("createdAt", "desc")), async (snap) => {
+    // For each community where user is pending, check if they got approved
+    snap.forEach(async (communityDoc) => {
+      const cached = userStatusCache.get(communityDoc.id);
+      if (cached !== 'pending') return; // only care about pending ones
+
+      const memberSnap = await getDoc(doc(db, "communities", communityDoc.id, "members", currentUid));
+      if (memberSnap.exists()) {
+        // Approved! Update cache and redirect
+        userStatusCache.set(communityDoc.id, memberSnap.data().role || 'member');
+        const data = communityDoc.data();
+        alert(`You have been approved to join "${data.name}"!`);
+        window.location.href = `community-chat.html?communityId=${communityDoc.id}&name=${encodeURIComponent(data.name)}`;
+      }
+    });
+  });
+}
 
 window.cancelRequest = async function(id) {
   userStatusCache.delete(id);

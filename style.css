@@ -279,6 +279,10 @@ body > * { position: relative; z-index: 1; }
 .action-btn { padding: 5px 12px; border: none; border-radius: 20px; cursor: pointer; font-family: var(--font-display); font-size: 11px; font-weight: 600; transition: 0.2s var(--ease); }
 .action-btn.promote { background: rgba(250,204,21,0.15); color: #facc15; border: 1px solid rgba(250,204,21,0.3); }
 .action-btn.promote:hover { background: #facc15; color: #000; }
+.action-btn.mute { background: rgba(249,115,22,0.15); color: #f97316; border: 1px solid rgba(249,115,22,0.3); }
+.action-btn.mute:hover { background: #f97316; color: #fff; }
+.action-btn.unmute { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+.action-btn.unmute:hover { background: #22c55e; color: #fff; }
 .action-btn.ban { background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(239,68,68,0.2); }
 .action-btn.ban:hover { background: var(--danger); color: #fff; }
 .action-btn.delete { background: var(--danger-soft); color: var(--danger); border: 1px solid rgba(239,68,68,0.2); }

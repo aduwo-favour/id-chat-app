@@ -128,32 +128,80 @@ function startOnlineStatusUpdates() {
   });
 }
 
+let isMuted = false;
+
 function listenForMemberUpdates() {
+  // Watch the whole members collection for counts
   onSnapshot(collection(db, "communities", communityId, "members"), (snap) => {
     let total = 0, online = 0;
     const now = new Date();
     const twoMinAgo = new Date(now.getTime() - 120000);
-    
+
     snap.forEach(d => {
       const data = d.data();
-      if (['creator','admin','member'].includes(data.role)) {
+      if (['creator', 'admin', 'member'].includes(data.role)) {
         total++;
-        
         if (data.online === true && data.lastSeen) {
-          const lastSeen = new Date(data.lastSeen);
-          const timeDiff = now.getTime() - lastSeen.getTime();
-          
-          if (timeDiff < 120000) {
-            online++;
-          } else {
-            updateDoc(d.ref, { online: false }).catch(() => {});
-          }
+          const timeDiff = now.getTime() - new Date(data.lastSeen).getTime();
+          if (timeDiff < 120000) online++;
+          else updateDoc(d.ref, { online: false }).catch(() => {});
         }
       }
     });
-    
+
     document.getElementById('onlineCount').textContent = online;
     document.getElementById('totalMembers').textContent = total;
+  });
+
+  // Watch the CURRENT USER's own member doc for real-time changes:
+  // approval, ban, mute — all take effect instantly without a refresh
+  const myMemberRef = doc(db, "communities", communityId, "members", currentUid);
+  onSnapshot(myMemberRef, async (snap) => {
+    if (!snap.exists()) {
+      // Removed from community (banned or kicked) — check banned list
+      const bannedSnap = await getDoc(doc(db, "communities", communityId, "banned", currentUid));
+      if (bannedSnap.exists()) {
+        alert('You have been banned from this community.');
+      } else {
+        alert('You have been removed from this community.');
+      }
+      window.location.href = 'community.html';
+      return;
+    }
+
+    const data = snap.data();
+    const newRole = data.role || 'member';
+    const newMuted = data.muted === true;
+
+    // Role changed (e.g. promoted to admin)
+    if (newRole !== userRole) {
+      userRole = newRole;
+      updateUIForRole();
+      if (userRole === 'admin') {
+        showAdminOptions();
+      }
+    }
+
+    // Mute state changed
+    isMuted = newMuted;
+    const input = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    if (isMuted) {
+      if (input) { input.disabled = true; input.placeholder = 'You are muted'; }
+      if (sendBtn) sendBtn.disabled = true;
+    } else {
+      if (input) { input.disabled = false; input.placeholder = 'Type a message...'; }
+      if (sendBtn) sendBtn.disabled = false;
+    }
+  });
+
+  // Watch the banned subcollection for the current user
+  const myBannedRef = doc(db, "communities", communityId, "banned", currentUid);
+  onSnapshot(myBannedRef, (snap) => {
+    if (snap.exists()) {
+      alert('You have been banned from this community.');
+      window.location.href = 'community.html';
+    }
   });
 }
 
@@ -328,8 +376,12 @@ async function addReaction(msgId, emoji) {
 }
 
 window.sendMessage = async function() {
-  if (!['member','admin','creator'].includes(userRole)) {
+  if (!['member', 'admin', 'creator'].includes(userRole)) {
     alert('You cannot send messages');
+    return;
+  }
+  if (isMuted) {
+    alert('You are muted and cannot send messages');
     return;
   }
   const input = document.getElementById('messageInput');
@@ -568,7 +620,7 @@ async function loadManageMembersList(search = '') {
   const members = [];
   snap.forEach(d => {
     const data = d.data();
-    members.push({ id: d.id, username: data.username, role: data.role || 'member', online: data.online, lastSeen: data.lastSeen });
+    members.push({ id: d.id, username: data.username, role: data.role || 'member', online: data.online, lastSeen: data.lastSeen, muted: data.muted === true });
   });
   let filtered = members.filter(m => m.username.toLowerCase().includes(search.toLowerCase()));
   filtered.sort((a,b) => {
@@ -587,15 +639,16 @@ async function loadManageMembersList(search = '') {
     const statusText = isOnline ? 'Online' : (m.lastSeen ? `Last seen ${formatLastSeen(new Date(m.lastSeen))}` : 'Offline');
     let actions = '';
     if (m.role !== 'creator' && m.id !== currentUid) {
-      if (userRole === 'creator' || (userRole === 'admin' && m.role !== 'admin')) {
-        actions = `
-          <div class="member-actions">
-            ${m.role !== 'admin' ? `<button onclick="makeAdmin('${m.id}')" class="action-btn promote">⭐ Make Admin</button>` : ''}
-            <button onclick="banMember('${m.id}','${m.username}')" class="action-btn ban">🚫 Ban</button>
-          </div>
-        `;
+        if (userRole === 'creator' || (userRole === 'admin' && m.role !== 'admin')) {
+          actions = `
+            <div class="member-actions">
+              ${m.role !== 'admin' ? `<button onclick="makeAdmin('${m.id}')" class="action-btn promote">⭐ Make Admin</button>` : ''}
+              ${m.muted ? `<button onclick="unmuteMember('${m.id}','${m.username}')" class="action-btn unmute">🔊 Unmute</button>` : `<button onclick="muteMember('${m.id}','${m.username}')" class="action-btn mute">🔇 Mute</button>`}
+              <button onclick="banMember('${m.id}','${m.username}')" class="action-btn ban">🚫 Ban</button>
+            </div>
+          `;
+        }
       }
-    }
     html += `
       <div class="manage-member-item">
         <div class="member-info">
@@ -620,6 +673,22 @@ window.makeAdmin = async function(uid) {
     alert('User is now admin');
     loadManageMembersList();
   } catch (error) {}
+};
+
+window.muteMember = async function(uid, username) {
+  if (!confirm(`Mute ${username}? They will not be able to send messages.`)) return;
+  try {
+    await updateDoc(doc(db, "communities", communityId, "members", uid), { muted: true, mutedBy: currentUsername, mutedAt: new Date().toISOString() });
+    loadManageMembersList();
+  } catch (error) { alert('Failed to mute user'); }
+};
+
+window.unmuteMember = async function(uid, username) {
+  if (!confirm(`Unmute ${username}?`)) return;
+  try {
+    await updateDoc(doc(db, "communities", communityId, "members", uid), { muted: false, mutedBy: null, mutedAt: null });
+    loadManageMembersList();
+  } catch (error) { alert('Failed to unmute user'); }
 };
 
 window.banMember = async function(uid, username) {
