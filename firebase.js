@@ -1,14 +1,25 @@
 // firebase.js
-// SECURITY: Load config from a separate, gitignored config file or environment.
-// Never commit real API keys to source control.
-// Create a `firebase-config.js` file (gitignored) that exports firebaseConfig,
-// OR inject these values at build/deploy time via your CI/CD pipeline.
-import { firebaseConfig } from "./firebase-config.js";
+// ⚠️  SECURITY REMINDER: Do NOT commit this file with real credentials to a public repo.
+//     Add firebase.js (or just the apiKey values) to .gitignore,
+//     or use environment variable injection at build time.
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging.js";
+
+// SECURITY: Replace these with your actual values, then keep this file out of source control.
+const firebaseConfig = {
+  apiKey: "AIzaSyBEPEEQR63z_Dym50j3mS46ZyzPgMLbsi0",
+  authDomain: "chat-messaging-abaa9.firebaseapp.com",
+  projectId: "chat-messaging-abaa9",
+  storageBucket: "chat-messaging-abaa9.appspot.com",
+  messagingSenderId: "625429860180", // IMPORTANT: Add this!
+  appId: "1:625429860180:web:6719187a4eaa0be53d82c1"
+};
+
+// SECURITY: Keep your VAPID key separate too — never commit it publicly
+const VAPID_KEY = "REPLACE_WITH_YOUR_VAPID_KEY";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
@@ -36,34 +47,19 @@ if ('serviceWorker' in navigator) {
 }
 
 export const requestNotificationPermission = async () => {
-  if (!messaging) {
-    console.log('Messaging not available');
-    return null;
-  }
+  if (!messaging) return null;
 
   try {
-    if (!('Notification' in window)) {
-      console.log('This browser does not support notifications');
-      return null;
-    }
-
-    if (Notification.permission === 'denied') {
-      console.log('Notification permission denied');
-      return null;
-    }
-
-    // SECURITY: VAPID key loaded from config, not hardcoded
-    const { vapidKey } = firebaseConfig;
+    if (!('Notification' in window)) return null;
+    if (Notification.permission === 'denied') return null;
 
     if (Notification.permission === 'granted') {
-      const token = await getToken(messaging, { vapidKey });
-      return token;
+      return await getToken(messaging, { vapidKey: VAPID_KEY });
     }
 
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      const token = await getToken(messaging, { vapidKey });
-      return token;
+      return await getToken(messaging, { vapidKey: VAPID_KEY });
     }
     return null;
   } catch (error) {
@@ -72,7 +68,6 @@ export const requestNotificationPermission = async () => {
   }
 };
 
-// Handle foreground messages
 export const onForegroundMessage = (callback) => {
   if (!messaging) return;
   try {

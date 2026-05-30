@@ -3,10 +3,18 @@
 <head>
   <title>Chat Web by Favour Jefree</title>
   <meta charset="UTF-8">
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#667eea">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#667eea">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
+  <style>
+    .form-error {
+      color: #e53e3e;
+      font-size: 0.875rem;
+      margin-top: 6px;
+      display: none;
+    }
+  </style>
 </head>
 <body>
 
@@ -22,12 +30,14 @@
     <div id="loginForm" class="auth-form active">
       <input type="text" id="loginUserId" placeholder="Username" autocomplete="off">
       <input type="password" id="loginPassword" placeholder="Password">
+      <div id="loginError" class="form-error"></div>
       <button onclick="handleLogin()" id="loginBtn">Login</button>
     </div>
 
     <div id="signupForm" class="auth-form">
       <input type="text" id="signupUserId" placeholder="Choose Username" autocomplete="off">
-      <input type="password" id="signupPassword" placeholder="Password (min 6 characters)">
+      <input type="password" id="signupPassword" placeholder="Password (min 8 characters)">
+      <div id="signupError" class="form-error"></div>
       <button onclick="handleSignup()" id="signupBtn">Create Account</button>
     </div>
 
@@ -39,4 +49,3 @@
 <script type="module" src="auth.js"></script>
 </body>
 </html>
-

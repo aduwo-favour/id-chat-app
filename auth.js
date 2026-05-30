@@ -1,6 +1,10 @@
 import { auth, db, requestNotificationPermission } from "./firebase.js";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { doc, setDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  signOut
+} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { doc, setDoc, updateDoc, arrayUnion, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 window.switchTab = function(tab) {
   document.getElementById('loginTab').classList.remove('active');
@@ -17,28 +21,24 @@ window.switchTab = function(tab) {
   }
 };
 
-// SECURITY: Restrict username characters to alphanumeric + underscore only.
-// This prevents injection via the derived email and limits attack surface.
+// SECURITY: Only allow safe username characters to prevent injection
 function isValidUsername(username) {
   return /^[a-zA-Z0-9_]{3,30}$/.test(username);
 }
 
-// SECURITY: Stronger password policy
 function isValidPassword(password) {
   return password.length >= 8;
 }
 
 function makeEmail(username) {
-  // Username is already validated to be alphanumeric+underscore, safe to use directly
   return username.toLowerCase() + "@temp.com";
 }
 
-// SECURITY: Show errors in the DOM instead of alert() to prevent UI-redressing
-// and allow proper escaping. Never insert raw error messages from Firebase into innerHTML.
+// SECURITY: Show errors in DOM using textContent (safe), not alert() with raw Firebase messages
 function showError(elementId, message) {
   const el = document.getElementById(elementId);
   if (el) {
-    el.textContent = message; // textContent, not innerHTML — safe
+    el.textContent = message;
     el.style.display = 'block';
   }
 }
@@ -57,13 +57,12 @@ window.handleSignup = async function() {
   const password = document.getElementById('signupPassword').value;
   const btn = document.getElementById('signupBtn');
 
-  // SECURITY: Validate username format strictly
   if (!username) {
     showError('signupError', 'Please enter a username');
     return;
   }
   if (!isValidUsername(username)) {
-    showError('signupError', 'Username must be 3–30 characters and contain only letters, numbers, or underscores');
+    showError('signupError', 'Username must be 3–30 characters: letters, numbers, or underscores only');
     return;
   }
   if (!isValidPassword(password)) {
@@ -102,8 +101,7 @@ window.handleSignup = async function() {
 
     window.location.href = 'dashboard.html';
   } catch (error) {
-    // SECURITY: Map error codes to safe, generic messages.
-    // Never expose raw error.message from Firebase to the user — it can leak internals.
+    // SECURITY: Map error codes to safe messages — never expose raw error.message
     if (error.code === 'auth/email-already-in-use') {
       showError('signupError', 'Username already taken');
     } else if (error.code === 'auth/weak-password') {
@@ -113,6 +111,7 @@ window.handleSignup = async function() {
     } else {
       showError('signupError', 'Signup failed. Please try again.');
     }
+    console.error('Signup error:', error);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Create Account';
@@ -130,7 +129,7 @@ window.handleLogin = async function() {
     return;
   }
 
-  // SECURITY: Validate username before constructing the email address
+  // SECURITY: Validate format before building the email address
   if (!isValidUsername(username)) {
     showError('loginError', 'Invalid username or password');
     return;
@@ -143,19 +142,16 @@ window.handleLogin = async function() {
     const email = makeEmail(username);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
-    // Check if account is banned or disabled before proceeding
-    const { getDoc } = await import("https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js");
+    // Check banned/disabled before allowing access
     const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
     if (userDoc.exists()) {
       const userData = userDoc.data();
       if (userData.banned) {
-        const { signOut } = await import("https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js");
         await signOut(auth);
         showError('loginError', 'Your account has been suspended');
         return;
       }
       if (userData.disabled) {
-        const { signOut } = await import("https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js");
         await signOut(auth);
         showError('loginError', 'Your account has been disabled');
         return;
@@ -164,21 +160,11 @@ window.handleLogin = async function() {
 
     try {
       const token = await requestNotificationPermission();
-      if (token) {
-        const userRef = doc(db, "users", userCredential.user.uid);
-        await updateDoc(userRef, {
-          fcmTokens: arrayUnion(token),
-          online: true,
-          lastSeen: new Date().toISOString()
-        });
-      } else {
-        await updateDoc(doc(db, "users", userCredential.user.uid), {
-          online: true,
-          lastSeen: new Date().toISOString()
-        });
-      }
+      const updateData = { online: true, lastSeen: new Date().toISOString() };
+      if (token) updateData.fcmTokens = arrayUnion(token);
+      await updateDoc(doc(db, "users", userCredential.user.uid), updateData);
     } catch (notifError) {
-      // Non-fatal: still proceed
+      // Non-fatal
       await updateDoc(doc(db, "users", userCredential.user.uid), {
         online: true,
         lastSeen: new Date().toISOString()
@@ -187,8 +173,7 @@ window.handleLogin = async function() {
 
     window.location.href = 'dashboard.html';
   } catch (error) {
-    // SECURITY: Use a single generic message for all auth failures to prevent
-    // username enumeration attacks.
+    // SECURITY: Single generic message for all auth failures prevents username enumeration
     if (
       error.code === 'auth/user-not-found' ||
       error.code === 'auth/wrong-password' ||
@@ -203,6 +188,7 @@ window.handleLogin = async function() {
     } else {
       showError('loginError', 'Login failed. Please try again.');
     }
+    console.error('Login error:', error);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Login';

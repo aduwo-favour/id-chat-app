@@ -59,26 +59,14 @@ function showInAppNotification(payload) {
 
 async function updateFCMToken() {
   if (!currentUid) return;
-
   try {
-    if (!('Notification' in window)) return;
-    if (!messaging) return;
-
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      try {
-        const { firebaseConfig } = await import("./firebase-config.js");
-        const token = await getToken(messaging, { vapidKey: firebaseConfig.vapidKey });
-
-        if (token) {
-          const userRef = doc(db, "users", currentUid);
-          await updateDoc(userRef, {
-            fcmTokens: arrayUnion(token)
-          });
-        }
-      } catch (tokenError) {
-        console.error('Error getting FCM token:', tokenError);
-      }
+    // requestNotificationPermission in firebase.js handles permission + VAPID key
+    const { requestNotificationPermission } = await import("./firebase.js");
+    const token = await requestNotificationPermission();
+    if (token) {
+      await updateDoc(doc(db, "users", currentUid), {
+        fcmTokens: arrayUnion(token)
+      });
     }
   } catch (error) {
     console.error('Error updating FCM token:', error);
