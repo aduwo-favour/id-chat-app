@@ -360,7 +360,6 @@ function listenForMessages() {
   if (!chatId) return;
 
   const cacheKey = 'msgs_' + chatId;
-  let unreadDividerInserted = false;
   let isFirstLoad = true;
 
   try {
@@ -375,25 +374,36 @@ function listenForMessages() {
       scrollToBottom(container);
     }
 
-    unsubscribeMessages = onSnapshot(q, (snap) => {
+    unsubscribeMessages = onSnapshot(q, async (snap) => {
       if (!container) return;
 
       const wasAtBottom = isScrolledToBottom(container);
       container.innerHTML = '';
       let lastDate = null;
-      unreadDividerInserted = false;
 
-      // For unread divider: find where unread messages start
-      // Use the other user's last-seen time to determine what's "new"
-      const unreadStartTime = isFirstLoad
-        ? Cache.get('lastread_' + chatId)
-        : null;
+      // On first load, fetch the unread count from the chat doc to know
+      // exactly how many messages from the bottom are "new"
+      let unreadCount = 0;
+      if (isFirstLoad) {
+        try {
+          const chatSnap = await getDoc(doc(db, "chats", chatId));
+          if (chatSnap.exists()) {
+            unreadCount = chatSnap.data()?.unread?.[currentUsername] || 0;
+          }
+        } catch (e) {}
+      }
 
-      snap.forEach(doc => {
-        const data = doc.data();
+      // Collect all messages first so we know total count
+      const messages = [];
+      snap.forEach(d => messages.push({ data: d.data(), id: d.id }));
 
+      // The divider goes before the first unread message
+      // = before index (total - unreadCount)
+      const dividerIndex = unreadCount > 0 ? messages.length - unreadCount : -1;
+
+      messages.forEach(({ data, id }, index) => {
         if (data.sender !== currentUsername && !data.seen) {
-          markMessageAsSeen(doc.ref);
+          markMessageAsSeen(doc(db, "chats", chatId, "messages", id));
         }
 
         const msgDate = data.timestamp ? new Date(data.timestamp) : null;
@@ -407,24 +417,21 @@ function listenForMessages() {
           }
         }
 
-        // Insert "New Messages" divider before first unread message from other user
-        if (!unreadDividerInserted && isFirstLoad && unreadStartTime && !isMine && msgDate) {
-          if (msgDate > new Date(unreadStartTime)) {
-            container.appendChild(createPrivateChatUnreadDivider());
-            unreadDividerInserted = true;
-          }
+        // Insert divider right before the first unread message
+        if (isFirstLoad && index === dividerIndex) {
+          container.appendChild(createPrivateChatUnreadDivider());
         }
 
-        container.appendChild(createMessageElement(data, doc.id, isMine));
+        container.appendChild(createMessageElement(data, id, isMine));
       });
 
-      // Cache the rendered HTML for next visit
+      // Cache rendered HTML (without divider to avoid stale divider next time)
       Cache.set(cacheKey, container.innerHTML);
 
-      // Scroll: go to unread divider on first load, else maintain position
+      // Scroll to unread divider on first load, else maintain scroll position
       const unreadEl = container.querySelector('.unread-divider');
-      if (unreadEl && isFirstLoad && !wasAtBottom) {
-        unreadEl.scrollIntoView({ block: 'center' });
+      if (unreadEl && isFirstLoad && unreadCount > 0) {
+        setTimeout(() => unreadEl.scrollIntoView({ block: 'center' }), 50);
       } else if (wasAtBottom || snap.empty) {
         scrollToBottom(container);
       }
@@ -446,13 +453,6 @@ function createPrivateChatUnreadDivider() {
   div.innerHTML = '<span>New Messages</span>';
   return div;
 }
-
-// Save last-read timestamp when leaving chat
-function saveLastRead() {
-  if (chatId) Cache.set('lastread_' + chatId, new Date().toISOString());
-}
-document.addEventListener('visibilitychange', () => { if (document.hidden) saveLastRead(); });
-window.addEventListener('beforeunload', saveLastRead);
 
 // Check if container is scrolled to bottom
 function isScrolledToBottom(container) {
