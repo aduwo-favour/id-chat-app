@@ -106,7 +106,17 @@ function showAdminOptions() {
 
 function updateUIForRole() {
   const btn = document.getElementById('leaveBtn');
-  btn.textContent = userRole === 'creator' ? 'Delete Community' : 'Leave Community';
+  if (btn) btn.textContent = userRole === 'creator' ? 'Delete Community' : 'Leave Community';
+
+  // Show admin panel only for admin/creator, hide for demoted members
+  const adminOptions = document.getElementById('adminOptions');
+  if (adminOptions) {
+    if (userRole === 'admin' || userRole === 'creator') {
+      adminOptions.classList.remove('hidden');
+    } else {
+      adminOptions.classList.add('hidden');
+    }
+  }
 }
 
 async function updateOnlineStatus() {
@@ -221,12 +231,18 @@ function listenForMemberUpdates() {
     const newRole = data.role || 'member';
     const newMuted = data.muted === true;
 
-    // Role changed (e.g. promoted to admin)
+    // Role changed — update UI immediately
     if (newRole !== userRole) {
       userRole = newRole;
       updateUIForRole();
-      if (userRole === 'admin') {
+      if (userRole === 'admin' || userRole === 'creator') {
         showAdminOptions();
+      } else {
+        // Demoted — hide admin panel and notify
+        document.getElementById('adminOptions').classList.add('hidden');
+        const adminPanel = document.querySelector('.admin-only');
+        if (adminPanel) adminPanel.classList.add('hidden');
+        alert('Your admin role has been removed.');
       }
     }
 
