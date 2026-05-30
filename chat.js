@@ -85,7 +85,10 @@ onAuthStateChanged(auth, async (user) => {
     
     // Check block status
     await checkBlockStatus();
-    
+
+    // Load user's translation preference
+    await loadMyLanguage();
+
     // Start listening to messages
     listenForMessages();
     
@@ -497,6 +500,34 @@ function createMessageElement(data, msgId, isMine) {
           <span class="message-time">${time}</span>
         </div>
       `;
+
+      // Translate incoming message if user has a language set
+      if (myLanguage && data.text && !data.deletedForEveryone) {
+        const textEl = div.querySelector('.message-text');
+        // Show a subtle loading indicator
+        const indicator = document.createElement('span');
+        indicator.className = 'translate-loading';
+        indicator.textContent = ' 🌐';
+        indicator.style.cssText = 'font-size:0.7rem;opacity:0.4';
+        textEl.appendChild(indicator);
+
+        translateText(data.text, myLanguage).then(translated => {
+          indicator.remove();
+          if (translated) {
+            const translatedEl = document.createElement('div');
+            translatedEl.className = 'translated-text';
+            translatedEl.style.cssText = 'margin-top:4px;padding-top:4px;border-top:1px solid rgba(0,0,0,0.1);font-style:italic;opacity:0.85;font-size:0.9em';
+            translatedEl.textContent = translated;
+
+            const flag = document.createElement('span');
+            flag.style.cssText = 'font-size:0.65rem;color:#aaa;display:block;margin-top:2px';
+            flag.textContent = '🌐 Translated';
+            translatedEl.appendChild(flag);
+
+            textEl.appendChild(translatedEl);
+          }
+        });
+      }
     } else {
       // My message
       div.innerHTML = `
@@ -531,6 +562,43 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+// ---- Translation ----
+// My preferred language (loaded from user profile)
+let myLanguage = '';
+// Cache: "text||targetLang" -> translated string
+const translateCache = new Map();
+
+async function loadMyLanguage() {
+  if (!currentUid) return;
+  try {
+    const userDoc = await getDoc(doc(db, "users", currentUid));
+    myLanguage = userDoc.data()?.language || '';
+  } catch (e) {
+    myLanguage = '';
+  }
+}
+
+async function translateText(text, targetLang) {
+  if (!targetLang || !text) return null;
+  const cacheKey = text + '||' + targetLang;
+  if (translateCache.has(cacheKey)) return translateCache.get(cacheKey);
+
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetLang}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const translated = data?.responseData?.translatedText;
+    if (translated && translated !== text) {
+      translateCache.set(cacheKey, translated);
+      return translated;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
 }
 
 // Add swipe handler for reply

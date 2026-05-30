@@ -102,7 +102,21 @@ function renderAccountTab(data, user) {
   }
 
   document.getElementById('infoEmail').textContent = data.email || user.email || '—';
+
+  // Load saved language preference
+  const langSelect = document.getElementById('languageSelect');
+  if (langSelect) langSelect.value = data.language || '';
 }
+
+window.saveLanguage = async function(lang) {
+  if (!currentUid) return;
+  try {
+    await updateDoc(doc(db, "users", currentUid), { language: lang });
+  } catch (error) {
+    console.error('Failed to save language:', error);
+    alert('Could not save language preference');
+  }
+};
 
 // ---- Message Requests ----
 function loadRequests() {
