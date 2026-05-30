@@ -7,6 +7,23 @@
 <meta name="theme-color" content="#667eea">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, height=device-height">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Kill any Google Translate injected elements */
+    .goog-te-banner-frame, .skiptranslate, #goog-gt-tt, .goog-te-balloon-frame { display: none !important; }
+    body { top: 0 !important; }
+    .chat-wrapper { height: 100dvh !important; }
+    .lang-selector-wrap select {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: white;
+      border-radius: 8px;
+      padding: 5px 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      outline: none;
+    }
+    .lang-selector-wrap select option { background: #333; color: white; }
+  </style>
 </head>
 <body class="community-chat-page">
 
@@ -23,7 +40,26 @@
     </div>
 
     <div class="chat-header-right">
-      <div id="google_translate_element"></div>
+      <div class="lang-selector-wrap">
+        <select id="commLangSelect" title="Translate incoming messages" onchange="changeChatLanguage(this.value)">
+          <option value="">🌐</option>
+          <option value="en">🇬🇧 EN</option>
+          <option value="fr">🇫🇷 FR</option>
+          <option value="es">🇪🇸 ES</option>
+          <option value="de">🇩🇪 DE</option>
+          <option value="it">🇮🇹 IT</option>
+          <option value="pt">🇧🇷 PT</option>
+          <option value="ru">🇷🇺 RU</option>
+          <option value="ar">🇸🇦 AR</option>
+          <option value="zh">🇨🇳 ZH</option>
+          <option value="ja">🇯🇵 JA</option>
+          <option value="ko">🇰🇷 KO</option>
+          <option value="hi">🇮🇳 HI</option>
+          <option value="yo">YO</option>
+          <option value="ig">IG</option>
+          <option value="ha">HA</option>
+        </select>
+      </div>
       <button onclick="toggleCommunityOptions()" class="options-btn" id="optionsBtn">⚙️</button>
     </div>
   </div>
@@ -97,15 +133,6 @@
   </div>
 </div>
 
-<script>
-  function googleTranslateElementInit() {
-    new google.translate.TranslateElement(
-      { pageLanguage: 'en', includedLanguages: 'en,es,fr,de,it,pt,ru,ja,ko,zh-CN,ar' },
-      'google_translate_element'
-    );
-  }
-</script>
-<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
 <script>
   document.addEventListener('click', function(event) {

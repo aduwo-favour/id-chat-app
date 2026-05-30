@@ -39,6 +39,7 @@ onAuthStateChanged(auth, async (user) => {
     currentUsername = userDoc.data().username;
     document.getElementById('communityName').textContent = communityName || 'Community';
     await checkUserRole();
+    await loadMyLanguage();
     listenForMessages();
     updateOnlineStatus();
     startOnlineStatusUpdates();
@@ -212,6 +213,10 @@ function createMessageElement(data, msgId, isMine) {
           <span class="message-time">${time}</span>
         </div>
       `;
+      // Translate incoming message if user has a language set
+      if (data.text && !data.deletedForEveryone) {
+        applyTranslation(div.querySelector('.message-text'), data.text);
+      }
     } else {
       // For your own messages, don't show sender name
       div.innerHTML = `
@@ -657,4 +662,90 @@ function formatLastSeen(date) {
   if (diff < 60) return `${diff} minutes ago`;
   if (diff < 1440) return `${Math.floor(diff/60)} hours ago`;
   return date.toLocaleDateString();
+}
+// ---- Translation (same system as private chat) ----
+let myLanguage = '';
+const translateCache = new Map();
+
+async function loadMyLanguage() {
+  if (!currentUid) return;
+  try {
+    const userDoc = await getDoc(doc(db, "users", currentUid));
+    myLanguage = userDoc.data()?.language || '';
+    const sel = document.getElementById('commLangSelect');
+    if (sel) sel.value = myLanguage;
+  } catch (e) { myLanguage = ''; }
+}
+
+async function translateText(text, targetLang) {
+  if (!targetLang || !text) return null;
+  const key = text + '||' + targetLang;
+  if (translateCache.has(key)) return translateCache.get(key);
+  try {
+    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetLang}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const translated = data?.responseData?.translatedText;
+    if (!translated || translated === text ||
+        translated.toUpperCase().includes('PLEASE SELECT TWO DISTINCT') ||
+        translated.toUpperCase().includes('MYMEMORY') ||
+        translated.toUpperCase().includes('QUERY LIMIT')) return null;
+    translateCache.set(key, translated);
+    return translated;
+  } catch (e) { return null; }
+}
+
+window.changeChatLanguage = async function(lang) {
+  myLanguage = lang;
+  if (currentUid) {
+    try { await updateDoc(doc(db, "users", currentUid), { language: lang }); } catch (e) {}
+  }
+  translateCache.clear();
+  const container = document.getElementById('messagesContainer');
+  if (container) {
+    container.querySelectorAll('.translated-text').forEach(el => el.remove());
+    if (lang) {
+      container.querySelectorAll('.other-message .message-text').forEach(textEl => {
+        const originalText = textEl.childNodes[0]?.textContent;
+        if (!originalText) return;
+        translateText(originalText, lang).then(translated => {
+          if (translated) {
+            const el = document.createElement('div');
+            el.className = 'translated-text';
+            el.style.cssText = 'margin-top:4px;padding-top:4px;border-top:1px solid rgba(0,0,0,0.1);font-style:italic;opacity:0.85;font-size:0.9em';
+            el.textContent = translated;
+            const flag = document.createElement('span');
+            flag.style.cssText = 'font-size:0.65rem;color:#aaa;display:block;margin-top:2px';
+            flag.textContent = '🌐 Translated';
+            el.appendChild(flag);
+            textEl.appendChild(el);
+          }
+        });
+      });
+    }
+  }
+};
+
+// Apply translation to incoming messages in community chat
+function applyTranslation(textEl, originalText) {
+  if (!myLanguage || !originalText) return;
+  const indicator = document.createElement('span');
+  indicator.className = 'translate-loading';
+  indicator.textContent = ' 🌐';
+  indicator.style.cssText = 'font-size:0.7rem;opacity:0.4';
+  textEl.appendChild(indicator);
+  translateText(originalText, myLanguage).then(translated => {
+    indicator.remove();
+    if (translated) {
+      const el = document.createElement('div');
+      el.className = 'translated-text';
+      el.style.cssText = 'margin-top:4px;padding-top:4px;border-top:1px solid rgba(0,0,0,0.1);font-style:italic;opacity:0.85;font-size:0.9em';
+      el.textContent = translated;
+      const flag = document.createElement('span');
+      flag.style.cssText = 'font-size:0.65rem;color:#aaa;display:block;margin-top:2px';
+      flag.textContent = '🌐 Translated';
+      el.appendChild(flag);
+      textEl.appendChild(el);
+    }
+  });
 }
