@@ -274,9 +274,22 @@ function loadBlockedUsers(blockedUsers) {
 async function unblockUser(username, itemEl) {
   if (!confirm(`Unblock ${username}?`)) return;
   try {
+    // Remove from user's blockedUsers array
     await updateDoc(doc(db, "users", currentUid), {
       blockedUsers: arrayRemove(username)
     });
+
+    // Also clear the block on the chat document so the other user's
+    // chat input re-enables immediately (chat uses isBlocked + blockedBy,
+    // not blockedUsers, for its real-time listener)
+    const chatId = [currentUsername, username].sort().join('_');
+    const chatSnap = await getDoc(doc(db, "chats", chatId));
+    if (chatSnap.exists() && chatSnap.data().isBlocked && chatSnap.data().blockedBy === currentUsername) {
+      await updateDoc(doc(db, "chats", chatId), {
+        isBlocked: false,
+        blockedBy: null
+      });
+    }
     // Optimistically remove from UI
     itemEl.remove();
 
