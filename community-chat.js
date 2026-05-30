@@ -269,16 +269,31 @@ function listenForMemberUpdates() {
   });
 }
 
+let lastReadAt = null;
+let dividerInserted = false;
+
 function listenForMessages() {
   const q = query(collection(db, "communities", communityId, "messages"), orderBy("timestamp"));
+
+  // Load last read timestamp from member doc first
+  getDoc(doc(db, "communities", communityId, "members", currentUid)).then(snap => {
+    if (snap.exists()) lastReadAt = snap.data().lastReadAt || null;
+  }).catch(() => {});
+
   onSnapshot(q, (snap) => {
     const container = document.getElementById('messagesContainer');
+    const wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+
     container.innerHTML = '';
     let lastDate = null;
+    dividerInserted = false;
+
     snap.forEach(d => {
       const data = d.data();
       const msgDate = data.timestamp ? new Date(data.timestamp) : null;
       const isMine = data.sender === currentUsername;
+
+      // Date divider
       if (msgDate) {
         const ds = msgDate.toDateString();
         if (lastDate !== ds) {
@@ -286,11 +301,47 @@ function listenForMessages() {
           container.appendChild(createDateDivider(msgDate));
         }
       }
+
+      // "New messages" divider — insert before first message newer than lastReadAt
+      if (!dividerInserted && lastReadAt && msgDate && !isMine) {
+        if (msgDate > new Date(lastReadAt)) {
+          container.appendChild(createUnreadDivider());
+          dividerInserted = true;
+        }
+      }
+
       container.appendChild(createMessageElement(data, d.id, isMine));
     });
-    container.scrollTop = container.scrollHeight;
+
+    // Scroll to unread divider on first load, otherwise maintain position
+    const unreadEl = container.querySelector('.unread-divider');
+    if (unreadEl && !wasAtBottom) {
+      unreadEl.scrollIntoView({ block: 'center' });
+    } else {
+      container.scrollTop = container.scrollHeight;
+    }
   });
 }
+
+function createUnreadDivider() {
+  const div = document.createElement('div');
+  div.className = 'unread-divider';
+  div.innerHTML = '<span>New Messages</span>';
+  return div;
+}
+
+// Save last read position when user leaves or hides the page
+function saveLastRead() {
+  if (!currentUid || !communityId) return;
+  updateDoc(doc(db, "communities", communityId, "members", currentUid), {
+    lastReadAt: new Date().toISOString()
+  }).catch(() => {});
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) saveLastRead();
+});
+window.addEventListener('beforeunload', saveLastRead);
 
 function createMessageElement(data, msgId, isMine) {
   const div = document.createElement('div');
@@ -894,7 +945,11 @@ window.editCommunity = async function() {
   document.getElementById('communityOptions').classList.add('hidden');
   document.getElementById('adminOptions').classList.add('hidden');
 
-  // Load current community data into the form
+  // Only admins and creator can edit
+  if (!['admin', 'creator'].includes(userRole)) {
+    alert('Only admins and the creator can edit community settings.');
+    return;
+  }
   try {
     const commSnap = await getDoc(doc(db, "communities", communityId));
     if (!commSnap.exists()) return;
@@ -922,6 +977,10 @@ window.editCommunity = async function() {
 };
 
 window.saveEditCommunity = async function() {
+  if (!['admin', 'creator'].includes(userRole)) {
+    alert('Only admins and the creator can edit community settings.');
+    return;
+  }
   const name = document.getElementById('editName').value.trim();
   const description = document.getElementById('editDescription').value.trim();
   const type = document.getElementById('editType').value;

@@ -405,3 +405,8 @@ body { top: 0 !important; }
 .msg-context-menu button { display: block; width: 100%; padding: 13px 18px; border: none; background: transparent; text-align: left; cursor: pointer; font-size: 0.9rem; font-family: var(--font-body); color: var(--text); border-bottom: 1px solid var(--border); transition: 0.15s; }
 .msg-context-menu button:last-child { border-bottom: none; color: var(--text3); }
 .msg-context-menu button:hover { background: var(--bg3); }
+
+/* Community chat unread divider */
+.unread-divider { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
+.unread-divider::before, .unread-divider::after { content: ''; flex: 1; height: 1px; background: rgba(239,68,68,0.4); }
+.unread-divider span { font-size: 0.72rem; font-weight: 600; color: #e53e3e; background: rgba(239,68,68,0.1); padding: 3px 10px; border-radius: 20px; white-space: nowrap; letter-spacing: 0.05em; }
