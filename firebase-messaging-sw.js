@@ -17,11 +17,14 @@ const messaging = firebase.messaging();
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
   console.log('Received background message: ', payload);
-  
-  // Extract data from payload
-  const notificationTitle = payload.notification?.title || 'New Message';
-  const notificationBody = payload.notification?.body || 'You have a new message';
-  const notificationIcon = payload.notification?.icon || '/icon-192.png';
+
+  // Messages are sent data-only (see functions/index.js) so the browser
+  // never auto-displays a second notification. Read from data first, then
+  // fall back to a notification payload for backwards compatibility.
+  const d = payload.data || {};
+  const notificationTitle = d.title || payload.notification?.title || 'New Message';
+  const notificationBody = d.body || payload.notification?.body || 'You have a new message';
+  const notificationIcon = d.icon || payload.notification?.icon || '/icon-192.png';
   
   const notificationOptions = {
     body: notificationBody,
@@ -49,9 +52,14 @@ self.addEventListener('notificationclick', (event) => {
   }
   
   // Default action (click or 'open')
-  const urlToOpen = event.notification.data?.chatId 
-    ? `/chat.html?chatId=${event.notification.data.chatId}&user=${event.notification.data.sender}`
-    : '/';
+  const data = event.notification.data || {};
+  let urlToOpen = '/';
+  if (data.type === 'community' && data.communityId) {
+    urlToOpen = `/community-chat.html?communityId=${data.communityId}` +
+      (data.communityName ? `&name=${encodeURIComponent(data.communityName)}` : '');
+  } else if (data.chatId) {
+    urlToOpen = `/chat.html?chatId=${data.chatId}&user=${encodeURIComponent(data.sender || '')}`;
+  }
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
