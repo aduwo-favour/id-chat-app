@@ -9,6 +9,14 @@ window.goBack = function() { window.location.href = 'dashboard.html'; };
 
 let currentUsername = null, currentUid = null;
 
+window.switchTab = function(tab) {
+  const received = tab === 'received';
+  document.getElementById('requestsList').style.display = received ? '' : 'none';
+  document.getElementById('sentList').style.display = received ? 'none' : '';
+  document.getElementById('tabReceived').classList.toggle('active', received);
+  document.getElementById('tabSent').classList.toggle('active', !received);
+};
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) { window.location.href = 'index.html'; return; }
   currentUid = user.uid;
@@ -18,6 +26,7 @@ onAuthStateChanged(auth, async (user) => {
       currentUsername = userDoc.data().username;
       document.getElementById('requestsList').innerHTML = '<div class="loading">Loading...</div>';
       loadRequests();
+      loadSentRequests();
     }
   } catch (error) { console.error('Auth error:', error); }
 });
@@ -101,6 +110,89 @@ function loadRequests() {
     console.error('loadRequests error:', error);
   }
 }
+
+function loadSentRequests() {
+  if (!currentUsername) { setTimeout(loadSentRequests, 1000); return; }
+  try {
+    const q = query(collection(db, "requests"), where("from", "==", currentUsername));
+    onSnapshot(q, (snap) => {
+      const list = document.getElementById('sentList');
+      const pending = [];
+      snap.forEach(d => {
+        const data = d.data();
+        if (data.status === 'pending') pending.push({ id: d.id, ...data });
+      });
+      pending.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+      list.innerHTML = '';
+
+      if (pending.length === 0) {
+        list.innerHTML = '<div class="no-requests">No pending sent requests</div>';
+        return;
+      }
+
+      // SECURITY: build DOM nodes with textContent so user-controlled `r.to` can't inject HTML
+      pending.forEach(r => {
+        const item = document.createElement('div');
+        item.className = 'request-item';
+        item.dataset.id = r.id;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'request-avatar';
+        avatar.textContent = r.to ? r.to[0].toUpperCase() : '?';
+
+        const details = document.createElement('div');
+        details.className = 'request-details';
+
+        const toEl = document.createElement('div');
+        toEl.className = 'request-from';
+        toEl.textContent = r.to || 'Unknown';
+
+        const msgEl = document.createElement('div');
+        msgEl.className = 'request-message';
+        msgEl.textContent = 'Waiting for them to accept';
+
+        const timeEl = document.createElement('div');
+        timeEl.className = 'request-time';
+        timeEl.textContent = formatTime(r.createdAt);
+
+        details.appendChild(toEl);
+        details.appendChild(msgEl);
+        details.appendChild(timeEl);
+
+        const actions = document.createElement('div');
+        actions.className = 'request-actions';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'cancel-btn';
+        cancelBtn.textContent = '✕ Cancel';
+        cancelBtn.addEventListener('click', () => cancelRequest(r.id));
+
+        actions.appendChild(cancelBtn);
+
+        item.appendChild(avatar);
+        item.appendChild(details);
+        item.appendChild(actions);
+        list.appendChild(item);
+      });
+    }, (error) => {
+      document.getElementById('sentList').innerHTML = '<div class="error-message">Error loading sent requests</div>';
+      console.error('Sent requests listener error:', error);
+    });
+  } catch (error) {
+    console.error('loadSentRequests error:', error);
+  }
+}
+
+window.cancelRequest = async function(reqId) {
+  if (!confirm('Cancel this request?')) return;
+  try {
+    await deleteDoc(doc(db, "requests", reqId));
+  } catch (error) {
+    alert('Failed to cancel request');
+    console.error('cancelRequest error:', error);
+  }
+};
 
 function formatTime(ts) {
   if (!ts) return 'Recently';
