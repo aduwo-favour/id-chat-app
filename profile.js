@@ -8,6 +8,7 @@ import {
 let currentUsername = null;
 let currentUid = null;
 let unsubscribeRequests = null;
+let unsubscribeSentRequests = null;
 
 window.goBack = function() { window.location.href = 'dashboard.html'; };
 
@@ -42,6 +43,7 @@ onAuthStateChanged(auth, async (user) => {
     renderInfoTab(data);
     renderAccountTab(data, user);
     loadRequests();
+    loadSentRequests();
     loadBlockedUsers(data.blockedUsers || []);
   } catch (error) {
     console.error('Profile load error:', error);
@@ -239,6 +241,87 @@ async function declineRequest(reqId) {
     await deleteDoc(doc(db, "requests", reqId));
   } catch (error) {
     console.error('declineRequest error:', error);
+  }
+}
+
+// ---- Sent Requests ----
+function loadSentRequests() {
+  if (!currentUsername) return;
+
+  if (unsubscribeSentRequests) unsubscribeSentRequests();
+
+  const q = query(collection(db, "requests"), where("from", "==", currentUsername));
+
+  unsubscribeSentRequests = onSnapshot(q, (snap) => {
+    const pending = [];
+    snap.forEach(d => {
+      if (d.data().status === 'pending') pending.push({ id: d.id, ...d.data() });
+    });
+    pending.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    const list = document.getElementById('sentList');
+    list.innerHTML = '';
+
+    if (pending.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📤</div>
+          <p>No pending sent requests</p>
+        </div>`;
+      return;
+    }
+
+    pending.forEach(r => {
+      const item = document.createElement('div');
+      item.className = 'request-item';
+
+      const avatar = document.createElement('div');
+      avatar.className = 'request-avatar';
+      avatar.textContent = r.to ? r.to[0].toUpperCase() : '?';
+
+      const details = document.createElement('div');
+      details.className = 'request-details';
+
+      const toEl = document.createElement('div');
+      toEl.className = 'request-from';
+      toEl.textContent = r.to || 'Unknown';
+
+      const metaEl = document.createElement('div');
+      metaEl.className = 'request-meta';
+      metaEl.textContent = 'Waiting to be accepted · ' + formatTime(r.createdAt);
+
+      details.appendChild(toEl);
+      details.appendChild(metaEl);
+
+      const actions = document.createElement('div');
+      actions.className = 'request-actions';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'decline-btn';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.addEventListener('click', () => cancelRequest(r.id));
+
+      actions.appendChild(cancelBtn);
+
+      item.appendChild(avatar);
+      item.appendChild(details);
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+  }, (error) => {
+    console.error('Sent requests listener error:', error);
+    document.getElementById('sentList').innerHTML =
+      '<div class="empty-state"><p>Error loading sent requests</p></div>';
+  });
+}
+
+async function cancelRequest(reqId) {
+  if (!confirm('Cancel this request?')) return;
+  try {
+    await deleteDoc(doc(db, "requests", reqId));
+  } catch (error) {
+    alert('Failed to cancel request');
+    console.error('cancelRequest error:', error);
   }
 }
 

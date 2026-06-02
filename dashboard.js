@@ -9,7 +9,6 @@ import { getToken } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-mes
 let currentUsername = null;
 let currentUid = null;
 let unsubscribeRequests = null;
-let unsubscribeSentRequests = null;
 let unsubscribeChats = null;
 
 // SECURITY: Escape HTML to prevent XSS anywhere we insert dynamic text
@@ -128,11 +127,9 @@ onAuthStateChanged(auth, async (user) => {
       }
 
       if (unsubscribeRequests) unsubscribeRequests();
-      if (unsubscribeSentRequests) unsubscribeSentRequests();
       if (unsubscribeChats) unsubscribeChats();
 
       listenForRequests();
-      listenForSentRequests();
       listenForCommunityRequests();
     } else {
       await signOut(auth);
@@ -166,31 +163,6 @@ window.addEventListener('beforeunload', () => {
     } catch (e) {}
   }
 });
-
-function listenForSentRequests() {
-  if (!currentUsername) return;
-
-  try {
-    const sentQuery = query(
-      collection(db, "requests"),
-      where("from", "==", currentUsername),
-      where("status", "==", "pending")
-    );
-
-    unsubscribeSentRequests = onSnapshot(sentQuery, (snapshot) => {
-      const count = snapshot.size;
-      const badge = document.getElementById('sentBadge');
-      if (badge) {
-        badge.style.display = count > 0 ? 'inline' : 'none';
-        if (count > 0) badge.textContent = count;
-      }
-    }, (error) => {
-      console.error('Error listening to sent requests:', error);
-    });
-  } catch (error) {
-    console.error('Error setting up sent requests listener:', error);
-  }
-}
 
 function listenForRequests() {
   if (!currentUsername) return;
@@ -315,7 +287,6 @@ window.logout = async function() {
     }
 
     if (unsubscribeRequests) unsubscribeRequests();
-    if (unsubscribeSentRequests) unsubscribeSentRequests();
     if (unsubscribeChats) unsubscribeChats();
 
     // Clear all cached data so next user doesn't see stale content
