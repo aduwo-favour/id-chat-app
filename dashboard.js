@@ -10,6 +10,8 @@ let currentUsername = null;
 let currentUid = null;
 let unsubscribeRequests = null;
 let unsubscribeChats = null;
+let requestsFirstLoad = true;
+let chatsFirstLoad = true;
 
 // SECURITY: Escape HTML to prevent XSS anywhere we insert dynamic text
 function escapeHtml(text) {
@@ -166,6 +168,8 @@ window.addEventListener('beforeunload', () => {
 
 function listenForRequests() {
   if (!currentUsername) return;
+  requestsFirstLoad = true;
+  chatsFirstLoad = true;
 
   try {
     const requestsQuery = query(
@@ -181,6 +185,21 @@ function listenForRequests() {
         badge.style.display = count > 0 ? 'inline' : 'none';
         if (count > 0) badge.textContent = count;
       }
+
+      if (!requestsFirstLoad) {
+        snapshot.docChanges().forEach(ch => {
+          if (ch.type === 'added') {
+            const r = ch.doc.data();
+            if (r.from) {
+              showInAppNotification({ notification: {
+                title: 'New message request',
+                body: `${r.from} sent you a message request`
+              }});
+            }
+          }
+        });
+      }
+      requestsFirstLoad = false;
     }, (error) => {
       console.error('Error listening to requests:', error);
     });
@@ -202,6 +221,25 @@ function listenForRequests() {
           totalUnread += data.unread[currentUsername];
         }
       });
+
+      if (!chatsFirstLoad) {
+        snapshot.docChanges().forEach(ch => {
+          if (ch.type === 'added') {
+            const c = ch.doc.data();
+            // Notify the SENDER when the other person accepted their request.
+            if (c.status === 'accepted' && c.acceptedBy && c.acceptedBy !== currentUsername) {
+              showInAppNotification({
+                notification: {
+                  title: 'Request accepted',
+                  body: `${c.acceptedBy} accepted your request`
+                },
+                data: { chatId: ch.doc.id, sender: c.acceptedBy }
+              });
+            }
+          }
+        });
+      }
+      chatsFirstLoad = false;
 
       const chatBadge = document.getElementById('privateChatsBadge');
       if (chatBadge) {

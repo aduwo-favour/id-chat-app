@@ -224,7 +224,8 @@ window.acceptRequest = async function(reqId, fromUser) {
     await setDoc(doc(db, "chats", chatId), {
       participants: [currentUsername, fromUser],
       createdAt: new Date().toISOString(),
-      unread: {}, status: "accepted", isBlocked: false
+      unread: {}, status: "accepted", isBlocked: false,
+      acceptedBy: currentUsername
     });
     await deleteDoc(doc(db, "requests", reqId));
     window.location.href = `chat.html?chatId=${encodeURIComponent(chatId)}&user=${encodeURIComponent(fromUser)}`;
