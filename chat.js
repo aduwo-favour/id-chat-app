@@ -942,8 +942,8 @@ window.sendMessage = async function() {
 // 2. Dashboard → copy your "Cloud name"
 // 3. Settings → Upload → add an UNSIGNED upload preset → copy its name
 // Paste both below:
-const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUD_NAME";
-const CLOUDINARY_UPLOAD_PRESET = "YOUR_UNSIGNED_PRESET";
+const CLOUDINARY_CLOUD_NAME = "dmfhx6yb7";
+const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 
 // Upload & send a file/image attachment (via Cloudinary)
 window.handleFileSelected = async function(fileInput) {
