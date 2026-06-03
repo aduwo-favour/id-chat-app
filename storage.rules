@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // The caller's username, read from their Firestore user doc.
+    function myUsername() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.username;
+    }
+
+    // Participants of a chat, read from the chat doc in Firestore.
+    function chatParticipants(chatId) {
+      return firestore.get(/databases/(default)/documents/chats/$(chatId)).data.participants;
+    }
+
+    // Chat attachments: /chat-uploads/{chatId}/{fileName}
+    match /chat-uploads/{chatId}/{fileName} {
+      // Only the two participants of that chat can read or upload.
+      allow read: if isSignedIn() && myUsername() in chatParticipants(chatId);
+      allow write: if isSignedIn()
+        && myUsername() in chatParticipants(chatId)
+        && request.resource.size < 15 * 1024 * 1024;     // 15 MB cap
+    }
+
+    // Everything else: denied by default (no catch-all allow).
+  }
+}

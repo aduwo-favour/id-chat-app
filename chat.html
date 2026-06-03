@@ -61,6 +61,8 @@
   </div>
 
   <div class="chat-input-fixed">
+    <input type="file" id="fileInput" accept="image/*,application/pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileSelected(this)">
+    <button type="button" onclick="document.getElementById('fileInput').click()" id="attachBtn" title="Attach image or file">📎</button>
     <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
     <button onclick="sendMessage()" id="sendBtn">Send</button>
   </div>

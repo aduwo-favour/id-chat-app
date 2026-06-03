@@ -592,6 +592,36 @@ function createMessageElement(data, msgId, isMine) {
     }
   }
 
+  // Attachments (image / file). Built via DOM + URL allowlist for XSS safety.
+  if (!data.deletedForEveryone) {
+    const STORAGE = /^https:\/\/(res\.cloudinary\.com|firebasestorage\.googleapis\.com)\//;
+    const textEl = div.querySelector('.message-text');
+    const insertBeforeEl = textEl || div.firstChild;
+
+    if (data.imageUrl && STORAGE.test(data.imageUrl)) {
+      const img = document.createElement('img');
+      img.className = 'message-image';
+      img.src = data.imageUrl;
+      img.alt = 'image';
+      img.loading = 'lazy';
+      img.addEventListener('click', () => window.open(data.imageUrl, '_blank', 'noopener'));
+      div.insertBefore(img, insertBeforeEl);
+    } else if (data.fileUrl && STORAGE.test(data.fileUrl)) {
+      const link = document.createElement('a');
+      link.className = 'message-file';
+      link.href = data.fileUrl;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = '📎 ' + (data.fileName || 'Download file');
+      div.insertBefore(link, insertBeforeEl);
+    }
+
+    // Hide empty text bubble when the message is only an attachment
+    if (textEl && !textEl.textContent.trim() && (data.imageUrl || data.fileUrl)) {
+      textEl.style.display = 'none';
+    }
+  }
+
   // Add touch handlers for swipe to reply
   addSwipeHandler(div, data);
   
@@ -904,6 +934,90 @@ window.sendMessage = async function() {
     input.disabled = false;
     if (sendBtn) sendBtn.disabled = false;
     input.focus();
+  }
+};
+
+// ---- Cloudinary config (free image/file hosting) ----
+// 1. Create a free account at cloudinary.com
+// 2. Dashboard → copy your "Cloud name"
+// 3. Settings → Upload → add an UNSIGNED upload preset → copy its name
+// Paste both below:
+const CLOUDINARY_CLOUD_NAME = "YOUR_CLOUD_NAME";
+const CLOUDINARY_UPLOAD_PRESET = "YOUR_UNSIGNED_PRESET";
+
+// Upload & send a file/image attachment (via Cloudinary)
+window.handleFileSelected = async function(fileInput) {
+  if (isBlocked) {
+    showNotification('Chat is blocked');
+    fileInput.value = '';
+    return;
+  }
+  const file = fileInput.files && fileInput.files[0];
+  fileInput.value = ''; // reset so selecting the same file again still fires
+  if (!file) return;
+
+  const MAX = 10 * 1024 * 1024; // 10 MB (Cloudinary free tier limit for unsigned)
+  if (file.size > MAX) {
+    showNotification('File too large (max 10MB)');
+    return;
+  }
+
+  const isImage = file.type.startsWith('image/');
+  showNotification(isImage ? 'Uploading image…' : 'Uploading file…');
+
+  const attachBtn = document.getElementById('attachBtn');
+  if (attachBtn) attachBtn.disabled = true;
+
+  try {
+    const userDoc = await getDoc(doc(db, "users", currentUid));
+    const isVerified = userDoc.data()?.verified || false;
+
+    // Unsigned upload to Cloudinary. 'auto' accepts both images and raw files.
+    const form = new FormData();
+    form.append('file', file);
+    form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`;
+    const res = await fetch(endpoint, { method: 'POST', body: form });
+    if (!res.ok) throw new Error('Cloudinary upload failed: ' + res.status);
+    const result = await res.json();
+    const url = result.secure_url;
+    if (!url) throw new Error('No URL returned from Cloudinary');
+
+    const msg = {
+      sender: currentUsername,
+      senderVerified: isVerified,
+      text: '',
+      timestamp: new Date().toISOString(),
+      deletedForEveryone: false,
+      replyTo: replyingTo,
+      seen: false,
+      seenAt: null,
+      reactions: {}
+    };
+    if (isImage) {
+      msg.imageUrl = url;
+    } else {
+      msg.fileUrl = url;
+      msg.fileName = (file.name || 'file').slice(0, 100);
+      msg.fileSize = file.size;
+    }
+    await addDoc(collection(db, "chats", chatId, "messages"), msg);
+
+    await updateDoc(doc(db, "chats", chatId), {
+      [`unread.${otherUsername}`]: increment(1),
+      lastMessageAt: new Date().toISOString(),
+      lastMessageText: isImage ? '📷 Photo' : '📎 ' + (file.name || 'File').slice(0, 40),
+      lastMessageSender: currentUsername
+    });
+
+    replyingTo = null;
+    const replyPreview = document.getElementById('replyPreview');
+    if (replyPreview) replyPreview.classList.add('hidden');
+  } catch (error) {
+    console.error('Upload failed:', error);
+    showNotification('Upload failed');
+  } finally {
+    if (attachBtn) attachBtn.disabled = false;
   }
 };
 
