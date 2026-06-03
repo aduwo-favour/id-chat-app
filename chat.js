@@ -1,4 +1,5 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
+import { notifyPush } from "./push-notify.js";
 import { Cache } from "./cache.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
@@ -916,7 +917,10 @@ window.sendMessage = async function() {
       lastMessageText: text.length > 60 ? text.slice(0, 60) + '…' : text,
       lastMessageSender: currentUsername
     });
-    
+
+    // Push notification to the recipient (no-op until notifier is configured)
+    notifyPush({ type: 'private', chatId, body: text });
+
     // Clear input and reply
     input.value = '';
     replyingTo = null;
@@ -1009,6 +1013,8 @@ window.handleFileSelected = async function(fileInput) {
       lastMessageText: isImage ? '📷 Photo' : '📎 ' + (file.name || 'File').slice(0, 40),
       lastMessageSender: currentUsername
     });
+
+    notifyPush({ type: 'private', chatId, body: isImage ? '📷 Photo' : '📎 ' + (file.name || 'File') });
 
     replyingTo = null;
     const replyPreview = document.getElementById('replyPreview');

@@ -1,4 +1,5 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
+import { notifyPush } from "./push-notify.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
@@ -570,6 +571,9 @@ window.sendMessage = async function() {
   input.value = '';
   replyingTo = null;
   document.getElementById('replyPreview').classList.add('hidden');
+
+  // Push to other community members (no-op until notifier is configured)
+  notifyPush({ type: 'community', communityId, body: text });
 };
 
 window.replyToMessage = function(text) {
