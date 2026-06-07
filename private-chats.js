@@ -354,8 +354,9 @@ window.sendRequest = async function(toUser) {
     // Delete old declined requests
     declinedSnap.forEach(d => batch.delete(d.ref));
     
-    // Create new request
-    const newRequestRef = doc(collection(db, "requests"));
+    // Create new request with a DETERMINISTIC id ("from_to") so security rules
+    // can verify it exists when the recipient accepts (rules can't run queries).
+    const newRequestRef = doc(db, "requests", `${currentUsername}_${toUser}`);
     batch.set(newRequestRef, {
       from: currentUsername,
       to: toUser,

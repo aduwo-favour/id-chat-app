@@ -36,11 +36,24 @@ service cloud.firestore {
     }
 
     // ---------- CHATS & MESSAGES ----------
+    function otherParticipant(parts, me) {
+      return parts[0] == me ? parts[1] : parts[0];
+    }
     match /chats/{chatId} {
       allow read:   if isSignedIn() && (myUsername() in resource.data.participants || isAdmin());
-      allow create: if isSignedIn() && myUsername() in request.resource.data.participants;
-      // CHANGED: participants is now immutable after creation, so a participant
-      // can't rewrite who is in the chat (only metadata like unread/status/isBlocked).
+      // CHANGED: a chat can only be created if the OTHER person has an inbound
+      // request to you (proves they initiated contact). Stops forced/unsolicited
+      // chats. Requires exactly 2 participants and that you are one of them.
+      allow create: if isSignedIn()
+        && request.resource.data.participants.size() == 2
+        && myUsername() in request.resource.data.participants
+        && (
+             isAdmin()
+             || exists(/databases/$(database)/documents/requests/$(
+                  otherParticipant(request.resource.data.participants, myUsername()) + '_' + myUsername()
+                ))
+           );
+      // participants stays immutable after creation
       allow update: if isSignedIn()
         && (myUsername() in resource.data.participants || isAdmin())
         && request.resource.data.participants == resource.data.participants;
@@ -76,7 +89,13 @@ service cloud.firestore {
     match /requests/{requestId} {
       allow read:   if isSignedIn() && (resource.data.from == myUsername()
                        || resource.data.to == myUsername() || isAdmin());
-      allow create: if isSignedIn() && request.resource.data.from == myUsername();
+      // CHANGED: the doc id MUST equal "<from>_<to>" and 'from' MUST be you.
+      // This means only the sender can create their own request, and a request
+      // named "Liuda_jeff" can only be made by Liuda. The chat-create rule above
+      // relies on that to prove consent.
+      allow create: if isSignedIn()
+        && request.resource.data.from == myUsername()
+        && requestId == request.resource.data.from + '_' + request.resource.data.to;
       allow update: if isSignedIn() && (resource.data.from == myUsername()
                        || resource.data.to == myUsername() || isAdmin());
       allow delete: if isSignedIn() && (resource.data.from == myUsername()
