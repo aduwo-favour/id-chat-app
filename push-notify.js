@@ -9,7 +9,7 @@ import { auth } from "./firebase.js";
 // │  You get it from Vercel after deploying the notifier-vercel project,  │
 // │  e.g. "https://chat-notifier-abc123.vercel.app/api/notify".           │
 // └─────────────────────────────────────────────────────────────────────┘
-const NOTIFY_ENDPOINT = "https://YOUR-NOTIFIER.vercel.app/api/notify";
+const NOTIFY_ENDPOINT = "https://notifier-vercelvnot.vercel.app/api/notify";
 
 // True until you replace the placeholder above. Keeps the app from
 // firing pointless requests before the notifier is configured.
