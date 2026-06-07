@@ -417,3 +417,130 @@ body { top: 0 !important; }
 .message-image { max-width: 240px; max-height: 300px; width: 100%; border-radius: 14px; display: block; margin: 2px 0 4px; cursor: pointer; object-fit: cover; }
 .message-file { display: inline-block; padding: 9px 13px; margin: 2px 0 4px; border-radius: 12px; background: rgba(0,0,0,0.06); color: inherit; text-decoration: none; font-size: 13px; word-break: break-all; }
 .my-message .message-file { background: rgba(255,255,255,0.18); }
+
+/* ════════════════════════════════════════════════════════════════
+   CHAT UI — POLISH PASS (overrides; dark theme + existing tokens)
+   Appended last so these win over the base chat rules above.
+   ════════════════════════════════════════════════════════════════ */
+
+/* Header: glassy, with a soft accent hairline under it */
+.chat-header-fixed {
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--bg2) 82%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 0 rgba(91,94,244,0.12), 0 6px 20px rgba(0,0,0,0.25);
+}
+.chat-user-info h3 { font-size: 15.5px; letter-spacing: -0.2px; }
+.user-status.online::before {
+  content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 5px;
+  border-radius: 50%; background: var(--online);
+  box-shadow: 0 0 0 3px rgba(34,197,94,0.18); vertical-align: middle;
+}
+
+/* Back + options as tidy round icon buttons */
+.back-btn, .options-btn {
+  width: 40px; height: 40px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; font-size: 16px; line-height: 1;
+}
+.back-btn:active, .options-btn:active { transform: scale(0.92); }
+
+/* Message area: a touch more breathing room */
+.messages-container { padding: 18px 14px 10px; gap: 3px; }
+
+/* Bubbles */
+.message {
+  max-width: 78%; padding: 9px 13px 7px; border-radius: 20px;
+  font-size: 14.5px; line-height: 1.5;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+  animation: msgIn 0.22s var(--ease);
+}
+.my-message {
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
+  border-bottom-right-radius: 7px;
+  box-shadow: 0 4px 18px var(--primary-glow);
+}
+.other-message {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-bottom-left-radius: 7px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+}
+/* tighter gap between consecutive bubbles from the same side */
+.my-message + .my-message,
+.other-message + .other-message { margin-top: -1px; }
+
+.message-text { margin-bottom: 3px; }
+.message-footer { gap: 5px; margin-top: 1px; opacity: 0.9; }
+.message-time { font-size: 10.5px; letter-spacing: 0.2px; }
+.seen-indicator { color: #9ad7ff; opacity: 1; }
+.my-message .seen-indicator { color: #d6e9ff; }
+
+/* Inline reply chip inside a bubble */
+.reply-preview-inline {
+  border-radius: 8px; font-size: 11.5px; padding: 6px 9px;
+  background: rgba(0,0,0,0.22); border-left-width: 3px;
+}
+
+/* Translated text styling */
+.translated-text { font-style: italic; opacity: 0.85; font-size: 13px; margin-top: 3px; }
+
+/* Date divider: centered label with side rules */
+.date-divider {
+  display: flex; align-items: center; gap: 12px; margin: 16px 4px;
+  text-transform: uppercase;
+}
+.date-divider::before, .date-divider::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border2), transparent);
+}
+
+/* Reply preview bar above input */
+.reply-preview {
+  border-radius: 0; padding: 10px 16px;
+  background: color-mix(in srgb, var(--bg3) 90%, var(--primary) 10%);
+}
+
+/* Input bar */
+.chat-input-fixed {
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  gap: 8px; align-items: center;
+  background: color-mix(in srgb, var(--bg2) 90%, transparent);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+.chat-input-fixed input {
+  padding: 12px 18px; border-radius: 24px; font-size: 15px;
+}
+.chat-input-fixed input:focus {
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+/* Attach as a round icon button */
+#attachBtn {
+  width: 44px; height: 44px; padding: 0; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; font-size: 18px;
+  background: var(--bg3); border: 1px solid var(--border2);
+}
+#attachBtn:active { transform: scale(0.92); }
+/* Send button: gradient pill with a tactile press */
+#sendBtn {
+  padding: 12px 20px; border-radius: 24px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--primary-light), var(--primary));
+}
+#sendBtn:hover { transform: translateY(-1px); }
+#sendBtn:active { transform: scale(0.96); }
+
+/* Reactions */
+.message-reactions { margin-top: 6px; }
+.reaction-badge {
+  padding: 2px 8px; border-radius: 12px; font-size: 12.5px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+.reaction-menu { border-radius: 26px; padding: 7px 10px; }
+.reaction-btn:active { transform: scale(1.15); }
+
+/* Images / files in bubbles */
+.message-image { border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+.message-file { border-radius: 12px; }
