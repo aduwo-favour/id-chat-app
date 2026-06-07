@@ -1,0 +1,164 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Global helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+    function myUsername() {
+      return userDoc(request.auth.uid).username;
+    }
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && userDoc(request.auth.uid).get('isAdmin', false) == true;
+    }
+
+    // ---------- USERS ----------
+    // NOTE (unchanged): any signed-in user can read any user doc, including
+    // 'email' and 'fcmTokens'. Firestore can't do per-field read rules; if you
+    // want to hide those, move them to a private subcollection later.
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.get('isAdmin', false) == false;
+      allow update: if isSignedIn() && request.auth.uid == userId
+        && request.resource.data.get('isAdmin', false)  == resource.data.get('isAdmin', false)
+        && request.resource.data.get('verified', false) == resource.data.get('verified', false)
+        && request.resource.data.get('banned', false)   == resource.data.get('banned', false);
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ---------- CHATS & MESSAGES ----------
+    match /chats/{chatId} {
+      allow read:   if isSignedIn() && (myUsername() in resource.data.participants || isAdmin());
+      allow create: if isSignedIn() && myUsername() in request.resource.data.participants;
+      // CHANGED: participants is now immutable after creation, so a participant
+      // can't rewrite who is in the chat (only metadata like unread/status/isBlocked).
+      allow update: if isSignedIn()
+        && (myUsername() in resource.data.participants || isAdmin())
+        && request.resource.data.participants == resource.data.participants;
+      allow delete: if isSignedIn() && (myUsername() in resource.data.participants || isAdmin());
+
+      match /messages/{messageId} {
+        function chatParticipants() {
+          return get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        }
+        allow read:   if isSignedIn() && (myUsername() in chatParticipants() || isAdmin());
+        allow create: if isSignedIn() && myUsername() in chatParticipants()
+                        && request.resource.data.sender == myUsername();
+        // CHANGED: previously ANY participant could update ANY message (e.g. edit
+        // the other person's text). Now:
+        //   - the message author may update their own message (edit / delete-own), and
+        //   - the other participant may change ONLY seen/seenAt (read receipt) and reactions.
+        // PRODUCT DECISION: this makes "delete for everyone" author-only. If you
+        // intend either party to delete the other's messages, tell me and I'll widen it.
+        allow update: if isSignedIn() && (
+                          isAdmin()
+                          || resource.data.sender == myUsername()
+                          || (myUsername() in chatParticipants()
+                              && request.resource.data.diff(resource.data)
+                                   .affectedKeys().hasOnly(['seen', 'seenAt', 'reactions']))
+                        );
+        // CHANGED: deleting a message doc is author/admin only (soft-delete via
+        // update above is the normal path anyway).
+        allow delete: if isSignedIn() && (resource.data.sender == myUsername() || isAdmin());
+      }
+    }
+
+    // ---------- REQUESTS ----------
+    match /requests/{requestId} {
+      allow read:   if isSignedIn() && (resource.data.from == myUsername()
+                       || resource.data.to == myUsername() || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.from == myUsername();
+      allow update: if isSignedIn() && (resource.data.from == myUsername()
+                       || resource.data.to == myUsername() || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.from == myUsername()
+                       || resource.data.to == myUsername() || isAdmin());
+    }
+
+    // ---------- COMMUNITIES ----------
+    match /communities/{communityId} {
+      function community() {
+        return get(/databases/$(database)/documents/communities/$(communityId)).data;
+      }
+      function isCommunityMember() {
+        return isSignedIn()
+          && exists(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid));
+      }
+      function isCommunityMod() {
+        return isCommunityMember()
+          && get(/databases/$(database)/documents/communities/$(communityId)/members/$(request.auth.uid))
+               .data.get('role', 'member') in ['admin', 'creator'];
+      }
+
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.createdByUid == request.auth.uid
+                       || isCommunityMod() || isAdmin());
+      allow delete: if isSignedIn() && (resource.data.createdByUid == request.auth.uid || isAdmin());
+
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && (
+          (memberId == request.auth.uid
+            && request.resource.data.get('role', 'member') == 'member'
+            && community().get('type', 'public') == 'public')
+          || (memberId == request.auth.uid
+            && community().createdByUid == request.auth.uid)
+          || (isCommunityMod() && request.resource.data.get('role', 'member') in ['member', 'admin'])
+        );
+        allow update: if isSignedIn() && (
+          (memberId == request.auth.uid
+            && request.resource.data.get('role', 'member') == resource.data.get('role', 'member'))
+          || isCommunityMod()
+        );
+        allow delete: if isSignedIn() && (memberId == request.auth.uid || isCommunityMod() || isAdmin());
+      }
+
+      match /messages/{messageId} {
+        allow read:   if isCommunityMember() || isAdmin();
+        allow create: if isCommunityMember() && request.resource.data.senderId == request.auth.uid;
+        // CHANGED: previously ANY member could update ANY message. Now:
+        //   - author may edit/delete-own, mods/admins may moderate (soft-delete), and
+        //   - other members may change ONLY reactions.
+        allow update: if isSignedIn() && (
+                          isAdmin()
+                          || isCommunityMod()
+                          || resource.data.get('senderId', '') == request.auth.uid
+                          || (isCommunityMember()
+                              && request.resource.data.diff(resource.data)
+                                   .affectedKeys().hasOnly(['reactions']))
+                        );
+        allow delete: if isSignedIn() && (resource.data.get('senderId', '') == request.auth.uid
+                         || isCommunityMod() || isAdmin());
+      }
+
+      match /requests/{reqId} {
+        allow read:   if isSignedIn() && (resource.data.userId == request.auth.uid || isCommunityMod());
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        allow update: if isSignedIn() && (resource.data.userId == request.auth.uid
+                         || isCommunityMod() || isAdmin());
+        allow delete: if isSignedIn() && (resource.data.userId == request.auth.uid
+                         || isCommunityMod() || isAdmin());
+      }
+
+      match /banned/{bannedId} {
+        allow read:  if isSignedIn();
+        allow write: if isCommunityMod() || isAdmin();
+      }
+    }
+
+    // ---------- SETTINGS ----------
+    match /settings/{document} {
+      allow read:  if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

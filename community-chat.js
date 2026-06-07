@@ -361,7 +361,7 @@ function createMessageElement(data, msgId, isMine) {
   let reactionsHTML = '';
   if (data.reactions && Object.keys(data.reactions).length) {
     const uniq = [...new Set(Object.values(data.reactions))];
-    reactionsHTML = `<div class="message-reactions">${uniq.map(e => `<span class="reaction-badge">${e}</span>`).join('')}</div>`;
+    reactionsHTML = `<div class="message-reactions">${uniq.map(e => `<span class="reaction-badge">${escapeHtml(e)}</span>`).join('')}</div>`;
   }
   
   if (data.deletedForEveryone) {

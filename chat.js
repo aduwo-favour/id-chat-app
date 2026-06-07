@@ -533,7 +533,7 @@ function createMessageElement(data, msgId, isMine) {
   if (data.reactions && Object.keys(data.reactions).length) {
     const uniqueReactions = [...new Set(Object.values(data.reactions))];
     reactionsHtml = `<div class="message-reactions">${
-      uniqueReactions.map(e => `<span class="reaction-badge">${e}</span>`).join('')
+      uniqueReactions.map(e => `<span class="reaction-badge">${escapeHtml(e)}</span>`).join('')
     }</div>`;
   }
   
