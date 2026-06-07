@@ -1,4 +1,5 @@
 import { auth, db, messaging, onForegroundMessage, watchBanStatus } from "./firebase.js";
+import { initNotifications } from "./enable-notifications.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   doc, getDoc, updateDoc, collection, query, where,
@@ -116,7 +117,10 @@ onAuthStateChanged(auth, async (user) => {
         lastSeen: new Date().toISOString()
       });
 
-      await updateFCMToken();
+      // Shows the "enable notifications" banner if needed, or silently saves
+      // the token when permission is already granted. (Replaces updateFCMToken,
+      // which requested permission without a user tap and was being ignored.)
+      initNotifications(user.uid);
 
       onForegroundMessage((payload) => {
         showInAppNotification(payload);

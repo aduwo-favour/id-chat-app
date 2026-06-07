@@ -1,5 +1,6 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { notifyPush } from "./push-notify.js";
+import { initNotifications } from "./enable-notifications.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
@@ -38,7 +39,7 @@ onAuthStateChanged(auth, async (user) => {
   const userDoc = await getDoc(doc(db, "users", user.uid));
   if (userDoc.exists()) {
     currentUsername = userDoc.data().username;
-    document.getElementById('communityName').textContent = communityName || 'Community';
+    initNotifications(user.uid);
     await checkUserRole();
     await loadMyLanguage();
     listenForMessages();

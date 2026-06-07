@@ -1,5 +1,6 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { notifyPush } from "./push-notify.js";
+import { initNotifications } from "./enable-notifications.js";
 import { Cache } from "./cache.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
@@ -57,6 +58,9 @@ onAuthStateChanged(auth, async (user) => {
     }
     
     currentUsername = userDoc.data().username;
+
+    // Show the "enable notifications" prompt (or silently save token if granted)
+    initNotifications(user.uid);
 
     // Security check: Verify current user is a participant of this chat
     const chatRef = doc(db, "chats", chatId);
