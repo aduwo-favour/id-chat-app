@@ -1,16 +1,8 @@
 {
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "disallowLegacyRuntimeConfig": true,
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
-      ]
-    }
-  ]
+  "//": "Cloud Functions are intentionally NOT configured for deploy.",
+  "//2": "Push is handled by the free Vercel notifier (see the notifier-vercel repo",
+  "//3": "and push-notify.js). Deploying functions/index.js as well would send a",
+  "//4": "SECOND push per message and would require the paid Blaze plan.",
+  "//5": "The functions/ folder is kept only as reference; to use it instead of the",
+  "//6": "Vercel notifier, restore a \"functions\" block here and remove notifyPush calls."
 }

@@ -1,8 +1,9 @@
 {
-  "name": "chat-notifier",
+  "name": "id-chat-app",
   "version": "1.0.0",
   "private": true,
-  "dependencies": {
-    "firebase-admin": "^12.6.0"
+  "description": "Firebase web chat app (static, hosted on Vercel). Firebase SDKs load via CDN, so there are no runtime npm dependencies. The separate notifier-vercel project owns firebase-admin.",
+  "scripts": {
+    "dev": "npx serve ."
   }
 }
