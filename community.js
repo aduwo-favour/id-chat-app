@@ -1,4 +1,5 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
+import { getGlobalSettings } from "./app-settings.js";
 import { Cache } from "./cache.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
@@ -223,6 +224,13 @@ window.createCommunity = async function() {
   const type = document.getElementById('communityType').value;
 
   if (!name) { alert('Community name required'); return; }
+
+  // Enforce admin "Enable community creation" toggle
+  const settings = await getGlobalSettings();
+  if (settings.communityCreation === false) {
+    alert('Community creation is currently disabled by the admin.');
+    return;
+  }
 
   try {
     const ref = await addDoc(collection(db, "communities"), {

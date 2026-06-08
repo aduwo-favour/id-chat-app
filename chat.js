@@ -1,6 +1,7 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { notifyPush } from "./push-notify.js";
 import { initNotifications } from "./enable-notifications.js";
+import { getGlobalSettings } from "./app-settings.js";
 import { Cache } from "./cache.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
@@ -10,6 +11,15 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 // Global variables
+let GLOBAL_SETTINGS = {};
+getGlobalSettings().then(s => {
+  GLOBAL_SETTINGS = s;
+  // Enforce admin "Enable file uploads" toggle
+  if (s.fileUploads === false) {
+    const b = document.getElementById('attachBtn');
+    if (b) b.style.display = 'none';
+  }
+});
 let currentUsername = null;
 let currentUid = null;
 let otherUsername = null;
@@ -824,6 +834,8 @@ function addDeleteHandler(element, msgId) {
 
 // Show reaction menu
 function showReactionMenu(e, msgId, element) {
+  // Enforce admin "Enable message reactions" toggle
+  if (GLOBAL_SETTINGS.reactions === false) return;
   // Remove any existing reaction menus
   document.querySelectorAll('.reaction-menu').forEach(m => m.remove());
   

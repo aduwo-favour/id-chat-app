@@ -1,6 +1,7 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { notifyPush } from "./push-notify.js";
 import { initNotifications } from "./enable-notifications.js";
+import { getGlobalSettings } from "./app-settings.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
@@ -18,6 +19,14 @@ function escapeHtml(text) {
 
 let currentUsername, currentUid, communityId, communityName, replyingTo = null;
 let userRole = null, onlineInterval = null;
+let GLOBAL_SETTINGS = {};
+getGlobalSettings().then(s => {
+  GLOBAL_SETTINGS = s;
+  if (s.fileUploads === false) {
+    const b = document.getElementById('attachBtn');
+    if (b) b.style.display = 'none';
+  }
+});
 
 const urlParams = new URLSearchParams(window.location.search);
 communityId = urlParams.get('communityId');
@@ -510,6 +519,7 @@ function createDateDivider(date) {
 }
 
 function showReactionMenu(e, msgId, el) {
+  if (GLOBAL_SETTINGS.reactions === false) return;
   document.querySelectorAll('.reaction-menu').forEach(m => m.remove());
   const menu = document.createElement('div');
   menu.className = 'reaction-menu';
