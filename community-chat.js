@@ -117,7 +117,7 @@ function showAdminOptions() {
 
 function updateUIForRole() {
   const btn = document.getElementById('leaveBtn');
-  if (btn) btn.textContent = userRole === 'creator' ? 'Delete Community' : 'Leave Community';
+  if (btn) btn.textContent = (userRole === 'creator' || userRole === 'admin') ? 'Delete Community' : 'Leave Community';
 
   // Show admin panel only for admin/creator, hide for demoted members
   const adminOptions = document.getElementById('adminOptions');
@@ -693,7 +693,7 @@ window.viewMyRequests = async function() {
 };
 
 window.leaveCommunity = async function() {
-  if (userRole === 'creator') {
+  if (userRole === 'creator' || userRole === 'admin') {
     if (!confirm('Delete this community? This cannot be undone.')) return;
     try {
       const batch = writeBatch(db);
