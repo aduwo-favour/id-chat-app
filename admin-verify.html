@@ -112,6 +112,45 @@
             <span class="slider"></span>
           </label>
         </div>
+        <div class="settings-item" style="display:block;">
+          <span>Banned words (used by auto-flag) — comma separated</span>
+          <textarea id="inputBannedWords" rows="2" style="width:100%;margin-top:8px;" placeholder="word1, word2, word3"></textarea>
+          <button class="action-btn edit small" onclick="saveBannedWords()" style="margin-top:8px;">Save words</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Access &amp; Maintenance</h3>
+        <div class="settings-item">
+          <span>Allow new sign-ups</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggleSignups" onchange="updateSetting('signupsEnabled', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="settings-item">
+          <span>Maintenance mode (blocks non-admins)</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggleMaintenance" onchange="updateSetting('maintenanceMode', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="settings-item">
+          <span>Max message length</span>
+          <span style="display:flex;gap:8px;align-items:center;">
+            <input type="number" id="inputMaxLength" min="1" style="width:110px;">
+            <button class="action-btn edit small" onclick="saveMaxLength()">Save</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Announcement Banner</h3>
+        <div class="settings-item" style="display:block;">
+          <span>Shown to everyone on the dashboard (leave empty to hide)</span>
+          <textarea id="inputAnnouncement" rows="2" style="width:100%;margin-top:8px;" placeholder="e.g. New features rolling out this week!"></textarea>
+          <button class="action-btn edit small" onclick="saveAnnouncement()" style="margin-top:8px;">Save announcement</button>
+        </div>
       </div>
     </div>
 

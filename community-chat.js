@@ -1,7 +1,7 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { notifyPush } from "./push-notify.js";
 import { initNotifications } from "./enable-notifications.js";
-import { getGlobalSettings } from "./app-settings.js";
+import { getGlobalSettings, filterMessage } from "./app-settings.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
@@ -565,9 +565,14 @@ window.sendMessage = async function() {
     return;
   }
   const input = document.getElementById('messageInput');
-  const text = input.value.trim();
-  if (!text) return;
-  
+  const rawText = input.value.trim();
+  if (!rawText) return;
+
+  // Enforce admin moderation + max length settings
+  const _f = filterMessage(rawText, GLOBAL_SETTINGS);
+  if (!_f.ok) { alert(_f.error); return; }
+  const text = _f.text;
+
   // Get user's verified status
   const userDoc = await getDoc(doc(db, "users", currentUid));
   const isVerified = userDoc.data().verified || false;

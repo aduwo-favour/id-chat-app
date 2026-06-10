@@ -105,6 +105,7 @@ async function loadUsers(search = '') {
           if (data.verified)   td.insertAdjacentHTML('beforeend', '<span class="badge verified">Verified</span> ');
           if (data.banned)     td.insertAdjacentHTML('beforeend', '<span class="badge banned">Banned</span> ');
           if (data.disabled)   td.insertAdjacentHTML('beforeend', '<span class="badge disabled">Disabled</span> ');
+          if (data.approved === false) td.insertAdjacentHTML('beforeend', '<span class="badge banned">Pending</span> ');
           if (!td.textContent.trim()) td.textContent = 'Active';
         } else if (i === 5) {
           // Action buttons — wire up via addEventListener, not onclick="..." with user data
@@ -113,7 +114,11 @@ async function loadUsers(search = '') {
           const verifyBtn = makeBtn(data.verified ? 'Unverify' : 'Verify', 'action-btn edit small', () => toggleVerified(docSnap.id, data.verified));
           const banBtn = makeBtn(data.banned ? 'Unban' : 'Ban', 'action-btn ban small', () => toggleBan(docSnap.id, data.username, data.banned));
           const delBtn = makeBtn('🗑️ Delete', 'action-btn delete small', () => deleteUser(docSnap.id, data.username));
-          [logBtn, adminBtn, verifyBtn, banBtn, delBtn].forEach(b => td.appendChild(b));
+          const btns = [logBtn, adminBtn, verifyBtn, banBtn, delBtn];
+          if (data.approved === false) {
+            btns.unshift(makeBtn('✅ Approve', 'action-btn edit small', () => approveUser(docSnap.id)));
+          }
+          btns.forEach(b => td.appendChild(b));
         } else {
           td.textContent = text;
         }
@@ -550,10 +555,33 @@ async function loadSettings() {
     document.getElementById('toggleCommunityCreation').checked = settings.communityCreation ?? true;
     document.getElementById('toggleAutoFlag').checked = settings.autoFlag ?? false;
     document.getElementById('toggleApproval').checked = settings.requireApproval ?? false;
+    document.getElementById('toggleSignups').checked = settings.signupsEnabled ?? true;
+    document.getElementById('toggleMaintenance').checked = settings.maintenanceMode ?? false;
+    document.getElementById('inputMaxLength').value = settings.maxMessageLength ?? 2000;
+    document.getElementById('inputAnnouncement').value = settings.announcement ?? '';
+    document.getElementById('inputBannedWords').value = Array.isArray(settings.bannedWords) ? settings.bannedWords.join(', ') : '';
   } catch (error) {
     console.error('Failed to load settings', error);
   }
 }
+
+// Save announcement (text) and banned words (comma/newline list -> array)
+window.saveAnnouncement = async () => {
+  const val = document.getElementById('inputAnnouncement').value.trim();
+  await window.updateSetting('announcement', val);
+  alert('Announcement saved');
+};
+window.saveMaxLength = async () => {
+  const n = parseInt(document.getElementById('inputMaxLength').value, 10);
+  await window.updateSetting('maxMessageLength', (!n || n < 1) ? 2000 : n);
+  alert('Max length saved');
+};
+window.saveBannedWords = async () => {
+  const words = document.getElementById('inputBannedWords').value
+    .split(/[\n,]+/).map(w => w.trim()).filter(Boolean);
+  await window.updateSetting('bannedWords', words);
+  alert('Banned words saved');
+};
 
 window.updateSetting = async (key, value) => {
   try {
@@ -562,6 +590,13 @@ window.updateSetting = async (key, value) => {
   } catch (error) {
     alert('Failed to update setting');
   }
+};
+
+window.approveUser = async (userId) => {
+  try {
+    await updateDoc(doc(db, "users", userId), { approved: true });
+    loadUsers(document.getElementById('userSearch').value);
+  } catch (error) { alert('Failed to approve user'); }
 };
 
 // -------------------- SEARCH HANDLERS --------------------

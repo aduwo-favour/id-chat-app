@@ -30,7 +30,8 @@ service cloud.firestore {
       allow update: if isSignedIn() && request.auth.uid == userId
         && request.resource.data.get('isAdmin', false)  == resource.data.get('isAdmin', false)
         && request.resource.data.get('verified', false) == resource.data.get('verified', false)
-        && request.resource.data.get('banned', false)   == resource.data.get('banned', false);
+        && request.resource.data.get('banned', false)   == resource.data.get('banned', false)
+        && request.resource.data.get('approved', true)  == resource.data.get('approved', true);
       allow update: if isAdmin();
       allow delete: if false;
     }

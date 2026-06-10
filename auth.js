@@ -5,6 +5,7 @@ import {
   signOut
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { doc, setDoc, updateDoc, arrayUnion, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getGlobalSettings } from "./app-settings.js";
 
 window.switchTab = function(tab) {
   document.getElementById('loginTab').classList.remove('active');
@@ -75,6 +76,12 @@ window.handleSignup = async function() {
 
   try {
     const email = makeEmail(username);
+    const gSettings = await getGlobalSettings();
+    if (gSettings.signupsEnabled === false) {
+      showError('signupError', 'Registration is currently disabled by the admin.');
+      return;
+    }
+
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
     let fcmTokens = [];
@@ -96,7 +103,8 @@ window.handleSignup = async function() {
       verified: false,
       isAdmin: false,
       banned: false,
-      disabled: false
+      disabled: false,
+      approved: gSettings.requireApproval ? false : true
     });
 
     window.location.href = 'dashboard.html';
@@ -154,6 +162,17 @@ window.handleLogin = async function() {
       if (userData.disabled) {
         await signOut(auth);
         showError('loginError', 'Your account has been disabled');
+        return;
+      }
+      if (userData.approved === false) {
+        await signOut(auth);
+        showError('loginError', 'Your account is pending admin approval.');
+        return;
+      }
+      const lSettings = await getGlobalSettings();
+      if (lSettings.maintenanceMode === true && !userData.isAdmin) {
+        await signOut(auth);
+        showError('loginError', 'The app is under maintenance. Please try again later.');
         return;
       }
     }

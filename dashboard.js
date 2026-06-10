@@ -1,5 +1,6 @@
 import { auth, db, messaging, onForegroundMessage, watchBanStatus } from "./firebase.js";
 import { initNotifications } from "./enable-notifications.js";
+import { getGlobalSettings } from "./app-settings.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   doc, getDoc, updateDoc, collection, query, where,
@@ -111,6 +112,28 @@ onAuthStateChanged(auth, async (user) => {
       // SECURITY: Use textContent, not innerHTML or string interpolation
       const welcomeEl = document.getElementById('welcomeUser');
       if (welcomeEl) welcomeEl.textContent = `Welcome, ${currentUsername}!`;
+
+      // --- Admin global settings: maintenance mode + announcement banner ---
+      const gSettings = await getGlobalSettings();
+      if (gSettings.maintenanceMode === true && !userData.isAdmin) {
+        document.body.innerHTML =
+          '<div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;' +
+          'padding:32px;text-align:center;font-family:system-ui,sans-serif;color:#fff;">' +
+          '<div><div style="font-size:42px;margin-bottom:12px;">🛠️</div>' +
+          '<h2 style="margin:0 0 8px;">Under maintenance</h2>' +
+          '<p style="opacity:.7;">The app is temporarily unavailable. Please check back soon.</p></div></div>';
+        await signOut(auth);
+        return;
+      }
+      if (gSettings.announcement && gSettings.announcement.trim()) {
+        const bar = document.createElement('div');
+        bar.textContent = '📢 ' + gSettings.announcement.trim();
+        bar.style.cssText =
+          'position:sticky;top:0;z-index:50;padding:11px 16px;text-align:center;' +
+          'background:linear-gradient(135deg,#5b5ef4,#7b5cff);color:#fff;font-weight:600;' +
+          'font-size:14px;box-shadow:0 2px 10px rgba(0,0,0,.3);';
+        document.body.prepend(bar);
+      }
 
       await updateDoc(doc(db, "users", user.uid), {
         online: true,

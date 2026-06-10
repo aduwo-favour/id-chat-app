@@ -1,7 +1,7 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { notifyPush } from "./push-notify.js";
 import { initNotifications } from "./enable-notifications.js";
-import { getGlobalSettings } from "./app-settings.js";
+import { getGlobalSettings, filterMessage } from "./app-settings.js";
 import { Cache } from "./cache.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
@@ -900,9 +900,14 @@ window.sendMessage = async function() {
   const input = document.getElementById('messageInput');
   if (!input) return;
   
-  const text = input.value.trim();
-  if (!text) return;
-  
+  const rawText = input.value.trim();
+  if (!rawText) return;
+
+  // Enforce admin moderation + max length settings
+  const _f = filterMessage(rawText, GLOBAL_SETTINGS);
+  if (!_f.ok) { showNotification(_f.error); return; }
+  const text = _f.text;
+
   // Disable input temporarily to prevent double sending
   input.disabled = true;
   const sendBtn = document.getElementById('sendBtn');

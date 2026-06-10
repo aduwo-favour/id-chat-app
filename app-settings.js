@@ -1,20 +1,65 @@
 // app-settings.js
-// Reads the admin "globalSettings" doc so feature toggles in the Admin Panel
-// actually take effect across the app. Cached after first read.
+// Reads the admin "globalSettings" doc and provides enforcement helpers so the
+// Admin Panel toggles actually take effect across the app. Cached after first read.
 
 import { db } from "./firebase.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let cached = null;
 
+// Sensible defaults used when a setting hasn't been configured yet.
+export const SETTINGS_DEFAULTS = {
+  fileUploads: true,
+  reactions: true,
+  communityCreation: true,
+  autoFlag: false,
+  requireApproval: false,
+  signupsEnabled: true,
+  maintenanceMode: false,
+  maxMessageLength: 2000,
+  announcement: "",
+  bannedWords: [],
+};
+
+const DEFAULT_BANNED_WORDS = ["fuck", "shit", "bitch", "asshole", "bastard"];
+
 export async function getGlobalSettings() {
   if (cached) return cached;
   try {
     const snap = await getDoc(doc(db, "settings", "globalSettings"));
-    cached = snap.exists() ? snap.data() : {};
+    cached = { ...SETTINGS_DEFAULTS, ...(snap.exists() ? snap.data() : {}) };
   } catch (e) {
     console.warn("[settings] could not load global settings:", e);
-    cached = {};
+    cached = { ...SETTINGS_DEFAULTS };
   }
   return cached;
+}
+
+// Replace each banned word (whole word, case-insensitive) with asterisks.
+function maskWords(text, words) {
+  let out = text;
+  for (const raw of words) {
+    const w = String(raw).trim();
+    if (!w) continue;
+    const re = new RegExp("\\b" + w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "gi");
+    out = out.replace(re, m => "*".repeat(m.length));
+  }
+  return out;
+}
+
+// Run a message through the active moderation/length rules before sending.
+// Returns { ok: true, text } or { ok: false, error }.
+export function filterMessage(text, settings = {}) {
+  const max = Number(settings.maxMessageLength) || SETTINGS_DEFAULTS.maxMessageLength;
+  if (text.length > max) {
+    return { ok: false, error: `Message too long (max ${max} characters).` };
+  }
+  let out = text;
+  if (settings.autoFlag) {
+    const list = (Array.isArray(settings.bannedWords) && settings.bannedWords.length)
+      ? settings.bannedWords
+      : DEFAULT_BANNED_WORDS;
+    out = maskWords(out, list);
+  }
+  return { ok: true, text: out };
 }
