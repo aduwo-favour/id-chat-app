@@ -116,6 +116,7 @@ async function loadUsers(search = '') {
           const delBtn = makeBtn('🗑️ Delete', 'action-btn delete small', () => deleteUser(docSnap.id, data.username));
           const btns = [logBtn, adminBtn, verifyBtn, banBtn, delBtn];
           if (data.approved === false) {
+            btns.unshift(makeBtn('❌ Decline', 'action-btn ban small', () => declineUser(docSnap.id, data.username)));
             btns.unshift(makeBtn('✅ Approve', 'action-btn edit small', () => approveUser(docSnap.id)));
           }
           btns.forEach(b => td.appendChild(b));
@@ -590,6 +591,14 @@ window.updateSetting = async (key, value) => {
   } catch (error) {
     alert('Failed to update setting');
   }
+};
+
+window.declineUser = async (userId, username) => {
+  if (!confirm(`Decline and remove the registration for "${username}"?`)) return;
+  try {
+    await updateDoc(doc(db, "users", userId), { deleted: true });
+    loadUsers(document.getElementById('userSearch').value);
+  } catch (error) { alert('Failed to decline user'); }
 };
 
 window.approveUser = async (userId) => {
