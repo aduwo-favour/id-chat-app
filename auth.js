@@ -76,7 +76,7 @@ window.handleSignup = async function() {
 
   try {
     const email = makeEmail(username);
-    const gSettings = await getGlobalSettings();
+    const gSettings = await getGlobalSettings(true);
     if (gSettings.signupsEnabled === false) {
       showError('signupError', 'Registration is currently disabled by the admin.');
       return;
@@ -169,7 +169,7 @@ window.handleLogin = async function() {
         showError('loginError', 'Your account is pending admin approval.');
         return;
       }
-      const lSettings = await getGlobalSettings();
+      const lSettings = await getGlobalSettings(true);
       if (lSettings.maintenanceMode === true && !userData.isAdmin) {
         await signOut(auth);
         showError('loginError', 'The app is under maintenance. Please try again later.');

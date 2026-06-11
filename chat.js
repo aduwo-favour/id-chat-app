@@ -1,7 +1,7 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { notifyPush } from "./push-notify.js";
 import { initNotifications } from "./enable-notifications.js";
-import { getGlobalSettings, subscribeGlobalSettings, filterMessage } from "./app-settings.js";
+import { getGlobalSettings, subscribeGlobalSettings, enforceMaintenance, filterMessage } from "./app-settings.js";
 import { Cache } from "./cache.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
@@ -67,6 +67,9 @@ onAuthStateChanged(auth, async (user) => {
     
     currentUsername = userDoc.data().username;
 
+    // Live maintenance guard: non-admins get kicked the moment it's enabled
+    enforceMaintenance(userDoc.data().isAdmin === true);
+
     // Initialise per-chat mute state from the user's own doc
     try {
       const mutes = userDoc.data().mutedChats || [];
@@ -130,8 +133,7 @@ onAuthStateChanged(auth, async (user) => {
     // Start periodic online status updates
     startOnlineStatusUpdates();
     
-    // Reset unread count
-    await resetUnreadCount();
+    // (unread is reset by the messages listener AFTER the divider is placed)
     
     // Handle visibility change
     setupVisibilityHandler();
@@ -437,9 +439,11 @@ function listenForMessages() {
       // = before index (total - unreadCount)
       const dividerIndex = unreadCount > 0 ? messages.length - unreadCount : -1;
 
+      let _markedSeenThisRound = false;
       messages.forEach(({ data, id }, index) => {
         if (data.sender !== currentUsername && !data.seen) {
           markMessageAsSeen(doc(db, "chats", chatId, "messages", id));
+          _markedSeenThisRound = true;
         }
 
         const msgDate = data.timestamp ? new Date(data.timestamp) : null;
@@ -463,6 +467,15 @@ function listenForMessages() {
 
       // Cache rendered HTML (without divider to avoid stale divider next time)
       Cache.set(cacheKey, container.innerHTML);
+
+      // If we marked incoming messages seen while viewing, clear our unread
+      // counter so the chat-list badge stays accurate (no drift).
+      if (_markedSeenThisRound && !isFirstLoad) {
+        resetUnreadCount();
+      }
+      if (isFirstLoad && unreadCount > 0) {
+        resetUnreadCount();
+      }
 
       // Scroll to unread divider on first load, else maintain scroll position
       const unreadEl = container.querySelector('.unread-divider');
@@ -624,7 +637,7 @@ function createMessageElement(data, msgId, isMine) {
         <div class="message-footer">
           <span class="message-time">${time}</span>
           ${data.edited ? '<span class="edited-marker" style="font-size:10px;opacity:.6;margin-left:4px;">(edited)</span>' : ''}
-          ${data.seen ? '<span class="seen-indicator" title="Seen">✓✓</span>' : ''}
+          ${data.seen ? '<span class="seen-indicator" title="Seen">✓✓</span>' : '<span class="sent-indicator" title="Sent" style="opacity:.55">✓</span>'}
         </div>
       `;
     }

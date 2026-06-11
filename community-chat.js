@@ -1,7 +1,7 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { notifyPush } from "./push-notify.js";
 import { initNotifications } from "./enable-notifications.js";
-import { getGlobalSettings, subscribeGlobalSettings, filterMessage } from "./app-settings.js";
+import { getGlobalSettings, subscribeGlobalSettings, enforceMaintenance, filterMessage } from "./app-settings.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
@@ -46,6 +46,7 @@ onAuthStateChanged(auth, async (user) => {
   const userDoc = await getDoc(doc(db, "users", user.uid));
   if (userDoc.exists()) {
     currentUsername = userDoc.data().username;
+    enforceMaintenance(userDoc.data().isAdmin === true);
     initNotifications(user.uid);
     await checkUserRole();
     await loadMyLanguage();

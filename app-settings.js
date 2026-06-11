@@ -2,8 +2,9 @@
 // Reads the admin "globalSettings" doc and provides enforcement helpers so the
 // Admin Panel toggles actually take effect across the app. Cached after first read.
 
-import { db } from "./firebase.js";
+import { db, auth } from "./firebase.js";
 import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 let cached = null;
 
@@ -75,4 +76,16 @@ export function filterMessage(text, settings = {}) {
     out = maskWords(out, list);
   }
   return { ok: true, text: out };
+}
+
+
+// LIVE maintenance guard for any page: signs out + sends non-admins to login
+// the instant maintenance mode is turned on (no refresh). Returns unsubscribe.
+export function enforceMaintenance(isAdmin) {
+  return subscribeGlobalSettings(s => {
+    if (s.maintenanceMode === true && !isAdmin) {
+      signOut(auth).catch(() => {});
+      window.location.href = 'index.html';
+    }
+  });
 }
