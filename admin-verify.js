@@ -5,6 +5,22 @@ import {
   deleteDoc, writeBatch, setDoc, addDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
+// Server-side hard-delete (Auth account + user doc) via the notifier admin endpoint.
+const ADMIN_DELETE_ENDPOINT = "https://notifier-vercelvnot.vercel.app/api/admin-delete-user";
+async function hardDeleteAuthUser(targetUid) {
+  const idToken = await auth.currentUser.getIdToken();
+  const r = await fetch(ADMIN_DELETE_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken, targetUid }),
+  });
+  if (!r.ok) {
+    const msg = await r.json().catch(() => ({}));
+    throw new Error(msg.error || "Server delete failed");
+  }
+}
+
+
 let currentUsername = null;
 let currentUid = null;
 let isAdmin = false;
@@ -204,22 +220,23 @@ window.deleteUser = async (userId, username) => {
 
     await batch.commit();
 
-    // Firestore rules block deleting the user doc (allow delete: if false),
-    // so instead wipe all identifying data and mark as deleted so they
-    // disappear from the user list (loadUsers filters out deleted:true)
-    await updateDoc(doc(db, "users", userId), {
-      deleted: true,
-      deletedAt: new Date().toISOString(),
-      deletedBy: currentUsername,
-      banned: true,
-      disabled: true,
-      username: '[deleted]',
-      email: '[deleted]',
-      fcmTokens: [],
-      blockedUsers: []
-    });
+    // Hard-delete the Auth account + user doc via the server (Admin SDK).
+    try {
+      await hardDeleteAuthUser(userId);
+    } catch (e) {
+      // Fallback: if the server endpoint is unavailable, mark as deleted so they
+      // still vanish from the list and can't log in.
+      console.error('hard delete failed, falling back to soft delete:', e);
+      await updateDoc(doc(db, "users", userId), {
+        deleted: true, banned: true, disabled: true,
+        username: '[deleted]', email: '[deleted]', fcmTokens: [], blockedUsers: []
+      });
+      alert(`User "${username}" removed (Auth account could not be deleted — check the notifier).`);
+      loadUsers(document.getElementById('userSearch').value);
+      return;
+    }
 
-    alert(`User "${username}" has been permanently deleted.`);
+    alert(`User "${username}" has been permanently deleted (account + data).`);
     loadUsers(document.getElementById('userSearch').value);
   } catch (error) {
     alert('Failed to delete user. Check console.');
@@ -594,11 +611,19 @@ window.updateSetting = async (key, value) => {
 };
 
 window.declineUser = async (userId, username) => {
-  if (!confirm(`Decline and remove the registration for "${username}"?`)) return;
+  if (!confirm(`Decline and permanently delete the registration for "${username}"? This removes their account from Firebase.`)) return;
   try {
-    await updateDoc(doc(db, "users", userId), { deleted: true });
+    await hardDeleteAuthUser(userId);
     loadUsers(document.getElementById('userSearch').value);
-  } catch (error) { alert('Failed to decline user'); }
+  } catch (error) {
+    console.error('decline hard-delete failed:', error);
+    // Fallback to soft delete so they at least disappear and can't log in
+    try {
+      await updateDoc(doc(db, "users", userId), { deleted: true });
+      loadUsers(document.getElementById('userSearch').value);
+      alert('Declined (Auth account could not be deleted — check the notifier).');
+    } catch (e2) { alert('Failed to decline user'); }
+  }
 };
 
 window.approveUser = async (userId) => {
