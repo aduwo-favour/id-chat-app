@@ -226,7 +226,7 @@ window.createCommunity = async function() {
   if (!name) { alert('Community name required'); return; }
 
   // Enforce admin "Enable community creation" toggle
-  const settings = await getGlobalSettings();
+  const settings = await getGlobalSettings(true);
   if (settings.communityCreation === false) {
     alert('Community creation is currently disabled by the admin.');
     return;

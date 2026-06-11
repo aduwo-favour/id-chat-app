@@ -3,7 +3,7 @@
 // Admin Panel toggles actually take effect across the app. Cached after first read.
 
 import { db } from "./firebase.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 let cached = null;
 
@@ -23,8 +23,8 @@ export const SETTINGS_DEFAULTS = {
 
 const DEFAULT_BANNED_WORDS = ["fuck", "shit", "bitch", "asshole", "bastard"];
 
-export async function getGlobalSettings() {
-  if (cached) return cached;
+export async function getGlobalSettings(force = false) {
+  if (cached && !force) return cached;
   try {
     const snap = await getDoc(doc(db, "settings", "globalSettings"));
     cached = { ...SETTINGS_DEFAULTS, ...(snap.exists() ? snap.data() : {}) };
@@ -33,6 +33,19 @@ export async function getGlobalSettings() {
     cached = { ...SETTINGS_DEFAULTS };
   }
   return cached;
+}
+
+// LIVE: call `cb(settings)` immediately and again every time an admin changes a
+// setting — no page refresh needed. Returns an unsubscribe function.
+export function subscribeGlobalSettings(cb) {
+  return onSnapshot(
+    doc(db, "settings", "globalSettings"),
+    snap => {
+      cached = { ...SETTINGS_DEFAULTS, ...(snap.exists() ? snap.data() : {}) };
+      try { cb(cached); } catch (e) { console.warn("[settings] callback error:", e); }
+    },
+    err => console.warn("[settings] live listener error:", err)
+  );
 }
 
 // Replace each banned word (whole word, case-insensitive) with asterisks.

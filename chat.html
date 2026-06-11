@@ -48,6 +48,7 @@
   </div>
 
   <div id="chatOptions" class="chat-options-dropdown hidden">
+    <button onclick="toggleMute()" class="option-btn" id="muteBtn">🔕 Mute</button>
     <button onclick="unfriendUser()" class="option-btn danger">Unfriend</button>
     <button onclick="blockUser()" class="option-btn danger">Block Messages</button>
   </div>
@@ -60,6 +61,7 @@
     <button onclick="cancelReply()" class="cancel-reply">✕</button>
   </div>
 
+  <div id="typingIndicator" class="hidden" style="padding:4px 16px;font-size:12px;color:#8a8de0;font-style:italic;"></div>
   <div class="chat-input-fixed">
     <input type="file" id="fileInput" accept="image/*,application/pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileSelected(this)">
     <button type="button" onclick="document.getElementById('fileInput').click()" id="attachBtn" title="Attach image or file">📎</button>

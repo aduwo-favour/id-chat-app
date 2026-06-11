@@ -1,7 +1,7 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { notifyPush } from "./push-notify.js";
 import { initNotifications } from "./enable-notifications.js";
-import { getGlobalSettings, filterMessage } from "./app-settings.js";
+import { getGlobalSettings, subscribeGlobalSettings, filterMessage } from "./app-settings.js";
 import { Cache } from "./cache.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
@@ -12,13 +12,11 @@ import {
 
 // Global variables
 let GLOBAL_SETTINGS = {};
-getGlobalSettings().then(s => {
+// LIVE: re-applies instantly whenever an admin flips a setting (no refresh).
+subscribeGlobalSettings(s => {
   GLOBAL_SETTINGS = s;
-  // Enforce admin "Enable file uploads" toggle
-  if (s.fileUploads === false) {
-    const b = document.getElementById('attachBtn');
-    if (b) b.style.display = 'none';
-  }
+  const b = document.getElementById('attachBtn');
+  if (b) b.style.display = (s.fileUploads === false) ? 'none' : '';
 });
 let currentUsername = null;
 let currentUid = null;
@@ -68,6 +66,13 @@ onAuthStateChanged(auth, async (user) => {
     }
     
     currentUsername = userDoc.data().username;
+
+    // Initialise per-chat mute state from the user's own doc
+    try {
+      const mutes = userDoc.data().mutedChats || [];
+      isChatMuted = Array.isArray(mutes) && mutes.includes(chatId);
+      refreshMuteButton();
+    } catch (e) { /* non-fatal */ }
 
     // Show the "enable notifications" prompt (or silently save token if granted)
     initNotifications(user.uid);
@@ -292,6 +297,22 @@ function listenForChatDocument() {
     }
 
     updateBlockButton();
+
+    // --- Typing indicator: show if the OTHER participant typed within ~4s ---
+    try {
+      const parts = data.participants || [];
+      const other = parts.find(p => p !== currentUsername);
+      const ts = (data.typing && other) ? data.typing[other] : 0;
+      const el = document.getElementById('typingIndicator');
+      if (el) {
+        if (ts && (Date.now() - ts < 4000)) {
+          el.textContent = `${other} is typing…`;
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      }
+    } catch (e) { /* non-fatal */ }
 
   }, (error) => {
     console.error('Error listening to chat document:', error);
@@ -563,6 +584,7 @@ function createMessageElement(data, msgId, isMine) {
         ${reactionsHtml}
         <div class="message-footer">
           <span class="message-time">${time}</span>
+          ${data.edited ? '<span class="edited-marker" style="font-size:10px;opacity:.6;margin-left:4px;">(edited)</span>' : ''}
         </div>
       `;
 
@@ -601,6 +623,7 @@ function createMessageElement(data, msgId, isMine) {
         ${reactionsHtml}
         <div class="message-footer">
           <span class="message-time">${time}</span>
+          ${data.edited ? '<span class="edited-marker" style="font-size:10px;opacity:.6;margin-left:4px;">(edited)</span>' : ''}
           ${data.seen ? '<span class="seen-indicator" title="Seen">✓✓</span>' : ''}
         </div>
       `;
@@ -834,28 +857,39 @@ function addDeleteHandler(element, msgId) {
 
 // Show reaction menu
 function showReactionMenu(e, msgId, element) {
-  // Enforce admin "Enable message reactions" toggle
-  if (GLOBAL_SETTINGS.reactions === false) return;
   // Remove any existing reaction menus
   document.querySelectorAll('.reaction-menu').forEach(m => m.remove());
   
   const menu = document.createElement('div');
   menu.className = 'reaction-menu';
-  
-  const reactions = ['❤️', '😂', '🔥', '👍', '😮', '😢', '🎉', '🤔'];
-  
-  reactions.forEach(emoji => {
-    const btn = document.createElement('button');
-    btn.className = 'reaction-btn';
-    btn.textContent = emoji;
-    btn.onclick = async (ev) => {
-      ev.stopPropagation();
-      await addReaction(msgId, emoji);
-      menu.remove();
-    };
-    menu.appendChild(btn);
-  });
-  
+
+  // Edit option — own messages only (works even if reactions are disabled)
+  if (element.classList.contains('my-message')) {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'reaction-btn';
+    editBtn.textContent = '✏️';
+    editBtn.title = 'Edit';
+    editBtn.onclick = (ev) => { ev.stopPropagation(); menu.remove(); editMessage(msgId); };
+    menu.appendChild(editBtn);
+  }
+
+  // Reactions — only when admin has them enabled
+  if (GLOBAL_SETTINGS.reactions !== false) {
+    const reactions = ['❤️', '😂', '🔥', '👍', '😮', '😢', '🎉', '🤔'];
+    reactions.forEach(emoji => {
+      const btn = document.createElement('button');
+      btn.className = 'reaction-btn';
+      btn.textContent = emoji;
+      btn.onclick = async (ev) => {
+        ev.stopPropagation();
+        await addReaction(msgId, emoji);
+        menu.remove();
+      };
+      menu.appendChild(btn);
+    });
+  }
+
+  if (!menu.children.length) return; // nothing to show
   document.body.appendChild(menu);
   
   // Position menu near the message
@@ -889,6 +923,72 @@ async function addReaction(msgId, emoji) {
     console.error('Error adding reaction:', error);
   }
 }
+
+// ---------- Batch A: edit message, typing indicator, per-chat mute ----------
+
+// Edit your OWN message (rules already restrict edits to the author).
+window.editMessage = async function(msgId) {
+  if (!chatId || !msgId) return;
+  try {
+    const ref = doc(db, "chats", chatId, "messages", msgId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
+    const current = snap.data().text || '';
+    const next = prompt('Edit your message:', current);
+    if (next === null) return;
+    const trimmed = next.trim();
+    if (!trimmed) return;
+    const _f = filterMessage(trimmed, GLOBAL_SETTINGS);
+    if (!_f.ok) { showNotification(_f.error); return; }
+    await updateDoc(ref, { text: _f.text, edited: true, editedAt: new Date().toISOString() });
+  } catch (e) {
+    console.error('edit failed', e);
+    showNotification('Could not edit message');
+  }
+};
+
+// --- Typing indicator ---
+let _typingTimer = null, _lastTypingWrite = 0;
+async function setTyping(on) {
+  if (!chatId || !currentUsername) return;
+  try {
+    await updateDoc(doc(db, "chats", chatId), { [`typing.${currentUsername}`]: on ? Date.now() : 0 });
+  } catch (e) { /* non-fatal */ }
+}
+(function setupTyping() {
+  const input = document.getElementById('messageInput');
+  if (!input) return;
+  input.addEventListener('input', () => {
+    if (isBlocked) return;
+    const now = Date.now();
+    if (now - _lastTypingWrite > 2000) { _lastTypingWrite = now; setTyping(true); }
+    clearTimeout(_typingTimer);
+    _typingTimer = setTimeout(() => setTyping(false), 3000);
+  });
+})();
+
+// --- Per-chat mute (stored on the user's own doc) ---
+let isChatMuted = false;
+function refreshMuteButton() {
+  const b = document.getElementById('muteBtn');
+  if (b) b.textContent = isChatMuted ? '🔔 Unmute' : '🔕 Mute';
+}
+window.toggleMute = async function() {
+  if (!currentUid || !chatId) return;
+  try {
+    const ref = doc(db, "users", currentUid);
+    if (isChatMuted) {
+      await updateDoc(ref, { mutedChats: arrayRemove(chatId) });
+      isChatMuted = false;
+      showNotification('Chat unmuted');
+    } else {
+      await updateDoc(ref, { mutedChats: arrayUnion(chatId) });
+      isChatMuted = true;
+      showNotification('Chat muted');
+    }
+    refreshMuteButton();
+  } catch (e) { console.error('mute toggle failed', e); }
+};
 
 // Send message
 window.sendMessage = async function() {
@@ -945,6 +1045,7 @@ window.sendMessage = async function() {
     // Clear input and reply
     input.value = '';
     replyingTo = null;
+    setTyping(false);
     
     const replyPreview = document.getElementById('replyPreview');
     if (replyPreview) {

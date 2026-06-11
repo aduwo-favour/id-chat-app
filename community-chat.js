@@ -1,7 +1,7 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { notifyPush } from "./push-notify.js";
 import { initNotifications } from "./enable-notifications.js";
-import { getGlobalSettings, filterMessage } from "./app-settings.js";
+import { getGlobalSettings, subscribeGlobalSettings, filterMessage } from "./app-settings.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
@@ -20,12 +20,10 @@ function escapeHtml(text) {
 let currentUsername, currentUid, communityId, communityName, replyingTo = null;
 let userRole = null, onlineInterval = null;
 let GLOBAL_SETTINGS = {};
-getGlobalSettings().then(s => {
+subscribeGlobalSettings(s => {
   GLOBAL_SETTINGS = s;
-  if (s.fileUploads === false) {
-    const b = document.getElementById('attachBtn');
-    if (b) b.style.display = 'none';
-  }
+  const b = document.getElementById('attachBtn');
+  if (b) b.style.display = (s.fileUploads === false) ? 'none' : '';
 });
 
 const urlParams = new URLSearchParams(window.location.search);
