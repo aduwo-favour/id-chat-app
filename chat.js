@@ -399,6 +399,7 @@ function listenForMessages() {
 
   const cacheKey = 'msgs_' + chatId;
   let isFirstLoad = true;
+  let firstUnreadMsgId = null;  // persists the unread divider across re-renders
 
   try {
     const messagesRef = collection(db, "chats", chatId, "messages");
@@ -438,6 +439,9 @@ function listenForMessages() {
       // The divider goes before the first unread message
       // = before index (total - unreadCount)
       const dividerIndex = unreadCount > 0 ? messages.length - unreadCount : -1;
+      if (isFirstLoad && dividerIndex >= 0 && messages[dividerIndex]) {
+        firstUnreadMsgId = messages[dividerIndex].id;
+      }
 
       let _markedSeenThisRound = false;
       messages.forEach(({ data, id }, index) => {
@@ -457,8 +461,9 @@ function listenForMessages() {
           }
         }
 
-        // Insert divider right before the first unread message
-        if (isFirstLoad && index === dividerIndex) {
+        // Insert divider right before the first unread message (every render,
+        // so a seen-triggered re-render doesn't wipe it).
+        if (firstUnreadMsgId && id === firstUnreadMsgId) {
           container.appendChild(createPrivateChatUnreadDivider());
         }
 
@@ -479,7 +484,7 @@ function listenForMessages() {
 
       // Scroll to unread divider on first load, else maintain scroll position
       const unreadEl = container.querySelector('.unread-divider');
-      if (unreadEl && isFirstLoad && unreadCount > 0) {
+      if (unreadEl && isFirstLoad && firstUnreadMsgId) {
         setTimeout(() => unreadEl.scrollIntoView({ block: 'center' }), 50);
       } else if (wasAtBottom || snap.empty) {
         scrollToBottom(container);
