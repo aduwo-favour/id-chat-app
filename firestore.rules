@@ -178,7 +178,9 @@ service cloud.firestore {
 
     // ---------- SETTINGS ----------
     match /settings/{document} {
-      allow read:  if isSignedIn();
+      // Public read so the signup page can honor signupsEnabled / maintenance
+      // BEFORE a user is authenticated. Contents are non-sensitive feature flags.
+      allow read:  if true;
       allow write: if isAdmin();
     }
   }
