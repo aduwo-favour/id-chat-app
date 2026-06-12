@@ -274,27 +274,15 @@ async function checkRequestStatus(toUser) {
       return "friends";
     }
 
-    // Check pending/declined request
-    const q = query(
-      collection(db, "requests"),
-      where("from", "==", currentUsername),
-      where("to", "==", toUser)
-    );
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      const data = snap.docs[0].data();
-      return data.status === "pending" ? "pending" : "declined";
+    // Outbound request (deterministic id "from_to")
+    const sentSnap = await getDoc(doc(db, "requests", `${currentUsername}_${toUser}`));
+    if (sentSnap.exists()) {
+      return sentSnap.data().status === "pending" ? "pending" : "declined";
     }
 
-    // Also check if THEY sent us a request we haven't answered yet
-    const inboundQ = query(
-      collection(db, "requests"),
-      where("from", "==", toUser),
-      where("to", "==", currentUsername),
-      where("status", "==", "pending")
-    );
-    const inboundSnap = await getDocs(inboundQ);
-    if (!inboundSnap.empty) return "inbound";
+    // Inbound request they sent us, still pending
+    const inboundSnap = await getDoc(doc(db, "requests", `${toUser}_${currentUsername}`));
+    if (inboundSnap.exists() && inboundSnap.data().status === "pending") return "inbound";
 
   } catch (error) {
     console.error('Error checking request status:', error);
@@ -328,15 +316,9 @@ window.sendRequest = async function(toUser) {
       return;
     }
 
-    // Check for existing pending request
-    const pendingQ = query(
-      collection(db, "requests"),
-      where("from", "==", currentUsername),
-      where("to", "==", toUser),
-      where("status", "==", "pending")
-    );
-    const pendingSnap = await getDocs(pendingQ);
-    if (!pendingSnap.empty) {
+    // Check for existing pending request (deterministic id)
+    const existing = await getDoc(doc(db, "requests", `${currentUsername}_${toUser}`));
+    if (existing.exists() && existing.data().status === "pending") {
       alert('You already have a pending request');
       return;
     }

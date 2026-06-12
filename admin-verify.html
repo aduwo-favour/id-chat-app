@@ -30,6 +30,7 @@
       <div class="search-bar">
         <input type="text" id="userSearch" placeholder="Search by username...">
         <button onclick="loadUsers()">Search</button>
+        <button onclick="purgeDeletedUsers()" class="action-btn ban" title="Permanently remove already-deleted accounts from Firebase">🧹 Purge deleted</button>
       </div>
       <div class="table-responsive">
         <table class="data-table" id="usersTable">

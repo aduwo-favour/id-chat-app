@@ -107,6 +107,13 @@ window.handleSignup = async function() {
       approved: gSettings.requireApproval ? false : true
     });
 
+    // If approval is required, don't let them in — sign out and inform them.
+    if (gSettings.requireApproval) {
+      await signOut(auth);
+      showError('signupError', 'Account created. An admin must approve it before you can log in.');
+      return;
+    }
+
     window.location.href = 'dashboard.html';
   } catch (error) {
     // SECURITY: Map error codes to safe messages — never expose raw error.message

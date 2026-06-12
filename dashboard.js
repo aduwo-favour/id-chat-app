@@ -115,6 +115,13 @@ onAuthStateChanged(auth, async (user) => {
       currentUsername = userData.username;
       mutedChats = Array.isArray(userData.mutedChats) ? userData.mutedChats : [];
 
+      // Block unapproved accounts from reaching the app
+      if (userData.approved === false && userData.isAdmin !== true) {
+        await signOut(auth);
+        window.location.href = 'index.html';
+        return;
+      }
+
       // SECURITY: Use textContent, not innerHTML or string interpolation
       const welcomeEl = document.getElementById('welcomeUser');
       if (welcomeEl) welcomeEl.textContent = `Welcome, ${currentUsername}!`;

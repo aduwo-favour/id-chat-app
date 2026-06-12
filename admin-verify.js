@@ -63,6 +63,12 @@ onAuthStateChanged(auth, async (user) => {
       loadUsers();
       loadSettings();
 
+      // LIVE: keep admin lists in sync without manual refresh (e.g. new signups)
+      const activeTab = () => document.querySelector('.admin-tab.active')?.dataset.tab;
+      onSnapshot(collection(db, "users"), () => { if (activeTab() === 'users') loadUsers(document.getElementById('userSearch')?.value || ''); });
+      onSnapshot(collection(db, "chats"), () => { if (activeTab() === 'chats') loadChats(document.getElementById('chatSearch')?.value || ''); });
+      onSnapshot(collection(db, "communities"), () => { if (activeTab() === 'communities') loadCommunities(document.getElementById('communitySearch')?.value || ''); });
+
       // Watch for real-time demotion — if another admin removes this user's
       // admin rights while the panel is open, redirect them immediately
       onSnapshot(doc(db, "users", user.uid), (snap) => {
@@ -607,6 +613,25 @@ window.updateSetting = async (key, value) => {
     await setDoc(settingsRef, { [key]: value }, { merge: true });
   } catch (error) {
     alert('Failed to update setting');
+  }
+};
+
+// Clean up the backlog: hard-delete (Auth + doc) every user already marked deleted.
+window.purgeDeletedUsers = async () => {
+  if (!confirm('Permanently delete ALL already-removed accounts from Firebase (Auth + data)? This cannot be undone.')) return;
+  try {
+    const snap = await getDocs(query(collection(db, "users"), where("deleted", "==", true)));
+    if (snap.empty) { alert('No deleted accounts to purge.'); return; }
+    let ok = 0, fail = 0;
+    for (const d of snap.docs) {
+      try { await hardDeleteAuthUser(d.id); ok++; }
+      catch (e) { console.error('purge failed for', d.id, e); fail++; }
+    }
+    alert(`Purge complete. Removed: ${ok}. Failed: ${fail}.` + (fail ? ' Check the notifier is deployed.' : ''));
+    loadUsers(document.getElementById('userSearch').value);
+  } catch (e) {
+    console.error('purge error:', e);
+    alert('Purge failed. Check console.');
   }
 };
 
