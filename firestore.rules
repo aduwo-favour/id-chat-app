@@ -88,8 +88,19 @@ service cloud.firestore {
 
     // ---------- REQUESTS ----------
     match /requests/{requestId} {
-      allow read:   if isSignedIn() && (resource.data.from == myUsername()
-                       || resource.data.to == myUsername() || isAdmin());
+      // Allow reads when the doc id is one you're addressed in
+      // ("<me>_<other>" or "<other>_<me>") even if it doesn't exist yet,
+      // OR when you're the from/to on an existing doc. Avoids permission
+      // errors when status-checking a request that isn't there.
+      allow read:   if isSignedIn() && (
+                         isAdmin()
+                      || (resource != null && (resource.data.from == myUsername()
+                            || resource.data.to == myUsername())));
+      // Status-check reads of a (possibly missing) deterministic doc id:
+      allow get:    if isSignedIn() && (
+                         requestId.matches(myUsername() + '_.*')
+                      || requestId.matches('.*_' + myUsername())
+                      || isAdmin());
       // CHANGED: the doc id MUST equal "<from>_<to>" and 'from' MUST be you.
       // This means only the sender can create their own request, and a request
       // named "Liuda_jeff" can only be made by Liuda. The chat-create rule above
