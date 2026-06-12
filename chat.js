@@ -1005,7 +1005,10 @@ window.toggleMute = async function() {
       showNotification('Chat muted');
     }
     refreshMuteButton();
-  } catch (e) { console.error('mute toggle failed', e); }
+  } catch (e) {
+    console.error('mute toggle failed', e);
+    showNotification('Could not update mute: ' + (e.code || e.message || 'error'));
+  }
 };
 
 // Send message

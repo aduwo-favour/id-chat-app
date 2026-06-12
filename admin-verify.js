@@ -6,7 +6,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 // Server-side hard-delete (Auth account + user doc) via the notifier admin endpoint.
-const ADMIN_DELETE_ENDPOINT = "https://notifier-vercelvnot.vercel.app/api/admin-delete-user";
+const ADMIN_DELETE_ENDPOINT = "https://id-notifier.vercel.app/api/admin-delete-user";
 async function hardDeleteAuthUser(targetUid) {
   const idToken = await auth.currentUser.getIdToken();
   const r = await fetch(ADMIN_DELETE_ENDPOINT, {
