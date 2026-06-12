@@ -323,18 +323,12 @@ window.sendRequest = async function(toUser) {
       return;
     }
 
-    // Check for declined requests (optional: you may want to allow resend after some time)
-    const declinedQ = query(
-      collection(db, "requests"),
-      where("from", "==", currentUsername),
-      where("to", "==", toUser),
-      where("status", "==", "declined")
-    );
-    const declinedSnap = await getDocs(declinedQ);
-    
+    // Clear a prior declined request (deterministic id — avoids a multi-filter
+    // query that rules can reject for non-admins).
     const batch = writeBatch(db);
-    // Delete old declined requests
-    declinedSnap.forEach(d => batch.delete(d.ref));
+    if (existing.exists() && existing.data().status === "declined") {
+      batch.delete(doc(db, "requests", `${currentUsername}_${toUser}`));
+    }
     
     // Create new request with a DETERMINISTIC id ("from_to") so security rules
     // can verify it exists when the recipient accepts (rules can't run queries).
