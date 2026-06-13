@@ -550,3 +550,33 @@ body { top: 0 !important; }
 /* Images / files in bubbles */
 .message-image { border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
 .message-file { border-radius: 12px; }
+
+
+/* ---- Attachment preview modal (image/file + caption before send) ---- */
+.attach-preview { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center;
+  justify-content: center; padding: 20px; background: rgba(0,0,0,0.6);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.attach-preview.hidden { display: none; }
+.attach-preview-card { width: 100%; max-width: 420px; background: var(--bg2);
+  border: 1px solid var(--border); border-radius: 18px; padding: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.attach-preview-head { display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; font-family: var(--font-display); font-weight: 600; color: var(--text); }
+.ap-x { background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+  width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 14px; line-height: 1; }
+.attach-preview-body { display: flex; align-items: center; justify-content: center;
+  min-height: 120px; max-height: 50vh; overflow: hidden; background: var(--bg3);
+  border-radius: 12px; margin-bottom: 12px; }
+.attach-preview-img { max-width: 100%; max-height: 50vh; border-radius: 10px; object-fit: contain; }
+.attach-preview-file { padding: 24px; color: var(--text); font-size: 15px; word-break: break-all; text-align: center; }
+#attachCaption { width: 100%; padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: 24px; color: var(--text); font-family: var(--font-body); font-size: 15px;
+  outline: none; margin-bottom: 12px; }
+#attachCaption:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+.attach-preview-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.ap-cancel, .ap-send { padding: 10px 22px; border-radius: 24px; border: none; cursor: pointer;
+  font-family: var(--font-display); font-weight: 600; font-size: 14px; }
+.ap-cancel { background: var(--bg3); color: var(--text); border: 1px solid var(--border2); }
+.ap-send { background: linear-gradient(135deg, var(--primary-light), var(--primary)); color: #fff;
+  box-shadow: var(--shadow-primary); }
+.ap-send:disabled { opacity: .6; cursor: not-allowed; }

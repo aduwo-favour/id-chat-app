@@ -1102,33 +1102,79 @@ const CLOUDINARY_CLOUD_NAME = "dmfhx6yb7";
 const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 
 // Upload & send a file/image attachment (via Cloudinary)
-window.handleFileSelected = async function(fileInput) {
-  if (isBlocked) {
-    showNotification('Chat is blocked');
-    fileInput.value = '';
-    return;
-  }
+// Pick a file → show a preview with a caption box; upload only on confirm.
+let pendingAttachment = null; // { file, isImage, previewUrl }
+
+window.handleFileSelected = function(fileInput) {
+  if (isBlocked) { showNotification('Chat is blocked'); fileInput.value = ''; return; }
   const file = fileInput.files && fileInput.files[0];
-  fileInput.value = ''; // reset so selecting the same file again still fires
+  fileInput.value = ''; // reset so the same file can be picked again later
   if (!file) return;
 
-  const MAX = 10 * 1024 * 1024; // 10 MB (Cloudinary free tier limit for unsigned)
-  if (file.size > MAX) {
-    showNotification('File too large (max 10MB)');
-    return;
-  }
+  const MAX = 10 * 1024 * 1024; // 10 MB
+  if (file.size > MAX) { showNotification('File too large (max 10MB)'); return; }
+
+  if (pendingAttachment && pendingAttachment.previewUrl) URL.revokeObjectURL(pendingAttachment.previewUrl);
 
   const isImage = file.type.startsWith('image/');
-  showNotification(isImage ? 'Uploading image…' : 'Uploading file…');
+  const previewUrl = isImage ? URL.createObjectURL(file) : null;
+  pendingAttachment = { file, isImage, previewUrl };
 
-  const attachBtn = document.getElementById('attachBtn');
-  if (attachBtn) attachBtn.disabled = true;
+  const body = document.getElementById('attachPreviewBody');
+  if (body) {
+    body.innerHTML = '';
+    if (isImage) {
+      const img = document.createElement('img');
+      img.className = 'attach-preview-img';
+      img.src = previewUrl;
+      img.alt = 'preview';
+      body.appendChild(img);
+    } else {
+      const f = document.createElement('div');
+      f.className = 'attach-preview-file';
+      f.textContent = '📎 ' + (file.name || 'file');
+      body.appendChild(f);
+    }
+  }
+  const cap = document.getElementById('attachCaption');
+  if (cap) cap.value = '';
+  const panel = document.getElementById('attachPreview');
+  if (panel) panel.classList.remove('hidden');
+  if (cap) setTimeout(() => cap.focus(), 50);
+};
+
+window.cancelAttachment = function() {
+  if (pendingAttachment && pendingAttachment.previewUrl) URL.revokeObjectURL(pendingAttachment.previewUrl);
+  pendingAttachment = null;
+  const panel = document.getElementById('attachPreview');
+  if (panel) panel.classList.add('hidden');
+  const cap = document.getElementById('attachCaption');
+  if (cap) cap.value = '';
+};
+
+window.confirmSendAttachment = async function() {
+  if (!pendingAttachment) return;
+  if (isBlocked) { showNotification('Chat is blocked'); cancelAttachment(); return; }
+
+  const { file, isImage } = pendingAttachment;
+
+  // Optional caption — run through the same length/banned-word filter as messages
+  let captionText = '';
+  const rawCaption = (document.getElementById('attachCaption')?.value || '').trim();
+  if (rawCaption) {
+    const _f = filterMessage(rawCaption, GLOBAL_SETTINGS);
+    if (!_f.ok) { showNotification(_f.error); return; }
+    captionText = _f.text;
+  }
+
+  const sendBtn = document.getElementById('apSendBtn');
+  if (sendBtn) sendBtn.disabled = true;
+  showNotification(isImage ? 'Uploading image…' : 'Uploading file…');
 
   try {
     const userDoc = await getDoc(doc(db, "users", currentUid));
     const isVerified = userDoc.data()?.verified || false;
 
-    // Unsigned upload to Cloudinary. 'auto' accepts both images and raw files.
     const form = new FormData();
     form.append('file', file);
     form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
@@ -1142,7 +1188,7 @@ window.handleFileSelected = async function(fileInput) {
     const msg = {
       sender: currentUsername,
       senderVerified: isVerified,
-      text: '',
+      text: captionText,
       timestamp: new Date().toISOString(),
       deletedForEveryone: false,
       replyTo: replyingTo,
@@ -1159,23 +1205,26 @@ window.handleFileSelected = async function(fileInput) {
     }
     await addDoc(collection(db, "chats", chatId, "messages"), msg);
 
+    const summary = captionText || (isImage ? '📷 Photo' : '📎 ' + (file.name || 'File').slice(0, 40));
     await updateDoc(doc(db, "chats", chatId), {
       [`unread.${otherUsername}`]: increment(1),
       lastMessageAt: new Date().toISOString(),
-      lastMessageText: isImage ? '📷 Photo' : '📎 ' + (file.name || 'File').slice(0, 40),
+      lastMessageText: summary,
       lastMessageSender: currentUsername
     });
 
-    notifyPush({ type: 'private', chatId, body: isImage ? '📷 Photo' : '📎 ' + (file.name || 'File') });
+    notifyPush({ type: 'private', chatId, body: summary });
 
     replyingTo = null;
     const replyPreview = document.getElementById('replyPreview');
     if (replyPreview) replyPreview.classList.add('hidden');
+
+    cancelAttachment(); // clears pending + hides the preview panel
   } catch (error) {
     console.error('Upload failed:', error);
     showNotification('Upload failed');
   } finally {
-    if (attachBtn) attachBtn.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
   }
 };
 

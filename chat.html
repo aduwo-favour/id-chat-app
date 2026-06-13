@@ -71,6 +71,22 @@
   </div>
 </div>
 
+  <div id="attachPreview" class="attach-preview hidden">
+    <div class="attach-preview-card">
+      <div class="attach-preview-head">
+        <span>Send attachment</span>
+        <button type="button" onclick="cancelAttachment()" class="ap-x" aria-label="Cancel">✕</button>
+      </div>
+      <div id="attachPreviewBody" class="attach-preview-body"></div>
+      <input type="text" id="attachCaption" placeholder="Add a caption…" autocomplete="off"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();confirmSendAttachment();}">
+      <div class="attach-preview-actions">
+        <button type="button" onclick="cancelAttachment()" class="ap-cancel">Cancel</button>
+        <button type="button" id="apSendBtn" onclick="confirmSendAttachment()" class="ap-send">Send</button>
+      </div>
+    </div>
+  </div>
+
 <script>
   document.addEventListener('click', function(event) {
     const options = document.getElementById('chatOptions');
