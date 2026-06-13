@@ -575,6 +575,7 @@ async function loadSettings() {
     const snap = await getDoc(settingsRef);
     const settings = snap.exists() ? snap.data() : {};
     document.getElementById('toggleFileUploads').checked = settings.fileUploads ?? true;
+    document.getElementById('toggleVoiceNotes').checked = settings.voiceNotes ?? true;
     document.getElementById('toggleReactions').checked = settings.reactions ?? true;
     document.getElementById('toggleCommunityCreation').checked = settings.communityCreation ?? true;
     document.getElementById('toggleAutoFlag').checked = settings.autoFlag ?? false;

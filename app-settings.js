@@ -11,6 +11,7 @@ let cached = null;
 // Sensible defaults used when a setting hasn't been configured yet.
 export const SETTINGS_DEFAULTS = {
   fileUploads: true,
+  voiceNotes: true,
   reactions: true,
   communityCreation: true,
   autoFlag: false,

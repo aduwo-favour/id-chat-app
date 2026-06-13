@@ -17,6 +17,8 @@ subscribeGlobalSettings(s => {
   GLOBAL_SETTINGS = s;
   const b = document.getElementById('attachBtn');
   if (b) b.style.display = (s.fileUploads === false) ? 'none' : '';
+  const mic = document.getElementById('micBtn');
+  if (mic) mic.style.display = (s.voiceNotes === false) ? 'none' : '';
 });
 let currentUsername = null;
 let currentUid = null;
@@ -1230,15 +1232,28 @@ window.confirmSendAttachment = async function() {
 
 // ---- Voice notes (chat only) — records with MediaRecorder, uploads to the
 // same Cloudinary pipeline, sends a message with an audioUrl field. ----
-let _mediaRecorder = null, _audioChunks = [], _isRecording = false, _recStream = null;
+let _mediaRecorder = null, _audioChunks = [], _isRecording = false, _recStream = null, _cancelRecording = false;
 
 function _updateMicButton() {
   const b = document.getElementById('micBtn');
-  if (!b) return;
-  b.textContent = _isRecording ? '⏹️' : '🎤';
-  b.title = _isRecording ? 'Stop & send voice note' : 'Record voice note';
-  b.classList.toggle('recording', _isRecording);
+  if (b) {
+    b.textContent = _isRecording ? '⏹️' : '🎤';
+    b.title = _isRecording ? 'Stop & send voice note' : 'Record voice note';
+    b.classList.toggle('recording', _isRecording);
+  }
+  const cancel = document.getElementById('cancelRecBtn');
+  if (cancel) cancel.classList.toggle('hidden', !_isRecording);
 }
+
+// Discard the current recording without sending it.
+window.cancelRecording = function() {
+  if (!_isRecording) return;
+  _cancelRecording = true;
+  _isRecording = false;
+  try { _mediaRecorder && _mediaRecorder.stop(); } catch (e) {}
+  _updateMicButton();
+  showNotification('Voice note discarded');
+};
 
 window.toggleRecording = async function() {
   if (isBlocked) { showNotification('Chat is blocked'); return; }
@@ -1259,6 +1274,7 @@ window.toggleRecording = async function() {
     showNotification('Microphone access denied');
     return;
   }
+  _cancelRecording = false;
   _audioChunks = [];
   let opts;
   if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/webm')) {
@@ -1273,8 +1289,10 @@ window.toggleRecording = async function() {
   _mediaRecorder.onstop = async () => {
     if (_recStream) { _recStream.getTracks().forEach(t => t.stop()); _recStream = null; }
     const type = (_mediaRecorder && _mediaRecorder.mimeType) || 'audio/webm';
-    const blob = new Blob(_audioChunks, { type });
+    const chunks = _audioChunks;
     _audioChunks = [];
+    if (_cancelRecording) { _cancelRecording = false; return; } // discarded
+    const blob = new Blob(chunks, { type });
     if (blob.size > 0) await uploadVoiceNote(blob);
   };
   _mediaRecorder.start();

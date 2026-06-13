@@ -65,7 +65,8 @@
   <div class="chat-input-fixed">
     <input type="file" id="fileInput" accept="image/*,application/pdf,.doc,.docx,.txt" style="display:none" onchange="handleFileSelected(this)">
     <button type="button" onclick="document.getElementById('fileInput').click()" id="attachBtn" title="Attach image or file" style="display:none">📎</button>
-    <button type="button" onclick="toggleRecording()" id="micBtn" title="Record voice note">🎤</button>
+    <button type="button" onclick="cancelRecording()" id="cancelRecBtn" class="hidden" title="Discard recording">✕</button>
+    <button type="button" onclick="toggleRecording()" id="micBtn" title="Record voice note" style="display:none">🎤</button>
     <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
     <button onclick="sendMessage()" id="sendBtn">Send</button>
   </div>

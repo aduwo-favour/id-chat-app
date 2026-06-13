@@ -83,6 +83,13 @@
           </label>
         </div>
         <div class="settings-item">
+          <span>Enable voice notes</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggleVoiceNotes" onchange="updateSetting('voiceNotes', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="settings-item">
           <span>Enable message reactions</span>
           <label class="toggle-switch">
             <input type="checkbox" id="toggleReactions" onchange="updateSetting('reactions', this.checked)">
