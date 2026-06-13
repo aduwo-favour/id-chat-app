@@ -412,8 +412,9 @@ body { top: 0 !important; }
 .unread-divider span { font-size: 0.72rem; font-weight: 600; color: #e53e3e; background: rgba(239,68,68,0.1); padding: 3px 10px; border-radius: 20px; white-space: nowrap; letter-spacing: 0.05em; }
 
 /* --- Attachments (image/file messages + attach button) --- */
-#attachBtn { padding: 12px 14px; background: var(--bg3); color: var(--text); box-shadow: none; font-size: 18px; line-height: 1; }
-#attachBtn:hover { background: var(--surface2); transform: none; }
+#attachBtn, #micBtn { padding: 12px 14px; background: var(--bg3); color: var(--text); box-shadow: none; font-size: 18px; line-height: 1; }
+#attachBtn:hover, #micBtn:hover { background: var(--surface2); transform: none; }
+#micBtn.recording { background: #e23b3b; border-color: #e23b3b; color: #fff; }
 .message-image { max-width: 240px; max-height: 300px; width: 100%; border-radius: 14px; display: block; margin: 2px 0 4px; cursor: pointer; object-fit: cover; }
 .message-file { display: inline-block; padding: 9px 13px; margin: 2px 0 4px; border-radius: 12px; background: rgba(0,0,0,0.06); color: inherit; text-decoration: none; font-size: 13px; word-break: break-all; }
 .my-message .message-file { background: rgba(255,255,255,0.18); }
@@ -519,14 +520,16 @@ body { top: 0 !important; }
 .chat-input-fixed input:focus {
   box-shadow: 0 0 0 3px var(--primary-glow);
 }
-/* Attach as a round icon button */
-#attachBtn {
+/* Attach + mic as round icon buttons */
+#attachBtn, #micBtn {
   width: 44px; height: 44px; padding: 0; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 50%; font-size: 18px;
   background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text); box-shadow: none;
 }
-#attachBtn:active { transform: scale(0.92); }
+#attachBtn:active, #micBtn:active { transform: scale(0.92); }
+#micBtn.recording { background: #e23b3b; border-color: #e23b3b; color: #fff; }
 /* Send button: gradient pill with a tactile press */
 #sendBtn {
   padding: 12px 20px; border-radius: 24px; flex-shrink: 0;
