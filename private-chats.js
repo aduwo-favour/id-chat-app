@@ -274,24 +274,15 @@ async function checkRequestStatus(toUser) {
       return "friends";
     }
 
-    // Outbound: any request I sent to this user (works for old random ids too).
-    // Single-filter query (from == me) is allowed by the rules for non-admins.
-    const outSnap = await getDocs(
-      query(collection(db, "requests"), where("from", "==", currentUsername))
-    );
-    let outbound = null;
-    outSnap.forEach(d => { if (d.data().to === toUser) outbound = d.data(); });
-    if (outbound) {
-      return outbound.status === "pending" ? "pending" : "declined";
+    // Outbound request I sent (deterministic id "<me>_<them>")
+    const sentSnap = await getDoc(doc(db, "requests", `${currentUsername}_${toUser}`));
+    if (sentSnap.exists()) {
+      return sentSnap.data().status === "pending" ? "pending" : "declined";
     }
 
-    // Inbound: any request this user sent to me, still pending.
-    const inSnap = await getDocs(
-      query(collection(db, "requests"), where("to", "==", currentUsername))
-    );
-    let inbound = null;
-    inSnap.forEach(d => { if (d.data().from === toUser) inbound = d.data(); });
-    if (inbound && inbound.status === "pending") return "inbound";
+    // Inbound request they sent me (deterministic id "<them>_<me>")
+    const inboundSnap = await getDoc(doc(db, "requests", `${toUser}_${currentUsername}`));
+    if (inboundSnap.exists() && inboundSnap.data().status === "pending") return "inbound";
 
   } catch (error) {
     console.error('Error checking request status:', error);
