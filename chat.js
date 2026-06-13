@@ -670,10 +670,19 @@ function createMessageElement(data, msgId, isMine) {
       link.rel = 'noopener';
       link.textContent = '📎 ' + (data.fileName || 'Download file');
       div.insertBefore(link, insertBeforeEl);
+    } else if (data.audioUrl && STORAGE.test(data.audioUrl)) {
+      const audio = document.createElement('audio');
+      audio.className = 'message-audio';
+      audio.controls = true;
+      audio.preload = 'metadata';
+      audio.src = data.audioUrl;
+      audio.style.maxWidth = '240px';
+      audio.style.width = '240px';
+      div.insertBefore(audio, insertBeforeEl);
     }
 
     // Hide empty text bubble when the message is only an attachment
-    if (textEl && !textEl.textContent.trim() && (data.imageUrl || data.fileUrl)) {
+    if (textEl && !textEl.textContent.trim() && (data.imageUrl || data.fileUrl || data.audioUrl)) {
       textEl.style.display = 'none';
     }
   }
@@ -1169,6 +1178,116 @@ window.handleFileSelected = async function(fileInput) {
     if (attachBtn) attachBtn.disabled = false;
   }
 };
+
+// ---- Voice notes (chat only) — records with MediaRecorder, uploads to the
+// same Cloudinary pipeline, sends a message with an audioUrl field. ----
+let _mediaRecorder = null, _audioChunks = [], _isRecording = false, _recStream = null;
+
+function _updateMicButton() {
+  const b = document.getElementById('micBtn');
+  if (!b) return;
+  b.textContent = _isRecording ? '⏹️' : '🎤';
+  b.title = _isRecording ? 'Stop & send voice note' : 'Record voice note';
+  b.classList.toggle('recording', _isRecording);
+}
+
+window.toggleRecording = async function() {
+  if (isBlocked) { showNotification('Chat is blocked'); return; }
+  if (_isRecording) {                 // stop & send
+    try { _mediaRecorder && _mediaRecorder.stop(); } catch (e) {}
+    _isRecording = false;
+    _updateMicButton();
+    return;
+  }
+  // start
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    showNotification('Voice notes not supported on this browser');
+    return;
+  }
+  try {
+    _recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    showNotification('Microphone access denied');
+    return;
+  }
+  _audioChunks = [];
+  let opts;
+  if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported('audio/webm')) {
+    opts = { mimeType: 'audio/webm' };
+  }
+  try {
+    _mediaRecorder = opts ? new MediaRecorder(_recStream, opts) : new MediaRecorder(_recStream);
+  } catch (e) {
+    _mediaRecorder = new MediaRecorder(_recStream);
+  }
+  _mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) _audioChunks.push(e.data); };
+  _mediaRecorder.onstop = async () => {
+    if (_recStream) { _recStream.getTracks().forEach(t => t.stop()); _recStream = null; }
+    const type = (_mediaRecorder && _mediaRecorder.mimeType) || 'audio/webm';
+    const blob = new Blob(_audioChunks, { type });
+    _audioChunks = [];
+    if (blob.size > 0) await uploadVoiceNote(blob);
+  };
+  _mediaRecorder.start();
+  _isRecording = true;
+  _updateMicButton();
+};
+
+async function uploadVoiceNote(blob) {
+  const MAX = 10 * 1024 * 1024; // 10 MB
+  if (blob.size > MAX) { showNotification('Voice note too long (max 10MB)'); return; }
+
+  showNotification('Sending voice note…');
+  const micBtn = document.getElementById('micBtn');
+  if (micBtn) micBtn.disabled = true;
+
+  try {
+    const userDoc = await getDoc(doc(db, "users", currentUid));
+    const isVerified = userDoc.data()?.verified || false;
+
+    const form = new FormData();
+    form.append('file', blob, 'voice-note.webm');
+    form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`;
+    const res = await fetch(endpoint, { method: 'POST', body: form });
+    if (!res.ok) throw new Error('Cloudinary upload failed: ' + res.status);
+    const result = await res.json();
+    const url = result.secure_url;
+    if (!url) throw new Error('No URL returned from Cloudinary');
+
+    const msg = {
+      sender: currentUsername,
+      senderVerified: isVerified,
+      text: '',
+      timestamp: new Date().toISOString(),
+      deletedForEveryone: false,
+      replyTo: replyingTo,
+      seen: false,
+      seenAt: null,
+      reactions: {},
+      audioUrl: url
+    };
+    await addDoc(collection(db, "chats", chatId, "messages"), msg);
+
+    await updateDoc(doc(db, "chats", chatId), {
+      [`unread.${otherUsername}`]: increment(1),
+      lastMessageAt: new Date().toISOString(),
+      lastMessageText: '🎤 Voice note',
+      lastMessageSender: currentUsername
+    });
+
+    notifyPush({ type: 'private', chatId, body: '🎤 Voice note' });
+
+    replyingTo = null;
+    const replyPreview = document.getElementById('replyPreview');
+    if (replyPreview) replyPreview.classList.add('hidden');
+  } catch (error) {
+    console.error('Voice note failed:', error);
+    showNotification('Voice note failed');
+  } finally {
+    if (micBtn) micBtn.disabled = false;
+  }
+}
 
 // Reply to message
 window.replyToMessage = function(text) {
