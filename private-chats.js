@@ -266,27 +266,28 @@ window.searchUsers = async function() {
 };
 
 async function checkRequestStatus(toUser) {
+  // Friends? The chat may not exist yet — reading a non-existent chat can be
+  // denied by rules and throw, so isolate it.
   try {
-    // Already friends (accepted chat exists)
     const chatId = [currentUsername, toUser].sort().join('_');
     const chatSnap = await getDoc(doc(db, "chats", chatId));
-    if (chatSnap.exists() && chatSnap.data().status === "accepted") {
-      return "friends";
-    }
+    if (chatSnap.exists() && chatSnap.data().status === "accepted") return "friends";
+  } catch (e) { /* no chat yet → not friends, keep checking */ }
 
-    // Outbound request I sent (deterministic id "<me>_<them>")
+  // Outbound request I sent (deterministic id "<me>_<them>")
+  try {
     const sentSnap = await getDoc(doc(db, "requests", `${currentUsername}_${toUser}`));
     if (sentSnap.exists()) {
       return sentSnap.data().status === "pending" ? "pending" : "declined";
     }
+  } catch (e) { console.warn('outbound check failed', e); }
 
-    // Inbound request they sent me (deterministic id "<them>_<me>")
+  // Inbound request they sent me (deterministic id "<them>_<me>")
+  try {
     const inboundSnap = await getDoc(doc(db, "requests", `${toUser}_${currentUsername}`));
     if (inboundSnap.exists() && inboundSnap.data().status === "pending") return "inbound";
+  } catch (e) { console.warn('inbound check failed', e); }
 
-  } catch (error) {
-    console.error('Error checking request status:', error);
-  }
   return "none";
 }
 

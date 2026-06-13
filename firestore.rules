@@ -41,7 +41,8 @@ service cloud.firestore {
       return parts[0] == me ? parts[1] : parts[0];
     }
     match /chats/{chatId} {
-      allow read:   if isSignedIn() && (myUsername() in resource.data.participants || isAdmin());
+      allow read:   if isSignedIn() && (resource == null
+                       || myUsername() in resource.data.participants || isAdmin());
       // CHANGED: a chat can only be created if the OTHER person has an inbound
       // request to you (proves they initiated contact). Stops forced/unsolicited
       // chats. Requires exactly 2 participants and that you are one of them.
