@@ -61,6 +61,10 @@ self.addEventListener('notificationclick', (event) => {
     urlToOpen = `/chat.html?chatId=${data.chatId}&user=${encodeURIComponent(data.sender || '')}`;
   } else if (data.type === 'signup') {
     urlToOpen = '/admin-verify.html';
+  } else if (data.type === 'friend_request') {
+    urlToOpen = '/requests.html';
+  } else if (data.type === 'friend_accept') {
+    urlToOpen = '/private-chats.html';
   }
   
   event.waitUntil(

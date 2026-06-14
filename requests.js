@@ -1,4 +1,5 @@
 import { auth, db } from "./firebase.js";
+import { notifyPush } from "./push-notify.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   collection, query, where, onSnapshot,
@@ -228,6 +229,7 @@ window.acceptRequest = async function(reqId, fromUser) {
       acceptedBy: currentUsername
     });
     await deleteDoc(doc(db, "requests", reqId));
+    try { await notifyPush({ type: "friend_accept", to: fromUser }); } catch (e) {}
     window.location.href = `chat.html?chatId=${encodeURIComponent(chatId)}&user=${encodeURIComponent(fromUser)}`;
   } catch (error) {
     alert('Failed to accept request');

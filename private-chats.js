@@ -1,5 +1,6 @@
 import { auth, db, watchBanStatus } from "./firebase.js";
 import { Cache } from "./cache.js";
+import { notifyPush } from "./push-notify.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
   collection, query, where, getDocs, onSnapshot,
@@ -342,6 +343,7 @@ window.sendRequest = async function(toUser) {
     });
     
     await batch.commit();
+    try { await notifyPush({ type: "friend_request", to: toUser }); } catch (e) {}
     alert('Request sent!');
     document.getElementById('searchResults').innerHTML = '';
     document.getElementById('searchUser').value = '';
