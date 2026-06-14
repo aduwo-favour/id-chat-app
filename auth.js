@@ -6,6 +6,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { doc, setDoc, updateDoc, arrayUnion, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { getGlobalSettings } from "./app-settings.js";
+import { notifyPush } from "./push-notify.js";
 
 window.switchTab = function(tab) {
   document.getElementById('loginTab').classList.remove('active');
@@ -109,6 +110,9 @@ window.handleSignup = async function() {
 
     // If approval is required, don't let them in — sign out and inform them.
     if (gSettings.requireApproval) {
+      // Alert all admins of the pending signup while the user is still
+      // authenticated (idToken valid until signOut).
+      try { await notifyPush({ type: "signup" }); } catch (e) {}
       await signOut(auth);
       showError('signupError', 'Account created. An admin must approve it before you can log in.');
       return;

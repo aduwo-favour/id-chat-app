@@ -59,6 +59,8 @@ self.addEventListener('notificationclick', (event) => {
       (data.communityName ? `&name=${encodeURIComponent(data.communityName)}` : '');
   } else if (data.chatId) {
     urlToOpen = `/chat.html?chatId=${data.chatId}&user=${encodeURIComponent(data.sender || '')}`;
+  } else if (data.type === 'signup') {
+    urlToOpen = '/admin-verify.html';
   }
   
   event.waitUntil(
