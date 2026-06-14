@@ -67,7 +67,7 @@
     <button type="button" onclick="document.getElementById('fileInput').click()" id="attachBtn" title="Attach image or file" style="display:none">📎</button>
     <button type="button" onclick="cancelRecording()" id="cancelRecBtn" class="hidden" title="Discard recording">✕</button>
     <button type="button" onclick="toggleRecording()" id="micBtn" title="Record voice note" style="display:none">🎤</button>
-    <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
+    <input type="text" id="messageInput" placeholder="Type a message..." name="chatmessage" autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false" inputmode="text" enterkeyhint="send" data-form-type="other" data-lpignore="true" data-1p-ignore>
     <button onclick="sendMessage()" id="sendBtn">Send</button>
   </div>
 </div>

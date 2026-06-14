@@ -81,9 +81,9 @@ service cloud.firestore {
                               && request.resource.data.diff(resource.data)
                                    .affectedKeys().hasOnly(['seen', 'seenAt', 'reactions']))
                         );
-        // CHANGED: deleting a message doc is author/admin only (soft-delete via
-        // update above is the normal path anyway).
-        allow delete: if isSignedIn() && (resource.data.sender == myUsername() || isAdmin());
+        // Either participant may delete messages in their own 1-on-1 chat
+        // (needed for unfriend / clear chat); admins always may.
+        allow delete: if isSignedIn() && (myUsername() in chatParticipants() || isAdmin());
       }
     }
 
