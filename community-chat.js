@@ -1070,21 +1070,52 @@ async function loadMyLanguage() {
 }
 
 async function translateText(text, targetLang) {
-  if (!targetLang || !text) return null;
+  if (!targetLang || !text || !text.trim()) return null;
   const key = text + '||' + targetLang;
   if (translateCache.has(key)) return translateCache.get(key);
+
+  const target = targetLang.toLowerCase();
+  let result = null;
+  let sameLanguage = false;
+
+  // Provider 1: Google gtx (reliable auto-detect, generous limits)
   try {
-    const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetLang}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const translated = data?.responseData?.translatedText;
-    if (!translated || translated === text ||
-        translated.toUpperCase().includes('PLEASE SELECT TWO DISTINCT') ||
-        translated.toUpperCase().includes('MYMEMORY') ||
-        translated.toUpperCase().includes('QUERY LIMIT')) return null;
-    translateCache.set(key, translated);
-    return translated;
-  } catch (e) { return null; }
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx`
+      + `&sl=auto&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      const detected = (data && data[2]) ? String(data[2]).toLowerCase() : '';
+      if (detected && detected === target) {
+        sameLanguage = true;
+      } else if (Array.isArray(data) && Array.isArray(data[0])) {
+        const joined = data[0].map(seg => (seg && seg[0]) ? seg[0] : '').join('').trim();
+        if (joined) result = joined;
+      }
+    }
+  } catch (e) { /* fall through */ }
+
+  // Provider 2 (fallback): MyMemory
+  if (!result && !sameLanguage) {
+    try {
+      const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}`
+        + `&langpair=${encodeURIComponent('Autodetect')}|${encodeURIComponent(target)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const t = data && data.responseData && data.responseData.translatedText;
+        const up = (t || '').toUpperCase();
+        const isError = !t || data.responseStatus === 403 ||
+          up.includes('MYMEMORY') || up.includes('QUERY LIMIT') ||
+          up.includes('PLEASE SELECT TWO DISTINCT') || up.includes('INVALID') ||
+          t.length > text.length * 6;
+        if (!isError) result = t;
+      }
+    } catch (e) { /* give up */ }
+  }
+
+  if (result && result.trim() === text.trim()) { sameLanguage = true; result = null; }
+  if (result || sameLanguage) translateCache.set(key, result); // cache successes/same-lang only
+  return result;
 }
 
 window.changeChatLanguage = async function(lang) {

@@ -777,36 +777,63 @@ window.changeChatLanguage = async function(lang) {
 };
 
 async function translateText(text, targetLang) {
-  if (!targetLang || !text) return null;
+  if (!targetLang || !text || !text.trim()) return null;
   const cacheKey = text + '||' + targetLang;
-  if (translateCache.has(cacheKey)) return translateCache.get(cacheKey);
+  if (translateCache.has(cacheKey)) return translateCache.get(cacheKey); // cached (incl. same-language nulls)
 
+  const target = targetLang.toLowerCase();
+  let result = null;
+  let sameLanguage = false;
+
+  // ---- Provider 1: Google gtx (free, reliable auto-detect, generous limits) ----
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetLang}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx`
+      + `&sl=auto&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(text)}`;
     const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = await res.json();
-
-    // Filter out API error strings that MyMemory returns as translated text
-    const translated = data?.responseData?.translatedText;
-    const responseStatus = data?.responseStatus;
-    if (
-      !translated ||
-      translated === text ||
-      responseStatus === 403 ||
-      translated.toUpperCase().includes('PLEASE SELECT TWO DISTINCT') ||
-      translated.toUpperCase().includes('MYMEMORY') ||
-      translated.toUpperCase().includes('QUERY LIMIT') ||
-      translated.length > text.length * 5  // sanity check
-    ) {
-      return null;
+    if (res.ok) {
+      const data = await res.json();
+      // data[2] is the detected source language; if it already matches the target,
+      // there's nothing to translate.
+      const detected = (data && data[2]) ? String(data[2]).toLowerCase() : '';
+      if (detected && detected === target) {
+        sameLanguage = true;
+      } else if (Array.isArray(data) && Array.isArray(data[0])) {
+        const joined = data[0].map(seg => (seg && seg[0]) ? seg[0] : '').join('').trim();
+        if (joined) result = joined;
+      }
     }
+  } catch (e) { /* CORS/network → fall through to MyMemory */ }
 
-    translateCache.set(cacheKey, translated);
-    return translated;
-  } catch (e) {
-    return null;
+  // ---- Provider 2 (fallback): MyMemory ----
+  if (!result && !sameLanguage) {
+    try {
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}`
+        + `&langpair=${encodeURIComponent('Autodetect')}|${encodeURIComponent(target)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const t = data && data.responseData && data.responseData.translatedText;
+        const up = (t || '').toUpperCase();
+        const isError =
+          !t ||
+          data.responseStatus === 403 ||
+          up.includes('MYMEMORY') ||
+          up.includes('QUERY LIMIT') ||
+          up.includes('PLEASE SELECT TWO DISTINCT') ||
+          up.includes('INVALID') ||
+          t.length > text.length * 6;
+        if (!isError) result = t;
+      }
+    } catch (e) { /* give up quietly */ }
   }
+
+  // A translation identical to the source isn't worth showing.
+  if (result && result.trim() === text.trim()) { sameLanguage = true; result = null; }
+
+  // Cache successes and confirmed same-language results (so we don't re-hit the API).
+  // Do NOT cache transient failures (quota/network) so they can retry on next render.
+  if (result || sameLanguage) translateCache.set(cacheKey, result);
+  return result;
 }
 
 // Add swipe handler for reply
