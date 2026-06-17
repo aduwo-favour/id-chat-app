@@ -8,6 +8,8 @@ import {
 
 let currentUsername = null;
 let currentUid = null;
+let currentDisplayName = null;
+let currentDisplayNameChanges = [];
 let unsubscribeRequests = null;
 let unsubscribeSentRequests = null;
 
@@ -55,8 +57,10 @@ function renderProfileCard(data) {
   const avatar = document.getElementById('profileAvatar');
   avatar.textContent = (data.username || '?')[0].toUpperCase();
 
+  currentDisplayName = data.displayName || '';
+  currentDisplayNameChanges = Array.isArray(data.displayNameChanges) ? data.displayNameChanges : [];
   const usernameEl = document.getElementById('profileUsername');
-  usernameEl.childNodes[0].textContent = data.username || 'Unknown';
+  usernameEl.childNodes[0].textContent = data.displayName || data.username || 'Unknown';
 
   if (data.verified) {
     document.getElementById('profileVerifiedBadge').style.display = 'inline-flex';
@@ -455,3 +459,49 @@ function formatTime(ts) {
 window.addEventListener('beforeunload', () => {
   if (unsubscribeRequests) unsubscribeRequests();
 });
+
+
+// ---- Editable display name (cosmetic; @username stays fixed). Limit: 2 changes / 7 days. ----
+const NAME_CHANGE_LIMIT = 2;
+const NAME_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+window.editDisplayName = async function() {
+  const now = Date.now();
+  const recent = (currentDisplayNameChanges || [])
+    .map(t => (typeof t === 'number' ? t : Date.parse(t)))
+    .filter(t => !isNaN(t) && (now - t) < NAME_WINDOW_MS);
+
+  if (recent.length >= NAME_CHANGE_LIMIT) {
+    const next = new Date(Math.min(...recent) + NAME_WINDOW_MS);
+    alert('You can change your display name at most ' + NAME_CHANGE_LIMIT +
+          ' times a week.\nNext change available: ' +
+          next.toLocaleDateString() + ' ' +
+          next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    return;
+  }
+
+  const current = currentDisplayName || currentUsername || '';
+  const input = prompt('Enter your new display name (2-30 characters):', current);
+  if (input === null) return;
+  const name = input.trim();
+  if (!name) { alert('Display name cannot be empty.'); return; }
+  if (name.length < 2 || name.length > 30) { alert('Display name must be 2-30 characters.'); return; }
+  if (!/^[\w .\-]+$/.test(name)) { alert('Use only letters, numbers, spaces, and . _ -'); return; }
+  if (name === current) return;
+
+  try {
+    const updated = [...recent, now];
+    await updateDoc(doc(db, "users", currentUid), {
+      displayName: name,
+      displayNameChanges: updated
+    });
+    currentDisplayName = name;
+    currentDisplayNameChanges = updated;
+    document.getElementById('profileUsername').childNodes[0].textContent = name;
+    const left = NAME_CHANGE_LIMIT - updated.filter(t => (Date.now() - t) < NAME_WINDOW_MS).length;
+    alert('Display name updated. You have ' + left + ' change' + (left === 1 ? '' : 's') + ' left this week.');
+  } catch (e) {
+    console.error('Failed to update display name:', e);
+    alert('Failed to update display name.');
+  }
+};

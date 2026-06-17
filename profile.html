@@ -74,10 +74,26 @@
     .profile-info h2 {
       margin: 0 0 4px;
       font-size: 1.3rem;
+      color: #1a1a2e;
+      font-weight: 700;
       display: flex;
       align-items: center;
       gap: 6px;
     }
+    .edit-name-btn {
+      background: #f0f0f5;
+      border: 1px solid #e0e0ea;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0;
+      color: #555;
+      flex-shrink: 0;
+    }
+    .edit-name-btn:active { transform: scale(0.92); }
 
     .profile-info p {
       margin: 0;
@@ -370,7 +386,7 @@
   <div class="profile-card">
     <div class="profile-avatar-large" id="profileAvatar">?</div>
     <div class="profile-info">
-      <h2 id="profileUsername">Loading... <span id="profileVerifiedBadge" class="verified-badge" style="display:none">✓</span></h2>
+      <h2 id="profileUsername">Loading... <span id="profileVerifiedBadge" class="verified-badge" style="display:none">✓</span><button id="editNameBtn" class="edit-name-btn" onclick="editDisplayName()" title="Edit display name">✏️</button></h2>
       <p id="profileJoined">Joined ...</p>
     </div>
   </div>
