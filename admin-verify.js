@@ -529,7 +529,8 @@ window.manageCommunity = async (communityId) => {
       });
     }
   } catch (error) {
-    content.textContent = 'Error loading community.';
+    console.error('manageCommunity load error:', error);
+    content.textContent = 'Error loading community: ' + (error && error.message ? error.message : 'unknown error');
   }
 };
 
