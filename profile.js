@@ -12,6 +12,19 @@ let currentDisplayName = null;
 let currentDisplayNameChanges = [];
 let unsubscribeRequests = null;
 let unsubscribeSentRequests = null;
+let unsubscribeSelf = null;
+let lastKnownVerified = null;
+
+// Lightweight toast reusing the styled .notification element.
+function showToast(title, msg) {
+  const el = document.createElement('div');
+  el.className = 'notification';
+  const s = document.createElement('strong'); s.textContent = title;
+  const p = document.createElement('span'); p.textContent = msg;
+  el.appendChild(s); el.appendChild(p);
+  document.body.appendChild(el);
+  setTimeout(() => { el.classList.add('fade-out'); setTimeout(() => el.remove(), 500); }, 4000);
+}
 
 window.goBack = function() { window.location.href = 'dashboard.html'; };
 
@@ -41,6 +54,7 @@ onAuthStateChanged(auth, async (user) => {
 
     const data = userDoc.data();
     currentUsername = data.username;
+    lastKnownVerified = !!data.verified;
 
     renderProfileCard(data);
     renderInfoTab(data);
@@ -48,6 +62,20 @@ onAuthStateChanged(auth, async (user) => {
     loadRequests();
     loadSentRequests();
     loadBlockedUsers(data.blockedUsers || []);
+
+    // Live-update the profile when the admin changes anything on this account
+    // (verification, display name, admin status) — no refresh needed.
+    if (unsubscribeSelf) unsubscribeSelf();
+    unsubscribeSelf = onSnapshot(doc(db, "users", user.uid), (snap) => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      renderProfileCard(d);
+      renderInfoTab(d);
+      if (d.verified && lastKnownVerified === false) {
+        showToast('Verified', 'Your account is now verified ✓');
+      }
+      lastKnownVerified = !!d.verified;
+    });
   } catch (error) {
     console.error('Profile load error:', error);
   }
