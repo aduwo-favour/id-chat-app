@@ -4,8 +4,8 @@
   "description": "Real-time chat application with communities and private messaging",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#667eea",
-  "theme_color": "#667eea",
+  "background_color": "#080b16",
+  "theme_color": "#080b16",
   "orientation": "portrait",
   "icons": [
     {
@@ -21,7 +21,10 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["social", "communication"],
+  "categories": [
+    "social",
+    "communication"
+  ],
   "lang": "en",
   "dir": "auto"
 }
