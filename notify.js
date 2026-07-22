@@ -69,9 +69,26 @@ async function sendToTokens(tokens, data, userRef) {
   return sent;
 }
 
+// Resolve a user's FCM tokens: new home users/{uid}/private/meta, with a
+// fallback to legacy main-doc fcmTokens so users who haven't re-logged in
+// since the migration still receive pushes. Returns the ref to prune from.
+async function resolveTokens(userRef, userData) {
+  let tokens = Array.isArray(userData && userData.fcmTokens) ? userData.fcmTokens.slice() : [];
+  let pruneRef = userRef;
+  try {
+    const priv = await userRef.collection("private").doc("meta").get();
+    if (priv.exists && Array.isArray(priv.data().fcmTokens)) {
+      tokens = tokens.concat(priv.data().fcmTokens);
+      pruneRef = priv.ref;
+    }
+  } catch (e) {}
+  return { tokens, pruneRef };
+}
+
 module.exports = async (req, res) => {
-  // CORS (tighten the origin to your app's domain if you prefer)
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // CORS: restrict to the app origin (auth is a bearer idToken, but this is defense-in-depth)
+  res.setHeader("Access-Control-Allow-Origin", "https://id-chat-app.vercel.app");
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -134,8 +151,9 @@ module.exports = async (req, res) => {
         return res.status(200).json({ sent: 0, reason: "sender blocked" });
       }
 
+      const { tokens, pruneRef } = await resolveTokens(recipient.ref, recipient.data());
       const sent = await sendToTokens(
-        recipient.data().fcmTokens || [],
+        tokens,
         {
           type: "private",
           title: callerUsername,
@@ -144,7 +162,7 @@ module.exports = async (req, res) => {
           sender: callerUsername,
           icon: "/icon-192.png",
         },
-        recipient.ref
+        pruneRef
       );
       return res.status(200).json({ sent });
     }
@@ -192,7 +210,8 @@ module.exports = async (req, res) => {
       await Promise.all(
         userDocs.map(async (u) => {
           if (!u.exists) return;
-          sent += await sendToTokens(u.data().fcmTokens || [], data, u.ref);
+          const { tokens, pruneRef } = await resolveTokens(u.ref, u.data());
+          sent += await sendToTokens(tokens, data, pruneRef);
         })
       );
       return res.status(200).json({ sent });

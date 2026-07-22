@@ -34,6 +34,12 @@ service cloud.firestore {
         && request.resource.data.get('approved', true)  == resource.data.get('approved', true);
       allow update: if isAdmin();
       allow delete: if false;
+
+      // Sensitive per-user data (FCM device tokens) kept out of the public doc.
+      match /private/{docId} {
+        allow read:  if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      }
     }
 
     // ---------- CHATS & MESSAGES ----------
@@ -51,9 +57,11 @@ service cloud.firestore {
         && myUsername() in request.resource.data.participants
         && (
              isAdmin()
-             || exists(/databases/$(database)/documents/requests/$(
-                  otherParticipant(request.resource.data.participants, myUsername()) + '_' + myUsername()
-                ))
+             || (
+                  exists(/databases/$(database)/documents/requests/$(otherParticipant(request.resource.data.participants, myUsername()) + '_' + myUsername()))
+                  && get(/databases/$(database)/documents/requests/$(otherParticipant(request.resource.data.participants, myUsername()) + '_' + myUsername())).data.from == otherParticipant(request.resource.data.participants, myUsername())
+                  && get(/databases/$(database)/documents/requests/$(otherParticipant(request.resource.data.participants, myUsername()) + '_' + myUsername())).data.to == myUsername()
+                )
            );
       // participants stays immutable after creation
       allow update: if isSignedIn()
@@ -174,7 +182,7 @@ service cloud.firestore {
       }
 
       match /requests/{reqId} {
-        allow read:   if isSignedIn() && (resource.data.userId == request.auth.uid || isCommunityMod());
+        allow read:   if isSignedIn() && (resource.data.userId == request.auth.uid || isCommunityMod() || isAdmin());
         allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
         allow update: if isSignedIn() && (resource.data.userId == request.auth.uid
                          || isCommunityMod() || isAdmin());

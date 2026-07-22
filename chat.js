@@ -23,6 +23,7 @@ subscribeGlobalSettings(s => {
 let currentUsername = null;
 let currentUid = null;
 let otherUsername = null;
+let otherDisplayName = null;
 let chatId = null;
 let replyingTo = null;
 let isBlocked = false;
@@ -189,7 +190,9 @@ async function getOtherUserVerifiedStatus() {
     const otherUserQuery = query(collection(db, "users"), where("username", "==", otherUsername));
     const otherUserSnap = await getDocs(otherUserQuery);
     if (!otherUserSnap.empty) {
-      otherUserVerified = otherUserSnap.docs[0].data().verified || false;
+      const od = otherUserSnap.docs[0].data();
+      otherUserVerified = od.verified || false;
+      otherDisplayName = od.displayName || otherUsername;
     }
   } catch (error) {
     console.error('Error getting other user status:', error);
@@ -201,10 +204,14 @@ function updateChatHeader() {
   const nameElement = document.getElementById('chatUserName');
   if (!nameElement) return;
   
+  const shownName = otherDisplayName || otherUsername;
   if (otherUserVerified) {
-    nameElement.innerHTML = `${otherUsername} <span class="verified-badge" title="Verified Account">✓</span>`;
+    nameElement.textContent = shownName + ' ';
+    const b = document.createElement('span');
+    b.className = 'verified-badge'; b.title = 'Verified Account'; b.textContent = '✓';
+    nameElement.appendChild(b);
   } else {
-    nameElement.textContent = otherUsername;
+    nameElement.textContent = shownName;
   }
 }
 
@@ -598,7 +605,7 @@ function createMessageElement(data, msgId, isMine) {
     if (!isMine) {
       // Other user's message
       div.innerHTML = `
-        <div class="message-sender">${escapeHtml(data.sender || 'Unknown')} ${verifiedBadge}</div>
+        <div class="message-sender">${escapeHtml(otherDisplayName || data.sender || 'Unknown')} ${verifiedBadge}</div>
         ${replyHtml}
         <div class="message-text">${escapeHtml(data.text)}</div>
         ${reactionsHtml}

@@ -94,10 +94,10 @@ function loadChats() {
               return {
                 html: `
                   <div class="chat-item" onclick="openChat('${chatDoc.id}', '${otherUser}')">
-                    <div class="chat-avatar">${otherUser ? otherUser[0].toUpperCase() : '?'}</div>
+                    <div class="chat-avatar">${(status.displayName || otherUser || '?')[0].toUpperCase()}</div>
                     <div class="chat-details" style="flex:1;min-width:0">
                       <div style="display:flex;justify-content:space-between;align-items:center">
-                        <div class="chat-name">${escapeHtml(otherUser || 'Unknown')} ${verifiedBadge}</div>
+                        <div class="chat-name">${escapeHtml(status.displayName || otherUser || 'Unknown')} ${verifiedBadge}</div>
                         ${lastMessageAt ? `<span style="font-size:0.7rem;color:var(--text3);flex-shrink:0;margin-left:6px">${formatChatTime(lastMessageAt)}</span>` : ''}
                       </div>
                       <div style="font-size:0.82rem;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">${onlineDot}${lastText}</div>
@@ -140,7 +140,7 @@ function loadChats() {
 }
 
 async function getUserStatus(username) {
-  if (!username) return { online: false, lastSeen: 'Offline', verified: false };
+  if (!username) return { online: false, lastSeen: 'Offline', verified: false, displayName: username };
 
   // Cache user status for 30 seconds — frequent enough to stay current
   const cacheKey = 'ustatus_' + username;
@@ -170,10 +170,11 @@ async function getUserStatus(username) {
         lastSeenText = `Last seen ${formatLastSeen(lastSeen)}`;
       }
       
-      return {
+      const result = {
         online,
         lastSeen: online ? 'Online' : lastSeenText,
-        verified: data.verified || false
+        verified: data.verified || false,
+        displayName: data.displayName || username
       };
       Cache.set(cacheKey, result);
       return result;
@@ -181,7 +182,7 @@ async function getUserStatus(username) {
   } catch (error) {
     console.error('Error in getUserStatus:', error);
   }
-  return { online: false, lastSeen: 'Offline', verified: false };
+  return { online: false, lastSeen: 'Offline', verified: false, displayName: username };
 }
 
 function formatLastSeen(date) {

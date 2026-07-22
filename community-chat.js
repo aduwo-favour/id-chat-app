@@ -2,6 +2,7 @@ import { auth, db, watchBanStatus } from "./firebase.js";
 import { notifyPush } from "./push-notify.js";
 import { initNotifications } from "./enable-notifications.js";
 import { getGlobalSettings, subscribeGlobalSettings, enforceMaintenance, filterMessage } from "./app-settings.js";
+import { applyDisplayName, hydrateNames } from "./display-names.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
   doc, getDoc, collection, addDoc, query, orderBy, onSnapshot,
@@ -365,7 +366,7 @@ function createMessageElement(data, msgId, isMine) {
   // Create verified badge if user is verified
   const verifiedBadge = data.senderVerified ? '<span class="verified-badge" title="Verified Account">✓</span>' : '';
   
-  const replyHTML = data.replyTo ? `<div class="reply-preview-inline">↪️ ${data.replyTo}</div>` : '';
+  const replyHTML = data.replyTo ? `<div class="reply-preview-inline">↪️ ${escapeHtml(data.replyTo)}</div>` : '';
   let reactionsHTML = '';
   if (data.reactions && Object.keys(data.reactions).length) {
     const uniq = [...new Set(Object.values(data.reactions))];
@@ -378,7 +379,7 @@ function createMessageElement(data, msgId, isMine) {
     // For other people's messages, show sender name with verified badge
     if (!isMine) {
       div.innerHTML = `
-        <div class="message-sender">${escapeHtml(data.sender || 'Unknown')} ${verifiedBadge}</div>
+        <div class="message-sender"><span class="sender-name">${escapeHtml(data.sender || 'Unknown')}</span> ${verifiedBadge}</div>
         ${replyHTML}
         <div class="message-text">${escapeHtml(data.text)}</div>
         ${reactionsHTML}
@@ -386,6 +387,8 @@ function createMessageElement(data, msgId, isMine) {
           <span class="message-time">${time}</span>
         </div>
       `;
+      const _sn = div.querySelector('.sender-name');
+      if (_sn) applyDisplayName(_sn, data.sender);
       // Translate incoming message if user has a language set
       if (data.text && !data.deletedForEveryone) {
         applyTranslation(div.querySelector('.message-text'), data.text);
@@ -661,13 +664,14 @@ async function loadMembersList(filter = 'all') {
       <div class="member-item">
         <div class="member-avatar">${escapeHtml(m.username[0].toUpperCase())}</div>
         <div class="member-info">
-          <div class="member-name">${escapeHtml(m.username)} ${roleBadge ? `<span class="role-badge">${roleBadge}</span>` : ''}</div>
+          <div class="member-name"><span data-uname="${escapeHtml(m.username)}">${escapeHtml(m.username)}</span> ${roleBadge ? `<span class="role-badge">${roleBadge}</span>` : ''}</div>
           <div class="member-status ${statusClass}">${statusText}</div>
         </div>
       </div>
     `;
   });
   list.innerHTML = html || '<div class="no-members">No members found</div>';
+  hydrateNames(list);
 }
 
 window.switchMembersTab = function(tab) {

@@ -3,7 +3,7 @@ import { initNotifications } from "./enable-notifications.js";
 import { getGlobalSettings, subscribeGlobalSettings } from "./app-settings.js";
 import { signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import {
-  doc, getDoc, updateDoc, collection, query, where,
+  doc, getDoc, updateDoc, setDoc, collection, query, where,
   onSnapshot, getDocs, arrayUnion
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { getToken } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-messaging.js";
@@ -73,9 +73,8 @@ async function updateFCMToken() {
     const { requestNotificationPermission } = await import("./firebase.js");
     const token = await requestNotificationPermission();
     if (token) {
-      await updateDoc(doc(db, "users", currentUid), {
-        fcmTokens: arrayUnion(token)
-      });
+      await setDoc(doc(db, "users", currentUid, "private", "meta"),
+                   { fcmTokens: arrayUnion(token) }, { merge: true });
     }
   } catch (error) {
     console.error('Error updating FCM token:', error);

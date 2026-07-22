@@ -237,6 +237,7 @@ window.deleteUser = async (userId, username) => {
         deleted: true, banned: true, disabled: true,
         username: '[deleted]', email: '[deleted]', fcmTokens: [], blockedUsers: []
       });
+      await deleteDoc(doc(db, "users", userId, "private", "meta")).catch(() => {});
       alert(`User "${username}" removed (Auth account could not be deleted — check the notifier).`);
       loadUsers(document.getElementById('userSearch').value);
       return;

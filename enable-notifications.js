@@ -14,6 +14,7 @@ import { auth, db, requestNotificationPermission } from "./firebase.js";
 import {
   doc,
   updateDoc,
+  setDoc,
   arrayUnion,
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
@@ -36,7 +37,7 @@ function isStandalone() {
 async function saveToken(uid) {
   const token = await requestNotificationPermission();
   if (token && uid) {
-    await updateDoc(doc(db, "users", uid), { fcmTokens: arrayUnion(token) });
+    await setDoc(doc(db, "users", uid, "private", "meta"), { fcmTokens: arrayUnion(token) }, { merge: true });
   }
   return token;
 }

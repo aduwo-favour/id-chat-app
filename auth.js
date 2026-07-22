@@ -100,13 +100,18 @@ window.handleSignup = async function() {
       online: true,
       lastSeen: new Date().toISOString(),
       blockedUsers: [],
-      fcmTokens: fcmTokens,
       verified: false,
       isAdmin: false,
       banned: false,
       disabled: false,
       approved: gSettings.requireApproval ? false : true
     });
+
+    // Sensitive: keep FCM tokens out of the public user doc.
+    if (fcmTokens.length) {
+      await setDoc(doc(db, "users", userCredential.user.uid, "private", "meta"),
+                   { fcmTokens: fcmTokens }, { merge: true }).catch(() => {});
+    }
 
     // If approval is required, don't let them in — sign out and inform them.
     if (gSettings.requireApproval) {
@@ -190,9 +195,12 @@ window.handleLogin = async function() {
 
     try {
       const token = await requestNotificationPermission();
-      const updateData = { online: true, lastSeen: new Date().toISOString() };
-      if (token) updateData.fcmTokens = arrayUnion(token);
-      await updateDoc(doc(db, "users", userCredential.user.uid), updateData);
+      await updateDoc(doc(db, "users", userCredential.user.uid),
+                      { online: true, lastSeen: new Date().toISOString() });
+      if (token) {
+        await setDoc(doc(db, "users", userCredential.user.uid, "private", "meta"),
+                     { fcmTokens: arrayUnion(token) }, { merge: true }).catch(() => {});
+      }
     } catch (notifError) {
       // Non-fatal
       await updateDoc(doc(db, "users", userCredential.user.uid), {
