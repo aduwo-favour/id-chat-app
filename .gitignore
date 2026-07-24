@@ -1,2 +1,40 @@
-# SECURITY: Never commit real Firebase credentials
+# ── SECRETS — never commit ──────────────────────────────────────
+# Firebase Admin service-account keys (god-mode over your project)
+*serviceAccount*.json
+*service-account*.json
+firebase-adminsdk-*.json
+*-firebase-adminsdk-*.json
+
+# Any private key material
+*.pem
+*.key
+*.p12
+*.p8
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Real (non-example) Firebase web config, if you ever split it out
 firebase-config.js
+
+# ── Build artifacts / dependencies ──────────────────────────────
+node_modules/
+functions/node_modules/
+dist/
+build/
+.vercel/
+.firebase/
+*.log
+npm-debug.log*
+
+# Don't commit zipped copies of the project or the notifier
+*.zip
+
+# ── OS / editor noise ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
